@@ -1128,10 +1128,15 @@
                 
                 if (resp.ok) {
                     const created = await resp.json();
-                    this.requests.unshift(created);
+                    // После создания подтягиваем полные данные по заявкам
+                    await this.fetchRequests();
+                    const full = this.requests.find(r => r.id === created.id) || this.requests[0];
                     this.showSuccess = true;
                     this.showCreatePane = false;
-                    this.selectRequest(created, 0);
+                    if (full) {
+                        const idx = this.requests.findIndex(r => r.id === full.id);
+                        this.selectRequest(full, idx >= 0 ? idx : 0);
+                    }
                     this.$nextTick(() => lucide.createIcons());
                 } else {
                     alert('Ошибка создания заявки');

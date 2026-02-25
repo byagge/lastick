@@ -3,115 +3,98 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>QR‑Сканер — Приход сотрудников</title>
+  <title>QR-сканер посещаемости</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
-    .nav-active { color: #2563eb; }
-    .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
-    .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
-    .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+    body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+    .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+    .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+    .nav-active { color: #0e121a; }
+    .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
+    .btn-primary { background: #0e121a; color: #fff; }
+    .btn-ghost { background: #f1f5f9; color: #0e121a; }
+    .spinner { border: 2px solid #e5e7eb; border-top: 2px solid #0e121a; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .scan-frame {
-      position: absolute;
-      inset: 0;
-      border: 4px solid #2563eb;
-      border-radius: 1.5rem;
-      box-shadow: 0 0 24px 4px #2563eb33, 0 0 0 8px #fff0;
-      pointer-events: none;
-      z-index: 2;
-      box-sizing: border-box;
-      transition: border-color 0.2s;
+    @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fade-in 0.35s ease; }
+    .scanner-shell { border: 1px solid #e5e7eb; background: #0b0f16; }
+    .camera-frame { width: 280px; height: 280px; }
+    @media (max-width: 360px) {
+      .camera-frame { width: 240px; height: 240px; }
     }
-    .scanline {
-      position: absolute;
-      left: 10%;
-      width: 80%;
-      height: 5px;
-      background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
-      border-radius: 2px;
-      opacity: 0.85;
-      animation: scanline 1.3s cubic-bezier(.4,0,.2,1) infinite alternate;
-      z-index: 3;
-      box-shadow: 0 0 12px 2px #60a5fa66;
-    }
-    @keyframes scanline {
-      0% { top: 12%; }
-      100% { top: 80%; }
-    }
-    @keyframes fade-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
-    .animate-fade-in { animation: fade-in 0.4s; }
   </style>
   <script type="module">
     import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js';
     window.QrScanner = QrScanner;
   </script>
 </head>
-<body class="min-h-screen flex flex-col bg-gradient-to-br from-gray-100 to-blue-100" style="font-family: system-ui, -apple-system, sans-serif;" data-user-id="{{ current_user_id }}" data-user-name="{{ current_user_name }}">
-  <!-- Toast Notification -->
-  <div id="toast" style="display:none; min-width:220px; max-width:90vw;" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-gray-200 shadow-lg rounded-xl px-6 py-4 flex items-center space-x-3 text-base font-semibold text-gray-800 transition-all duration-300"></div>
-  <!-- AppBar -->
-  <header class="fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;" data-user-id="{{ current_user_id }}" data-user-name="{{ current_user_name }}">
+  <div id="toast" style="display:none; min-width:220px; max-width:90vw;" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-gray-200 shadow-lg rounded-xl px-5 py-3 flex items-center space-x-3 text-sm font-semibold text-gray-800 transition-all duration-300"></div>
+
+  <header class="fixed top-0 left-0 right-0 z-30 glass border-b border-gray-200 flex items-center justify-between px-4 h-16">
     <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+      <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
         <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
       </div>
-      <span class="text-lg font-semibold text-gray-900">QR‑Сканер</span>
-    </div>
-  </header>
-  <!-- Main Content -->
-  <main class="flex-1 pt-20 pb-20 px-2 max-w-md mx-auto w-full flex flex-col items-center justify-center">
-    <div class="card bg-white rounded-2xl p-6 border border-gray-200 flex flex-col items-center w-full max-w-md mx-auto mt-4 shadow-xl animate-fade-in">
-      <h1 class="text-2xl font-bold text-gray-900 mb-2 text-center">Сканируйте QR‑код</h1>
-      <div class="relative w-full max-w-xs aspect-square bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center mb-4">
-        <video id="qr-video" autoplay muted playsinline class="w-full h-full object-cover rounded-xl bg-black"></video>
-        <!-- <div class="scan-frame"></div>
-        <div class="scanline"></div> -->
+      <div>
+        <div class="text-xs text-gray-500">Attendance</div>
+        <span class="text-lg font-semibold text-gray-900">QR-сканер</span>
       </div>
-      <div id="status" class="min-h-[2.5rem] text-center text-blue-600 font-medium mb-2 flex items-center justify-center"></div>
-      <div class="flex w-full gap-2 mb-2">
-        <button id="restart-camera-btn" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-semibold shadow hover:bg-blue-100 transition">
-          <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
-          <span>Перезапуск</span>
-        </button>
-        <button id="recalculate-penalties-btn" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-700 rounded-lg font-semibold shadow hover:bg-red-100 transition">
-          <i data-lucide="calculator" class="w-5 h-5"></i>
-          <span>Штрафы</span>
-        </button>
+    </div>
+    <button id="recalculate-penalties-btn" class="w-10 h-10 rounded-full btn-ghost flex items-center justify-center">
+      <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+    </button>
+  </header>
+
+  <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full flex flex-col items-center">
+    <div class="card bg-white rounded-2xl p-5 border border-gray-200 w-full mt-2 animate-fade-in">
+      <h1 class="text-xl font-bold text-gray-900 text-center">Отсканируйте QR-код</h1>
+      <p class="text-sm text-gray-500 text-center mt-1">Поднесите камеру к коду для отметки</p>
+
+      <div class="relative camera-frame rounded-2xl overflow-hidden mt-4 scanner-shell mx-auto">
+        <video id="qr-video" autoplay muted playsinline class="w-full h-full object-cover"></video>
+      </div>
+
+      <div id="status" class="min-h-[2.5rem] text-center text-gray-700 font-medium mt-3 flex items-center justify-center"></div>
+
+      <div class="flex w-full gap-2 mt-2">
+        <div class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-50 text-gray-700 font-semibold">
+          <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+          <span>Камера активна</span>
+        </div>
       </div>
     </div>
   </main>
-  <!-- Bottom Navigation -->
+
   <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 max-w-md mx-auto w-full">
-    <a href="/orders/plans/master/" class="flex flex-col items-center">
+    <a href="/orders/plans/master/" class="flex flex-col items-center text-gray-600">
       <i data-lucide="home" class="w-5 h-5"></i>
       <span class="text-xs">Главная</span>
     </a>
-    <a href="/employees/" class="flex flex-col items-center">
+    <a href="/employees/" class="flex flex-col items-center text-gray-600">
       <i data-lucide="users" class="w-5 h-5"></i>
       <span class="text-xs">Сотрудники</span>
     </a>
-    <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg nav-active">
+    <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-gray-900 rounded-full -mt-4 shadow-lg nav-active">
       <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
     </a>
-    <a href="/stats/" class="flex flex-col items-center">
+    <a href="/stats/" class="flex flex-col items-center text-gray-600">
       <i data-lucide="bar-chart" class="w-5 h-5"></i>
       <span class="text-xs">Статистика</span>
     </a>
-    <a href="/settings/" class="flex flex-col items-center">
+    <a href="/settings/" class="flex flex-col items-center text-gray-600">
       <i data-lucide="settings" class="w-5 h-5"></i>
       <span class="text-xs">Настройки</span>
     </a>
   </nav>
 
-  <!-- Penalties Modal -->
   <div id="penalties-modal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-end justify-center z-50">
     <div class="bg-white rounded-t-2xl w-full max-w-md p-4 shadow-xl">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
           <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
-          <h2 class="text-lg font-semibold">Штрафы — {{ current_user_name }}</h2>
+          <h2 class="text-lg font-semibold">Штрафы для {{ current_user_name }}</h2>
         </div>
         <button id="close-penalties" class="text-gray-500 hover:text-gray-700">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -130,7 +113,6 @@
     let scanner, busy = false;
     const statusEl = document.getElementById('status');
     const video = document.getElementById('qr-video');
-    const restartBtn = document.getElementById('restart-camera-btn');
     const recalculatePenaltiesBtn = document.getElementById('recalculate-penalties-btn');
     const penaltiesModal = document.getElementById('penalties-modal');
     const penaltiesList = document.getElementById('penalties-list');
@@ -150,8 +132,8 @@
       const toast = document.getElementById('toast');
       toast.innerHTML =
         (type === 'success'
-          ? '<i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>'
-          : '<i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>') +
+          ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>'
+          : '<i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>') +
         `<span>${msg}</span>`;
       toast.style.display = 'flex';
       toast.style.opacity = '1';
@@ -171,12 +153,12 @@
       if (legacy) {
         return new Promise((resolve, reject) => legacy.call(navigator, constraints, resolve, reject));
       }
-      throw new Error('Доступ к камере недоступен. Откройте страницу по HTTPS или с localhost.');
+      throw new Error('Доступ к камере недоступен. Откройте страницу по HTTPS или localhost.');
     }
     async function onScanSuccess(qrText){
       if(busy) return;
       busy=true;
-      statusEl.innerHTML=`<span class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> <span class="text-blue-600">Обработка...</span></span>`;
+      statusEl.innerHTML=`<span class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-2 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> <span class="text-gray-700">Обработка...</span></span>`;
       try {
         const resp = await fetch('/attendance/api/checkin/', {
           method:'POST',
@@ -188,32 +170,32 @@
           const checkInTime = data.check_in ? new Date(data.check_in).toLocaleTimeString() : '';
           const isLate = data.is_late || false;
           const penaltyAmount = data.penalty_amount || 0;
-          
+
           let statusHtml = '';
           if (isLate) {
             statusHtml = `<div class="flex flex-col items-center text-red-600">
               <i data-lucide="alert-triangle" class="w-8 h-8"></i>
-              <span class="font-semibold">ОПОЗДАНИЕ!</span>
+              <span class="font-semibold">Опоздание</span>
               <span class="text-xs text-gray-500">${checkInTime}</span>
-              <span class="text-sm font-medium">Штраф: ${penaltyAmount} сомов</span>
+              <span class="text-sm font-medium">Штраф: ${penaltyAmount} сом</span>
             </div>`;
-            showToast(`Опоздание! Штраф: ${penaltyAmount} сомов`, 'error');
+            showToast(`Опоздание. Штраф: ${penaltyAmount} сом`, 'error');
           } else {
             statusHtml = `<div class="flex flex-col items-center text-green-600">
               <i data-lucide="check-circle" class="w-8 h-8"></i>
-              <span class="font-semibold">Отмечено!</span>
+              <span class="font-semibold">Отмечено</span>
               <span class="text-xs text-gray-500">${checkInTime}</span>
-              <span class="text-sm font-medium">Без штрафа</span>
+              <span class="text-sm font-medium">Без нарушений</span>
             </div>`;
-            showToast('Приход отмечен!', 'success');
+            showToast('Посещение успешно отмечено', 'success');
           }
-          
+
           statusEl.innerHTML = statusHtml;
           if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-        } else throw new Error(data.error||data.detail||'Ошибка регистрации');
+        } else throw new Error(data.error||data.detail||'Ошибка проверки');
       } catch(e){
         statusEl.innerHTML=`<div class="flex flex-col items-center text-red-600"><i data-lucide="x-circle" class="w-8 h-8"></i><span class="font-semibold">Ошибка</span><span class="text-xs text-gray-500">${e.message}</span></div>`;
-        showToast(e.message || 'Ошибка регистрации', 'error');
+        showToast(e.message || 'Ошибка проверки', 'error');
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
       }
       setTimeout(()=>{
@@ -230,16 +212,14 @@
         video.srcObject = null;
       }
       if (!isSecure) {
-        statusEl.innerHTML = '<span class="text-red-600">Не защищенный контекст. Откройте страницу по HTTPS или с localhost.</span>';
+        statusEl.innerHTML = '<span class="text-red-600">Откройте страницу по HTTPS или localhost.</span>';
       }
       try {
-        // Prefer environment (rear) camera; most browsers will choose it on mobile
         const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
         let stream;
         try {
           stream = await getUserMediaSafe(constraints);
         } catch (errPrimary) {
-          // Fallback to user-facing camera if environment is unavailable
           stream = await getUserMediaSafe({ video: { facingMode: 'user' }, audio: false });
         }
         video.srcObject = stream;
@@ -259,37 +239,35 @@
           returnDetailedScanResult: true
         });
         await scanner.start();
-        showToast('Камера запущена', 'success');
+        showToast('Камера готова', 'success');
       } catch (err) {
-        statusEl.innerHTML = `<span class="text-red-600">Ошибка запуска камеры:<br>${err.message}</span>`;
+        statusEl.innerHTML = `<span class="text-red-600">Не удалось запустить камеру:<br>${err.message}</span>`;
       }
     }
 
-    restartBtn.addEventListener('click', e => {
-      e.preventDefault();
-      startScanner();
-    });
+    const penaltiesListUrl = "/attendance/api/list/";
 
     async function openPenalties() {
       if (busy) return;
       busy = true;
-      statusEl.innerHTML = `<span class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> <span class="text-blue-600">Загрузка штрафов...</span></span>`;
+      statusEl.innerHTML = `<span class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-2 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> <span class="text-gray-700">Загружаю штрафы...</span></span>`;
       try {
         const params = new URLSearchParams();
         if (currentUserId) params.set('employee_id', currentUserId);
-        const resp = await fetch(`/attendance/api/list/?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+        const url = `${penaltiesListUrl}?${params.toString()}`;
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Не удалось получить штрафы');
         const records = (data.records || []).filter(r => r.is_late && r.penalty_amount > 0);
         penaltiesList.innerHTML = records.length ? records.map(r => `
           <div class="py-2 flex items-center justify-between">
             <div>
-              <div class="text-sm font-medium">${new Date(r.check_in || r.date).toLocaleDateString()} — Опоздание</div>
-              <div class="text-xs text-gray-500">Приход: ${r.check_in ? new Date(r.check_in).toLocaleTimeString() : '-'}</div>
+              <div class="text-sm font-medium">${new Date(r.check_in || r.date).toLocaleDateString()} — опоздание</div>
+              <div class="text-xs text-gray-500">Время: ${r.check_in ? new Date(r.check_in).toLocaleTimeString() : '-'}</div>
             </div>
             <div class="text-sm font-semibold text-red-600">${r.penalty_amount} сом</div>
           </div>
-        `).join('') : '<div class="py-4 text-center text-sm text-gray-500">Штрафов не найдено</div>';
+        `).join('') : '<div class="py-4 text-center text-sm text-gray-500">Штрафов нет</div>';
         penaltiesModal.classList.remove('hidden');
         penaltiesModal.classList.add('flex');
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
@@ -319,9 +297,9 @@
     window.onload = async () => {
       if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
       if (!isSecure) {
-        showToast('Откройте страницу по HTTPS, иначе камера может не работать', 'error');
+        showToast('Откройте страницу по HTTPS или localhost', 'error');
       }
-      statusEl.innerHTML='<span class="text-gray-500 text-sm">Наведите камеру на QR‑код</span>';
+      statusEl.innerHTML='<span class="text-gray-500 text-sm">Наведите камеру на QR-код</span>';
       await startScanner();
     };
   </script>

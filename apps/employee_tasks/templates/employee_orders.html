@@ -202,7 +202,9 @@
                     try {
                         const resp = await fetch('/finance/api/requests/');
                         const data = await resp.json();
-                        this.requests = Array.isArray(data) ? data : [];
+                        const all = Array.isArray(data) ? data : [];
+                        // Показываем сотрудникам только заявки в статусе ожидания (ещё не выполнены)
+                        this.requests = all.filter(req => (req.status || '') === 'pending');
                     } catch (err) {
                         console.error('Failed to load requests', err);
                         this.requests = [];

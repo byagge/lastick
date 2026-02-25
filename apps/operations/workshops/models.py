@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Workshop(models.Model):
     name = models.CharField('Название цеха', max_length=100)
     manager = models.ForeignKey(
@@ -268,3 +269,64 @@ class WorkshopMaster(models.Model):
         Автоматически устанавливаем роль 'master' при создании связи
         """
         super().save(*args, **kwargs)
+
+
+class NeutralBatch(models.Model):
+    """
+    Нейтральная зона полуфабрикатов между цехами.
+
+    Используется для первого (экструзионного) цеха как результат
+    переработки сырья сотрудником. Второй цех забирает отсюда
+    полуфабрикаты для окончательной доработки.
+    """
+    workshop = models.ForeignKey(
+        Workshop,
+        on_delete=models.CASCADE,
+        related_name='neutral_batches',
+        verbose_name='Цех-источник',
+    )
+    employee = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='neutral_batches',
+        verbose_name='Сотрудник',
+    )
+    total_quantity = models.DecimalField(
+        'Всего произведено (кг/единиц)',
+        max_digits=12,
+        decimal_places=3,
+    )
+    used_quantity = models.DecimalField(
+        'Списано вторым цехом',
+        max_digits=12,
+        decimal_places=3,
+        default=0,
+    )
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Партия нейтральной зоны'
+        verbose_name_plural = 'Партии нейтральной зоны'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Нейтральная партия {self.workshop.name} — {self.employee.get_full_name()} ({self.available_quantity} ед.)"
+
+    @property
+    def available_quantity(self):
+        """Доступно для забора вторым цехом."""
+        return (self.total_quantity or 0) - (self.used_quantity or 0)
+
+    def consume(self, amount):
+        """Списывает часть партии во второй цех, не давая уйти в минус."""
+        from decimal import Decimal
+
+        amount = Decimal(str(amount or 0))
+        if amount <= 0:
+            return
+        remaining = self.available_quantity
+        if amount > remaining:
+            amount = remaining
+        self.used_quantity = (self.used_quantity or 0) + amount
+        self.save(update_fields=['used_quantity'])
+        return amount

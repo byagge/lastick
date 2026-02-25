@@ -26,7 +26,7 @@ urlpatterns = [
     path('tasks/<int:task_id>/', task_detail_page, name='task-detail-page'),
     path('employee_info/', employee_info_page, name='employee-info-page'),
     path('stats/', stats_employee_page, name='employee-stats-page'),
-    path('orders/', employee_orders_page, name='employee-orders-page'),
+    path('employee_orders/', employee_orders_page, name='employee-orders-page'),
     path('defects/', defects_management_page, name='defects-management-page'),
     path('api/employee-full-info/<int:pk>/', EmployeeFullInfoAPIView.as_view(), name='employee-full-info-api'),
     
