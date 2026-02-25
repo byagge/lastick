@@ -23,36 +23,35 @@ def materials_page(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def api_materials_list(request):
-	"""API для получения списка материалов"""
-	try:
-		materials = RawMaterial.objects.all().order_by('name', 'id')[:100]  # Ограничиваем количество
-		materials_data = []
-		
-		for material in materials:
-			materials_data.append({
-				'id': material.id,
-				'name': material.name,
-				'code': material.code,
-				'size': material.size,
-				'unit': material.unit,
-				'quantity': float(material.quantity),
-				'min_quantity': float(material.min_quantity),
-				'price': float(material.price),
-				'total_value': float(material.total_value),
-				'description': material.description,
-				'created_at': material.created_at.isoformat(),
-				'updated_at': material.updated_at.isoformat()
-			})
-		
-		return JsonResponse({
-			'status': 'success',
-			'data': materials_data
-		})
-	except Exception as e:
-		return JsonResponse({
-			'status': 'error',
-			'message': str(e)
-		}, status=500)
+    """API для получения списка материалов"""
+    try:
+        materials = RawMaterial.objects.all().order_by('name', 'id')[:100]  # Ограничиваем количество
+        materials_data = []
+
+        for material in materials:
+            materials_data.append({
+                'id': material.id,
+                'name': material.name,
+                'unit': material.unit,
+                'quantity': float(material.quantity),
+                'min_quantity': float(material.min_quantity),
+                'price': float(material.price),
+                'total_value': float(material.total_value),
+                'country': material.country,
+                'description': material.description,
+                'created_at': material.created_at.isoformat(),
+                'updated_at': material.updated_at.isoformat()
+            })
+
+        return JsonResponse({
+            'status': 'success',
+            'data': materials_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -61,7 +60,7 @@ def api_material_create(request):
     try:
         data = json.loads(request.body)
         
-        # Валидация данных (код больше не обязателен)
+        # Валидация данных
         required_fields = ['name', 'unit', 'quantity', 'min_quantity', 'price']
         for field in required_fields:
             if not data.get(field):
@@ -70,15 +69,14 @@ def api_material_create(request):
                     'message': f'Поле {field} обязательно для заполнения'
                 }, status=400)
         
-        # Создание материала (код будет сгенерирован автоматически)
+        # Создание материала
         material = RawMaterial.objects.create(
             name=data['name'],
-            code='',  # Код всегда пустой, будет сгенерирован автоматически в модели
-            size=data.get('size', ''),
             unit=data['unit'],
             quantity=Decimal(str(data['quantity'])),
             min_quantity=Decimal(str(data['min_quantity'])),
             price=Decimal(str(data['price'])),
+            country=data.get('country', ''),
             description=data.get('description', '')
         )
         
@@ -87,13 +85,12 @@ def api_material_create(request):
             'data': {
                 'id': material.id,
                 'name': material.name,
-                'code': material.code,
-                'size': material.size,
                 'unit': material.unit,
                 'quantity': float(material.quantity),
                 'min_quantity': float(material.min_quantity),
                 'price': float(material.price),
                 'total_value': float(material.total_value),
+                'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
                 'updated_at': material.updated_at.isoformat()
@@ -125,11 +122,9 @@ def api_material_update(request, material_id):
                 'message': 'Материал не найден'
             }, status=404)
         
-        # Обновление полей (код не может быть изменен)
+        # Обновление полей
         if 'name' in data:
             material.name = data['name']
-        if 'size' in data:
-            material.size = data['size']
         if 'unit' in data:
             material.unit = data['unit']
         if 'quantity' in data:
@@ -138,6 +133,8 @@ def api_material_update(request, material_id):
             material.min_quantity = Decimal(str(data['min_quantity']))
         if 'price' in data:
             material.price = Decimal(str(data['price']))
+        if 'country' in data:
+            material.country = data['country']
         if 'description' in data:
             material.description = data['description']
         
@@ -149,13 +146,12 @@ def api_material_update(request, material_id):
             'data': {
                 'id': material.id,
                 'name': material.name,
-                'code': material.code,
-                'size': material.size,
                 'unit': material.unit,
                 'quantity': float(material.quantity),
                 'min_quantity': float(material.min_quantity),
                 'price': float(material.price),
                 'total_value': float(material.total_value),
+                'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
                 'updated_at': material.updated_at.isoformat()

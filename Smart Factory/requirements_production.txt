@@ -1,0 +1,51 @@
+# Production requirements for Smart Factory
+# Optimized for high load and stability
+
+# Core Django
+Django==5.2.4
+djangorestframework==3.16.0
+django-unfold==0.62.0
+
+# Database
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+django-redis==5.4.0      # Redis cache backend
+
+# Production server
+gunicorn==21.2.0         # WSGI server
+uvicorn[standard]==0.27.1 # ASGI server (alternative)
+
+# Static files and media
+whitenoise==6.6.0        # Static file serving
+Pillow==11.3.0           # Image processing
+
+# Background tasks
+celery==5.3.4            # Task queue
+redis==5.0.1             # Redis client
+
+# Performance and monitoring
+django-debug-toolbar==4.2.0  # Development only
+django-extensions==3.2.3     # Useful utilities
+
+# Security
+django-cors-headers==4.3.1   # CORS handling
+django-ratelimit==4.1.0      # Rate limiting
+
+# Caching and optimization
+django-cacheops==8.0.2       # Query caching
+django-query-profiler==0.8.0 # Query profiling
+
+# Health checks
+django-health-check==3.17.0  # Health monitoring
+
+# Logging and monitoring
+structlog==23.2.0            # Structured logging
+sentry-sdk==1.40.0           # Error tracking
+
+# Utilities
+python-dotenv==1.0.0         # Environment variables
+tzdata==2025.2               # Timezone data
+sqlparse==0.5.3              # SQL parsing
+
+# Development tools (remove in production)
+# django-debug-toolbar==4.2.0
+# django-extensions==3.2.3 

@@ -1,14 +1,21 @@
 from django.db import models
-import uuid
+
 
 class RawMaterial(models.Model):
+    """
+    Базовая модель материала на складе.
+
+    Упрощена под текущий UI:
+    - поля «Артикул/Код» и «Размер» удалены;
+    - добавлено поле страны-производителя.
+    """
+
     name = models.CharField('Название', max_length=100)
-    code = models.CharField('Артикул/Код', max_length=50, unique=True, blank=True)
-    size = models.CharField('Размер', max_length=50, blank=True)
     unit = models.CharField('Ед. измерения', max_length=20)
     quantity = models.DecimalField('Количество', max_digits=12, decimal_places=3, default=0)
     min_quantity = models.DecimalField('Мин. остаток', max_digits=12, decimal_places=3, default=0)
     price = models.DecimalField('Цена за единицу', max_digits=10, decimal_places=2, default=0)
+    country = models.CharField('Страна производителя', max_length=100, blank=True)
     description = models.TextField('Описание', blank=True)
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
     updated_at = models.DateTimeField('Дата обновления', auto_now=True)
@@ -19,27 +26,7 @@ class RawMaterial(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} ({self.code})"
-
-    def save(self, *args, **kwargs):
-        # Генерируем код автоматически, если он не указан или пустой
-        if not self.code or self.code.strip() == '':
-            # Генерируем уникальный код на основе названия и случайного числа
-            base_code = ''.join(c.upper() for c in self.name if c.isalpha())[:3]
-            if not base_code:
-                base_code = 'MAT'
-            
-            # Добавляем случайное число для уникальности
-            unique_id = str(uuid.uuid4())[:8].upper()
-            self.code = f"{base_code}-{unique_id}"
-            
-            # Проверяем уникальность и генерируем новый код, если нужно
-            # Используем exclude для исключения текущего объекта при обновлении
-            while RawMaterial.objects.filter(code=self.code).exclude(id=self.id).exists():
-                unique_id = str(uuid.uuid4())[:8].upper()
-                self.code = f"{base_code}-{unique_id}"
-        
-        super().save(*args, **kwargs)
+        return self.name
 
     @property
     def total_value(self):
