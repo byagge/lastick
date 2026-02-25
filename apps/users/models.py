@@ -5,12 +5,17 @@ from decimal import Decimal
 
 class User(AbstractUser):
     class Role(models.TextChoices):
-        FOUNDER = 'founder', 'Учредитель'
-        DIRECTOR = 'director', 'Директор'
-        ADMIN = 'admin', 'Администратор'
-        ACCOUNTANT = 'accountant', 'Бухгалтер'
-        MASTER = 'master', 'Мастер (руководитель цеха)'
-        WORKER = 'worker', 'Рабочий'
+    ADMIN = 'admin', '?????????????'
+    ACCOUNTANT = 'accountant', '?????????'
+    WORKER = 'worker', '?????????'
+
+class PaymentType(models.TextChoices):
+    FIXED = 'fixed', '?????????????'
+    VARIABLE = 'variable', '?????????'
+
+class WorkSchedule(models.TextChoices):
+    DAY = 'day', '??????? (8-20)'
+    NIGHT = 'night', '?????? (20-8)'
 
     role = models.CharField(
         max_length=20,
@@ -28,12 +33,19 @@ class User(AbstractUser):
         related_name='users',
         verbose_name='Цех'
     )
-    passport_number = models.CharField('Паспорт', max_length=30, blank=True)
-    inn = models.CharField('ИНН', max_length=20, blank=True)
-    employment_date = models.DateField('Дата приема на работу', null=True, blank=True)
-    fired_date = models.DateField('Дата увольнения', null=True, blank=True)
-    contract_number = models.CharField('Номер трудового договора', max_length=50, blank=True)
     notes = models.TextField('Примечания', blank=True)
+    payment_type = models.CharField(
+        max_length=10,
+        choices=PaymentType.choices,
+        default=PaymentType.FIXED,
+        verbose_name='??? ??????'
+    )
+    work_schedule = models.CharField(
+        max_length=10,
+        choices=WorkSchedule.choices,
+        default=WorkSchedule.DAY,
+        verbose_name='??????'
+    )
     
     # Поле для баланса пользователя
     balance = models.DecimalField(
@@ -146,7 +158,7 @@ class User(AbstractUser):
         """
         Проверяет, может ли пользователь быть назначен руководителем цеха
         """
-        return self.role in [self.Role.WORKER, self.Role.MASTER]
+        return self.role == self.Role.WORKER
     
     def get_statistics(self):
         """
@@ -165,12 +177,6 @@ class User(AbstractUser):
         Возвращает уведомления сотрудника
         """
         return self.notifications.all()
-    
-    def get_documents(self):
-        """
-        Возвращает документы сотрудника
-        """
-        return self.documents.all()
     
     def get_contact_info(self):
         """
