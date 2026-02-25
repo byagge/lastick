@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="issueInventory()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0e121a">
+    <title>Выдача материалов</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .sheet-bg { background: rgba(10, 12, 16, 0.45); }
+        .sheet { border-top-left-radius: 20px; border-top-right-radius: 20px; }
+        .toast { box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500">Склад</div>
+                <span class="text-lg font-semibold text-gray-900">Выдача материалов</span>
+            </div>
+        </div>
+        <div class="text-xs text-gray-500">Сотрудник</div>
+    </header>
+
+    <main class="flex-1 pt-20 pb-8 px-4 max-w-md mx-auto w-full">
+        <div class="relative mb-4">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text"
+                   x-model="searchTerm"
+                   @input="filterMaterials()"
+                   placeholder="Поиск по складу..."
+                   class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900">
+        </div>
+
+        <template x-if="isLoading">
+            <div class="space-y-3">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 h-20"></div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 h-20"></div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 h-20"></div>
+            </div>
+        </template>
+
+        <template x-if="!isLoading && filteredMaterials.length === 0">
+            <div class="text-center py-16">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="inbox" class="w-7 h-7 text-gray-400"></i>
+                </div>
+                <p class="text-gray-600">Материалов пока нет</p>
+            </div>
+        </template>
+
+        <div class="space-y-3" x-show="!isLoading && filteredMaterials.length > 0">
+            <template x-for="material in filteredMaterials" :key="material.id">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900" x-text="material.name"></p>
+                            <p class="text-xs text-gray-500" x-text="material.unit ? 'Ед: ' + material.unit : 'Ед: —'"></p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded-full"
+                              :class="material.quantity <= material.min_quantity ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'"
+                              x-text="material.quantity <= material.min_quantity ? 'Мало' : 'В наличии'"></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-3">
+                        <div class="text-sm text-gray-700">
+                            <span class="font-semibold" x-text="formatQty(material.quantity)"></span>
+                            <span class="text-xs text-gray-500" x-text="material.unit"></span>
+                        </div>
+                        <button class="px-4 py-2 text-sm font-medium text-white rounded-lg bg-gray-900"
+                                @click="openIssueModal(material)">
+                            Взять
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <div x-show="showIssueModal" x-transition class="fixed inset-0 z-40 flex items-end sheet-bg" @click.self="closeIssueModal()">
+        <div class="sheet bg-white w-full max-h-[85vh] overflow-y-auto p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs text-gray-500">Материал</p>
+                    <h3 class="text-lg font-semibold text-gray-900" x-text="selectedMaterial?.name || '—'"></h3>
+                </div>
+                <button class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center" @click="closeIssueModal()">
+                    <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                </button>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-4">
+                <p class="text-xs text-gray-500">Доступно на складе</p>
+                <p class="text-sm font-semibold text-gray-900">
+                    <span x-text="formatQty(selectedMaterial?.quantity || 0)"></span>
+                    <span class="text-xs text-gray-500" x-text="selectedMaterial?.unit || ''"></span>
+                </p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Сколько взять</label>
+                <input type="number"
+                       min="0"
+                       step="0.001"
+                       x-model="issueQuantity"
+                       placeholder="Введите количество"
+                       class="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900">
+            </div>
+            <button class="w-full py-3 rounded-xl text-white font-semibold bg-gray-900"
+                    :disabled="isSubmitting"
+                    @click="submitIssue()">
+                <span x-show="!isSubmitting">Подтвердить</span>
+                <span x-show="isSubmitting">Обработка...</span>
+            </button>
+            <div class="h-4"></div>
+        </div>
+    </div>
+
+    <div x-show="toastMessage" x-transition class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+        <div class="toast px-4 py-2 rounded-lg text-sm font-medium"
+             :class="toastType === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+            <span x-text="toastMessage"></span>
+        </div>
+    </div>
+
+    <script>
+        function issueInventory() {
+            return {
+                materials: [],
+                filteredMaterials: [],
+                searchTerm: '',
+                isLoading: true,
+                showIssueModal: false,
+                selectedMaterial: null,
+                issueQuantity: '',
+                isSubmitting: false,
+                toastMessage: '',
+                toastType: 'success',
+                async init() {
+                    await this.fetchMaterials();
+                    this.filterMaterials();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                async fetchMaterials() {
+                    try {
+                        const resp = await fetch('/inventory/api/materials/');
+                        const data = await resp.json();
+                        this.materials = data.status === 'success' ? data.data : [];
+                    } catch (err) {
+                        console.error('Load materials error', err);
+                        this.materials = [];
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                filterMaterials() {
+                    const term = (this.searchTerm || '').toLowerCase();
+                    if (!term) {
+                        this.filteredMaterials = this.materials || [];
+                        return;
+                    }
+                    this.filteredMaterials = (this.materials || []).filter(material => {
+                        return (material.name || '').toLowerCase().includes(term);
+                    });
+                },
+                openIssueModal(material) {
+                    this.selectedMaterial = material;
+                    this.issueQuantity = '';
+                    this.showIssueModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeIssueModal() {
+                    this.showIssueModal = false;
+                    this.selectedMaterial = null;
+                    this.issueQuantity = '';
+                },
+                async submitIssue() {
+                    if (!this.selectedMaterial) return;
+                    const qty = Number(this.issueQuantity);
+                    if (!qty || qty <= 0) {
+                        this.showToast('Введите корректное количество', 'error');
+                        return;
+                    }
+                    if (qty > Number(this.selectedMaterial.quantity)) {
+                        this.showToast('Недостаточно материалов на складе', 'error');
+                        return;
+                    }
+                    this.isSubmitting = true;
+                    try {
+                        const resp = await fetch('/inventory/api/materials/issue/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                material_id: this.selectedMaterial.id,
+                                quantity: qty
+                            })
+                        });
+                        const data = await resp.json();
+                        if (data.status !== 'success') {
+                            this.showToast(data.message || 'Ошибка выдачи', 'error');
+                            return;
+                        }
+                        const updatedQty = data.data.material_quantity;
+                        this.selectedMaterial.quantity = updatedQty;
+                        const idx = this.materials.findIndex(m => m.id === this.selectedMaterial.id);
+                        if (idx >= 0) {
+                            this.materials[idx].quantity = updatedQty;
+                        }
+                        this.filterMaterials();
+                        this.showToast('Материал выдан', 'success');
+                        this.closeIssueModal();
+                    } catch (err) {
+                        console.error('Issue error', err);
+                        this.showToast('Ошибка выдачи', 'error');
+                    } finally {
+                        this.isSubmitting = false;
+                    }
+                },
+                formatQty(value) {
+                    const num = Number(value || 0);
+                    return num.toLocaleString('ru-RU');
+                },
+                showToast(message, type) {
+                    this.toastMessage = message;
+                    this.toastType = type;
+                    setTimeout(() => { this.toastMessage = ''; }, 2200);
+                },
+            }
+        }
+    </script>
+</body>
+</html>

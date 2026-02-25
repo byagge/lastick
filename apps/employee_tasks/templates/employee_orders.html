@@ -12,22 +12,28 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        body { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 60%, #dbeafe 100%); }
-        .nav-active { color: #0f172a; }
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0e121a; }
         .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
-        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
-        .pill { background: #0f172a; color: #fff; }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .pill { background: #0e121a; color: #fff; }
+        .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); }
         .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        .sheet-bg { background: rgba(10, 12, 16, 0.45); }
+        .sheet { border-top-left-radius: 20px; border-top-right-radius: 20px; }
         @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
     </style>
 </head>
 <body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
-    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-3 h-14">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-3 h-14">
         <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+            <div class="w-9 h-9 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
                 <span class="text-white font-bold text-lg">S</span>
             </div>
-            <span class="text-base font-semibold text-gray-900">Заявки</span>
+            <div>
+                <div class="text-xs text-gray-500">Сотрудник</div>
+                <span class="text-base font-semibold text-gray-900">Заявки</span>
+            </div>
         </div>
         <span class="text-xs text-gray-500">Только просмотр</span>
     </header>
@@ -35,7 +41,7 @@
     <main class="flex-1 pt-16 pb-16 px-3 w-full">
         <div class="flex items-center justify-between mb-4">
             <h1 class="text-xl font-bold text-gray-900">Все заявки</h1>
-            <div class="pill text-xs px-3 py-1 rounded-full">Список</div>
+            <div class="pill text-xs px-3 py-1 rounded-full">Лента</div>
         </div>
 
         <div class="grid grid-cols-3 gap-2 mb-4">
@@ -77,13 +83,13 @@
 
         <div class="space-y-3" x-show="!isLoading && filteredRequests.length > 0">
             <template x-for="request in filteredRequests" :key="request.id">
-                <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                <button class="card bg-white rounded-xl border border-gray-200 p-4 text-left w-full" @click="openRequestModal(request)">
                     <div class="flex items-start justify-between mb-2">
                         <div>
                             <p class="text-sm font-semibold text-gray-900" x-text="request.name || 'Без названия'"></p>
                             <p class="text-xs text-gray-500" x-text="request.client && request.client.name ? request.client.name : 'Клиент не указан'"></p>
                         </div>
-                        <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full" x-text="request.status_display || '—'"></span>
+                        <span class="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-full" x-text="request.status_display || '—'"></span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
                         <div class="flex items-center space-x-2">
@@ -102,7 +108,7 @@
                     <template x-if="request.comment">
                         <p class="text-xs text-gray-500 mt-2" x-text="request.comment"></p>
                     </template>
-                </div>
+                </button>
             </template>
         </div>
     </main>
@@ -122,6 +128,62 @@
         </a>
     </nav>
 
+    <div x-show="showRequestModal" x-transition class="fixed inset-0 z-40 flex items-end sheet-bg" @click.self="closeRequestModal()">
+        <div class="sheet bg-white w-full max-h-[85vh] overflow-y-auto p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs text-gray-500">Заявка</p>
+                    <h3 class="text-lg font-semibold text-gray-900" x-text="selectedRequest?.name || 'Без названия'"></h3>
+                </div>
+                <button class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center" @click="closeRequestModal()">
+                    <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Клиент</p>
+                    <p class="font-medium text-gray-900" x-text="selectedRequest?.client?.name || 'Не указан'"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Статус</p>
+                    <p class="font-medium text-gray-900" x-text="selectedRequest?.status_display || '—'"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Дата</p>
+                    <p class="font-medium text-gray-900" x-text="formatDate(selectedRequest?.created_at)"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Сумма</p>
+                    <p class="font-medium text-gray-900" x-text="(selectedRequest?.total_amount || 0).toLocaleString() + ' сом'"></p>
+                </div>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm font-semibold text-gray-900 mb-2">Позиции</p>
+                <template x-if="selectedRequest?.items && selectedRequest.items.length">
+                    <div class="space-y-2">
+                        <template x-for="item in selectedRequest.items" :key="item.id">
+                            <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                                <p class="text-sm font-medium text-gray-900" x-text="item.product ? item.product.name : 'Товар'"></p>
+                                <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
+                                    <span x-text="'Кол-во: ' + (item.quantity || 0)"></span>
+                                    <span x-text="item.price ? item.price.toLocaleString() + ' сом' : ''"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!selectedRequest?.items || !selectedRequest.items.length">
+                    <p class="text-xs text-gray-500">Позиции не указаны</p>
+                </template>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-900 mb-2">Комментарий</p>
+                <p class="text-sm text-gray-600" x-text="selectedRequest?.comment || '—'"></p>
+            </div>
+            <div class="h-4"></div>
+        </div>
+    </div>
+
     <script>
         function employeeOrdersPage() {
             return {
@@ -129,6 +191,8 @@
                 filteredRequests: [],
                 searchTerm: '',
                 isLoading: true,
+                showRequestModal: false,
+                selectedRequest: null,
                 async init() {
                     await this.fetchRequests();
                     this.filterRequests();
@@ -172,6 +236,15 @@
                 },
                 totalItems() {
                     return (this.requests || []).reduce((sum, req) => sum + this.itemsCount(req), 0);
+                },
+                openRequestModal(request) {
+                    this.selectedRequest = request || null;
+                    this.showRequestModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeRequestModal() {
+                    this.showRequestModal = false;
+                    this.selectedRequest = null;
                 },
             }
         }

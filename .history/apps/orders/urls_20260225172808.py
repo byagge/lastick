@@ -1,27 +1,9 @@
 from rest_framework.routers import DefaultRouter
-from .views import (
-    OrderViewSet,
-    OrderPageView,
-    OrderCreateAPIView,
-    OrderStageConfirmAPIView,
-    StageViewSet,
-    OrderStageTransferAPIView,
-    OrderStagePostponeAPIView,
-    OrderStageNoTransferAPIView,
-    DashboardOverviewAPIView,
-    DashboardRevenueChartAPIView,
-    PlansMasterView,
-    PlansMasterDetailView,
-    RequestsEntryView,
-    AdminRequestsView,
-    AdminClientRequestsView,
-    ApproveRequestAPIView,
-    ExportRequestsExcelView,
-    ExportRequestsExcelForClientView,
-)
+from .views import OrderViewSet, OrderPageView, OrderCreateAPIView, OrderStageConfirmAPIView, StageViewSet, OrderStageTransferAPIView, OrderStagePostponeAPIView, OrderStageNoTransferAPIView, DashboardOverviewAPIView, DashboardRevenueChartAPIView, PlansMasterView, PlansMasterDetailView
 from .api import WorkshopStagesView, StageDetailView
 from django.urls import path, include
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, RedirectView
+from .views import AdminRequestsView, AdminClientRequestsView, ApproveRequestAPIView, ExportRequestsExcelView, ExportRequestsExcelForClientView
 
 app_name = 'orders'
 
@@ -30,12 +12,16 @@ router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'stages', StageViewSet, basename='stage')
 
 urlpatterns = [
-    # Главная страница orders — интерфейс создания заявок (desktop/mobile)
-    path('', RequestsEntryView.as_view(), name='orders-home'),
+    # Редирект с главной страницы orders на админ заявок
+    path('', RedirectView.as_view(url='/orders/admin/', permanent=False), name='orders-home'),
     
     # Админ заявок
     path('admin/', AdminRequestsView.as_view(), name='admin-requests'),
     path('admin/client/<int:client_id>/', AdminClientRequestsView.as_view(), name='admin-client-requests'),
+    
+    # Страницы планов мастера
+    path('plans/master/', PlansMasterView.as_view(), name='plans-master'),
+    path('plans/master/<int:stage_id>/', PlansMasterDetailView.as_view(), name='plans-master-detail'),
     
     # API для одобрения заявок
     path('api/requests/approve/<int:request_id>/', ApproveRequestAPIView.as_view(), name='approve-request'),

@@ -229,54 +229,76 @@ class OrderCreateAPIView(APIView):
 			}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OrderPageView(View):
-	def get(self, request):
-		user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
-		is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
-		template = 'orders_mobile.html' if is_mobile else 'orders.html'
-		show_create = request.GET.get('create') == 'True' or request.GET.get('create') == 'true' or request.GET.get('create') == '1'
-		
-		# Получаем статистику по заказам с разделением на стеклянные и обычные
-		from apps.orders.models import Order
-		from apps.operations.workshops.models import Workshop
-		
-		# Статистика по цехам
-		workshops_stats = {}
-		try:
-			workshop_1 = Workshop.objects.get(pk=1)  # Обычные товары
-			workshop_2 = Workshop.objects.get(pk=2)  # Стеклянные товары
-			
-			# Заказы в цехе 1 (обычные товары)
-			regular_orders = Order.objects.filter(
-				stages__workshop=workshop_1,
-				stages__status__in=['in_progress', 'partial']
-			).distinct().count()
-			
-			# Заказы в цехе 2 (стеклянные товары)
-			glass_orders = Order.objects.filter(
-				stages__workshop=workshop_2,
-				stages__status__in=['in_progress', 'partial']
-			).distinct().count()
-			
-			workshops_stats = {
-				'workshop_1': {
-					'name': workshop_1.name,
-					'orders_count': regular_orders,
-					'type': 'Обычные товары'
-				},
-				'workshop_2': {
-					'name': workshop_2.name,
-					'orders_count': glass_orders,
-					'type': 'Стеклянные товары'
-				}
-			}
-		except Workshop.DoesNotExist:
-			workshops_stats = {}
-		
-		context = {
-			'show_create': show_create,
-			'workshops_stats': workshops_stats
-		}
-		return render(request, template, context)
+    """
+    Старый дашборд заказов (оставляем для совместимости, но /orders/ больше сюда не ведёт).
+    """
+    def get(self, request):
+        user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+        is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+        template = 'orders_mobile.html' if is_mobile else 'orders.html'
+        show_create = request.GET.get('create') in ['True', 'true', '1']
+        
+        # Получаем статистику по заказам с разделением на стеклянные и обычные
+        from apps.orders.models import Order
+        from apps.operations.workshops.models import Workshop
+        
+        workshops_stats = {}
+        try:
+            workshop_1 = Workshop.objects.get(pk=1)  # Обычные товары
+            workshop_2 = Workshop.objects.get(pk=2)  # Стеклянные товары
+            
+            regular_orders = Order.objects.filter(
+                stages__workshop=workshop_1,
+                stages__status__in=['in_progress', 'partial']
+            ).distinct().count()
+            
+            glass_orders = Order.objects.filter(
+                stages__workshop=workshop_2,
+                stages__status__in=['in_progress', 'partial']
+            ).distinct().count()
+            
+            workshops_stats = {
+                'workshop_1': {
+                    'name': workshop_1.name,
+                    'orders_count': regular_orders,
+                    'type': 'Обычные товары'
+                },
+                'workshop_2': {
+                    'name': workshop_2.name,
+                    'orders_count': glass_orders,
+                    'type': 'Стеклянные товары'
+                }
+            }
+        except Workshop.DoesNotExist:
+            workshops_stats = {}
+        
+        context = {
+            'show_create': show_create,
+            'workshops_stats': workshops_stats
+        }
+        return render(request, template, context)
+
+
+@method_decorator(login_required, name='dispatch')
+class RequestsEntryView(View):
+    """
+    Точка входа /orders/ для администратора и бухгалтера.
+
+    Определяет тип устройства (desktop / mobile) и показывает интерфейс создания заявок
+    на шаблонах orders/requests*.html. Сами заявки создаются через существующий
+    API /finance/api/requests/create/ и попадают в модель apps.finance.models.Request,
+    откуда затем попадают в производство через админ-зону.
+    """
+    def get(self, request):
+        from apps.finance.models import Request as FinanceRequest
+
+        user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+        is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+        template = 'orders/requests_mobile.html' if is_mobile else 'orders/requests.html'
+
+        requests_qs = FinanceRequest.objects.select_related('client').prefetch_related('items__product').order_by('-created_at')
+
+        return render(request, template, {'requests': requests_qs})
 
 class OrderStageConfirmAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated]

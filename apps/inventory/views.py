@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 import json
 from decimal import Decimal
-from .models import RawMaterial, MaterialIncoming
+from .models import RawMaterial, MaterialIncoming, EmployeeMaterialBalance
 from django.db import models
 
 
@@ -26,6 +26,10 @@ def materials_page(request):
     """Страница управления материалами"""
     template = 'materials_mobile.html' if is_mobile(request) else 'materials.html'
     return render(request, template)
+
+
+def issue_page(request):
+    return render(request, 'inventory_issue.html')
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -359,3 +363,107 @@ def api_material_incomings(request, material_id):
             'status': 'error',
             'message': str(e)
         }, status=500) 
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_material_issue(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Требуется авторизация'
+        }, status=403)
+
+    try:
+        data = json.loads(request.body)
+        material_id = data.get('material_id')
+        quantity = data.get('quantity')
+
+        if not material_id or quantity is None:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'material_id и quantity обязательны'
+            }, status=400)
+
+        quantity = Decimal(str(quantity))
+        if quantity <= 0:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Количество должно быть больше нуля'
+            }, status=400)
+
+        with transaction.atomic():
+            try:
+                material = RawMaterial.objects.select_for_update().get(id=material_id)
+            except RawMaterial.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Материал не найден'
+                }, status=404)
+
+            if material.quantity < quantity:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Недостаточно материалов на складе'
+                }, status=400)
+
+            material.quantity -= quantity
+            material.save()
+
+            balance, _ = EmployeeMaterialBalance.objects.select_for_update().get_or_create(
+                employee=request.user,
+                material=material,
+                defaults={'quantity': 0}
+            )
+            balance.quantity += quantity
+            balance.save()
+
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'material_id': material.id,
+                'material_quantity': _as_float(material.quantity),
+                'balance_quantity': _as_float(balance.quantity),
+            }
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Некорректный JSON'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_material_balances(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Требуется авторизация'
+        }, status=403)
+
+    try:
+        balances = EmployeeMaterialBalance.objects.filter(employee=request.user).select_related('material')
+        data = []
+        for balance in balances:
+            data.append({
+                'material_id': balance.material_id,
+                'material_name': balance.material.name,
+                'unit': balance.material.unit,
+                'quantity': _as_float(balance.quantity),
+                'updated_at': balance.updated_at.isoformat(),
+            })
+        return JsonResponse({
+            'status': 'success',
+            'data': data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

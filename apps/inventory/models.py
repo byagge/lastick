@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class RawMaterial(models.Model):
@@ -74,3 +75,19 @@ class MaterialConsumption(models.Model):
     
     def __str__(self):
         return f"{self.material.name} - {self.quantity} ({self.workshop.name})" 
+
+
+class EmployeeMaterialBalance(models.Model):
+    employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='material_balances')
+    material = models.ForeignKey(RawMaterial, on_delete=models.CASCADE, related_name='employee_balances')
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'material')
+        verbose_name = 'Баланс материалов сотрудника'
+        verbose_name_plural = 'Балансы материалов сотрудников'
+
+    def __str__(self):
+        return f"{self.employee_id} - {self.material.name}: {self.quantity}"

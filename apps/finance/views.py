@@ -1295,8 +1295,8 @@ def requests_list(request):
 	
 	requests = Request.objects.select_related('client').prefetch_related('items__product').order_by('-created_at')
 	
-	# Выбираем шаблон в зависимости от устройства
-	template = 'finance/requests_mobile.html' if is_mobile else 'finance/requests.html'
+	# Выбираем шаблон в зависимости от устройства (шаблоны перенесены в apps/orders)
+	template = 'orders/requests_mobile.html' if is_mobile else 'orders/requests.html'
 	return render(request, template, {'requests': requests})
 
 
