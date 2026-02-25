@@ -9,6 +9,13 @@ from decimal import Decimal
 from .models import RawMaterial, MaterialIncoming
 from django.db import models
 
+
+
+def _as_float(value):
+    if value is None:
+        return 0.0
+    return float(value)
+
 def is_mobile(request):
     """Определяет, является ли устройство мобильным"""
     user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
@@ -33,10 +40,10 @@ def api_materials_list(request):
                 'id': material.id,
                 'name': material.name,
                 'unit': material.unit,
-                'quantity': float(material.quantity),
-                'min_quantity': float(material.min_quantity),
-                'price': float(material.price),
-                'total_value': float(material.total_value),
+                'quantity': _as_float(material.quantity),
+                'min_quantity': _as_float(material.min_quantity),
+                'price': _as_float(material.price),
+                'total_value': _as_float(material.total_value),
                 'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
@@ -86,10 +93,10 @@ def api_material_create(request):
                 'id': material.id,
                 'name': material.name,
                 'unit': material.unit,
-                'quantity': float(material.quantity),
-                'min_quantity': float(material.min_quantity),
-                'price': float(material.price),
-                'total_value': float(material.total_value),
+                'quantity': _as_float(material.quantity),
+                'min_quantity': _as_float(material.min_quantity),
+                'price': _as_float(material.price),
+                'total_value': _as_float(material.total_value),
                 'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
@@ -147,10 +154,10 @@ def api_material_update(request, material_id):
                 'id': material.id,
                 'name': material.name,
                 'unit': material.unit,
-                'quantity': float(material.quantity),
-                'min_quantity': float(material.min_quantity),
-                'price': float(material.price),
-                'total_value': float(material.total_value),
+                'quantity': _as_float(material.quantity),
+                'min_quantity': _as_float(material.min_quantity),
+                'price': _as_float(material.price),
+                'total_value': _as_float(material.total_value),
                 'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
@@ -239,10 +246,10 @@ def api_materials_stats(request):
         return JsonResponse({
             'status': 'success',
             'data': {
-                'totalValue': float(total_value),
+                'totalValue': _as_float(total_value),
                 'totalItems': total_items,
                 'lowStockCount': low_stock_count,
-                'avgPrice': float(avg_price)
+                'avgPrice': _as_float(avg_price)
             }
         })
     except Exception as e:
@@ -298,12 +305,12 @@ def api_material_incoming(request):
             'data': {
                 'id': incoming.id,
                 'material_name': material.name,
-                'quantity': float(incoming.quantity),
-                'price_per_unit': float(incoming.price_per_unit) if incoming.price_per_unit else None,
-                'total_value': float(incoming.total_value) if incoming.total_value else None,
+                'quantity': _as_float(incoming.quantity),
+                'price_per_unit': _as_float(incoming.price_per_unit) if incoming.price_per_unit else None,
+                'total_value': _as_float(incoming.total_value) if incoming.total_value else None,
                 'notes': incoming.notes,
                 'created_at': incoming.created_at.isoformat(),
-                'new_quantity': float(material.quantity)
+                'new_quantity': _as_float(material.quantity)
             }
         })
     except json.JSONDecodeError:
@@ -336,9 +343,9 @@ def api_material_incomings(request, material_id):
         for incoming in incomings:
             incomings_data.append({
                 'id': incoming.id,
-                'quantity': float(incoming.quantity),
-                'price_per_unit': float(incoming.price_per_unit) if incoming.price_per_unit else None,
-                'total_value': float(incoming.total_value) if incoming.total_value else None,
+                'quantity': _as_float(incoming.quantity),
+                'price_per_unit': _as_float(incoming.price_per_unit) if incoming.price_per_unit else None,
+                'total_value': _as_float(incoming.total_value) if incoming.total_value else None,
                 'notes': incoming.notes,
                 'created_at': incoming.created_at.isoformat()
             })

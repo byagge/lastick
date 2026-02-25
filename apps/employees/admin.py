@@ -1,10 +1,9 @@
 from django.contrib import admin
 from apps.users.models import User
 from .models import (
-    EmployeeStatistics, 
-    EmployeeTask, 
-    EmployeeNotification, 
-    EmployeeDocument,
+    EmployeeStatistics,
+    EmployeeTask,
+    EmployeeNotification,
     EmployeeContactInfo,
     EmployeeMedicalInfo
 )
@@ -48,13 +47,6 @@ class EmployeeNotificationInline(admin.TabularInline):
     extra = 1
     fields = ['title', 'text', 'is_read', 'created_at']
     readonly_fields = ['created_at']
-
-
-class EmployeeDocumentInline(admin.TabularInline):
-    model = EmployeeDocument
-    extra = 1
-    fields = ['document_type', 'status', 'file', 'expiry_date', 'uploaded_at']
-    readonly_fields = ['uploaded_at']
 
 
 # Register employee-specific models
@@ -121,18 +113,6 @@ class EmployeeNotificationAdmin(admin.ModelAdmin):
     list_editable = ['is_read']
 
 
-@admin.register(EmployeeDocument)
-class EmployeeDocumentAdmin(admin.ModelAdmin):
-    list_display = ['employee', 'document_type', 'status', 'uploaded_at']
-    list_filter = [
-        'document_type', 'status', 'uploaded_at', 
-        ('employee__workshop', admin.RelatedOnlyFieldListFilter)
-    ]
-    search_fields = ['employee__first_name', 'employee__last_name']
-    readonly_fields = ['uploaded_at']
-    list_editable = ['status']
-
-
 @admin.register(EmployeeContactInfo)
 class EmployeeContactInfoAdmin(admin.ModelAdmin):
     list_display = ['employee', 'emergency_contact', 'emergency_phone', 'alternative_phone']
@@ -190,7 +170,6 @@ def enhance_user_admin():
             EmployeeStatisticsInline,
             EmployeeTaskInline,
             EmployeeNotificationInline,
-            EmployeeDocumentInline,
         ]
         UserAdmin._employee_inlines_added = True
 

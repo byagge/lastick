@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 
-ALLOWED_ROLES = { 'founder', 'director', 'admin' }
+ALLOWED_ROLES = { 'admin' }
 
 
 def _has_director_access(user) -> bool:

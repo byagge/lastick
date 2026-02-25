@@ -5,22 +5,10 @@ from .utils import calculate_employee_stats
 from django.db.models import Sum
 from apps.employee_tasks.models import EmployeeTask
 
-class WorkScheduleField(serializers.Field):
-    def to_representation(self, value):
-        # value: dict or None
-        if not value:
-            return {
-                'monday': '', 'tuesday': '', 'wednesday': '', 'thursday': '', 'friday': '', 'saturday': '', 'sunday': ''
-            }
-        return value
-    def to_internal_value(self, data):
-        # data: dict
-        return data or {
-            'monday': '', 'tuesday': '', 'wednesday': '', 'thursday': '', 'friday': '', 'saturday': '', 'sunday': ''
-        }
-
 class EmployeeSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
+    work_schedule_display = serializers.CharField(source='get_work_schedule_display', read_only=True)
     workshop_name = serializers.CharField(source='workshop.name', read_only=True)
     
     # Для фронта:
@@ -28,12 +16,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     position = serializers.CharField(source='role')
     status = serializers.SerializerMethodField()
-    passportNumber = serializers.CharField(source='passport_number', required=False, allow_blank=True)
-    taxId = serializers.CharField(source='inn', required=False, allow_blank=True)
-    startDate = serializers.DateField(source='employment_date', required=False, allow_null=True)
-    firedDate = serializers.DateField(source='fired_date', required=False, allow_null=True)
-    contractNumber = serializers.CharField(source='contract_number', required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    payment_type = serializers.CharField(required=False)
+    work_schedule = serializers.CharField(required=False)
     
     # Баланс
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -52,19 +37,16 @@ class EmployeeSerializer(serializers.ModelSerializer):
     notifications = serializers.SerializerMethodField()
     
     # Документы (из связанной модели)
-    documents = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'first_name', 'last_name', 'name', 'full_name', 'position', 'phone', 'email', 'status',
-            'workshop', 'workshop_name', 'passportNumber', 'taxId', 'startDate', 'firedDate',
-            'contractNumber', 'notes', 'role_display', 'is_active', 'role', 'balance',
-            'passport_number', 'inn', 'employment_date', 'fired_date', 'contract_number',
+            'workshop', 'workshop_name', 'notes', 'role_display', 'is_active', 'role', 'balance',
             # Статистика
             'salary', 'completed_works', 'defects', 'efficiency', 'monthly_salary',
             # Связанные данные
-            'tasks', 'notifications', 'documents',
+            'tasks', 'notifications',
         ]
 
     def get_status(self, obj):
@@ -172,23 +154,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             }
             for notification in notifications
         ]
-    
-    def get_documents(self, obj):
-        """Получить документы сотрудника"""
-        documents = obj.documents.all()
-        return [
-            {
-                'id': doc.id,
-                'document_type': doc.document_type,
-                'document_type_display': doc.get_document_type_display(),
-                'status': doc.status,
-                'status_display': doc.get_status_display(),
-                'expiry_date': doc.expiry_date.isoformat() if doc.expiry_date else None,
-                'uploaded_at': doc.uploaded_at.isoformat() if doc.uploaded_at else None
-            }
-            for doc in documents
-        ]
-
     def create(self, validated_data):
         # Обработка вложенных полей
         validated_data['role'] = validated_data.pop('role', validated_data.get('position', 'worker'))

@@ -19,7 +19,7 @@ class WorkshopSerializer(serializers.ModelSerializer):
     def get_employees_count(self, obj):
         """Подсчитывает количество сотрудников в цехе"""
         from apps.users.models import User
-        return User.objects.filter(workshop=obj, role__in=['worker', 'master']).count()
+        return User.objects.filter(workshop=obj, role__in=['admin', 'accountant', 'worker']).count()
     
     def get_active_tasks(self, obj):
         """Подсчитывает количество активных задач в цехе"""

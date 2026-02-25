@@ -445,10 +445,10 @@
                     currentUser: this.currentUser,
                     userRole: userRole,
                     defectStatus: defect.status,
-                    canConfirm: userRole && (userRole === 'master' || userRole === 'Master') && defect.status === 'pending'
+                    canConfirm: userRole && (userRole === 'admin' || userRole === 'Admin') && defect.status === 'pending'
                 });
                 
-                if (!userRole || (userRole !== 'master' && userRole !== 'Master')) return false;
+                if (!userRole || (userRole !== 'admin' && userRole !== 'Admin')) return false;
                 return defect.status === 'pending';
             },
             
@@ -459,7 +459,7 @@
             
             canCloseDefect(defect) {
                 if (!this.currentUser || !defect) return false;
-                const adminRoles = ['founder', 'director', 'admin', 'master'];
+                const adminRoles = ['admin'];
                 return adminRoles.includes(this.currentUser.role) && defect.status === 'repaired';
             },
             

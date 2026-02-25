@@ -18,14 +18,8 @@ def dashboard(request):
     user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
     is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile', 'opera mini', 'blackberry', 'windows phone'])
     role = getattr(user, 'role', None)
-
-    # Founder/Director: use director dashboard templates
-    if role in [User.Role.FOUNDER, User.Role.DIRECTOR]:
-        template = 'director/dashboard_mobile.html' if is_mobile else 'director/dashboard.html'
-        return render(request, template)
-
     # Admin: use operations dashboard templates
-    elif role == User.Role.ADMIN:
+    if role == User.Role.ADMIN:
         template = 'odashboard_mobile.html' if is_mobile else 'odashboard.html'
         return render(request, template)
 
@@ -33,17 +27,12 @@ def dashboard(request):
     elif role == User.Role.ACCOUNTANT:
         return redirect('/finance/')
 
-    # Master: use workshop templates
-    elif role == User.Role.MASTER:
-        template = 'workshop_mobile.html' if is_mobile else 'workshop_master.html'
-        return render(request, template)
-
     # Worker: redirect to employee tasks
     elif role == User.Role.WORKER:
         return redirect('/employee_tasks/tasks/')
 
     # No access otherwise
-    return HttpResponseForbidden('Нет доступа к дашборду')
+    return HttpResponseForbidden('??? ???????')
 
 
 def workshop_dashboard(request):
@@ -66,7 +55,7 @@ def workshop_dashboard_overview(request):
             }, status=400)
         
         # Подсчитываем сотрудников в цехе
-        total_employees = User.objects.filter(workshop=workshop, role__in=['worker', 'master']).count()
+        total_employees = User.objects.filter(workshop=workshop, role__in=['worker']).count()
         
         # Подсчитываем произведенные товары (завершенные задачи)
         products_made = EmployeeTask.objects.filter(

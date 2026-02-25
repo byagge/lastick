@@ -93,12 +93,9 @@ class LoginView(View):
             return '/'
             
         role_redirects = {
-            User.Role.FOUNDER: '/dashboard/',  # Учредитель -> дашборд
-            User.Role.DIRECTOR: '/dashboard/',  # Директор -> дашборд
-            User.Role.ADMIN: '/dashboard/',  # Администратор -> дашборд
-            User.Role.ACCOUNTANT: '/dashboard/',  # Бухгалтер -> дашборд
-            User.Role.MASTER: '/dashboard/',  # Мастер -> дашборд
-            User.Role.WORKER: '/employee_tasks/tasks/',  # Рабочий -> задачи сотрудника
+            User.Role.ADMIN: '/dashboard/',  # ????????????? -> ???????
+            User.Role.ACCOUNTANT: '/finance/',  # ????????? -> ???????
+            User.Role.WORKER: '/employee_tasks/tasks/',  # ????????? -> ??????
         }
         
         return role_redirects.get(role, '/')

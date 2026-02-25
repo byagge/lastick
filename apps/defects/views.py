@@ -151,7 +151,7 @@ def close_defect(request, defect_id):
         defect = Defect.objects.get(id=defect_id)
         
         # Проверяем права (только админы и мастера)
-        if request.user.role not in ['founder', 'director', 'admin', 'master']:
+        if request.user.role != 'admin':
             return Response(
                 {'error': 'У вас нет прав для закрытия брака'}, 
                 status=status.HTTP_403_FORBIDDEN

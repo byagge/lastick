@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#0e121a">
     <title>Smart Factory — Склад</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -23,19 +23,19 @@
     <!-- AppBar -->
     <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
         <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background-color:#0e121a;">
                 <span class="text-white font-bold text-2xl">S</span>
             </div>
             <span class="text-lg font-semibold text-gray-900">Склад</span>
         </div>
         <div class="flex items-center space-x-2">
-            <button @click="exportToExcel()" class="text-gray-600 hover:text-blue-600" title="Экспорт">
+            <button @click="exportToExcel()" class="text-gray-600 hover:text-gray-900" title="Экспорт">
                 <i data-lucide="download" class="w-6 h-6"></i>
             </button>
             <button @click="showLowStock = !showLowStock; $nextTick(() => lucide.createIcons())" :class="{'text-red-600': showLowStock}" class="text-gray-600 hover:text-red-600" title="Низкие остатки">
                 <i data-lucide="alert-triangle" class="w-6 h-6"></i>
             </button>
-            <button @click="openAddForm()" class="text-gray-600 hover:text-blue-600" title="Добавить">
+            <button @click="openAddForm()" class="text-gray-600 hover:text-gray-900" title="Добавить">
                 <i data-lucide="plus" class="w-6 h-6"></i>
             </button>
         </div>
@@ -49,7 +49,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs opacity-90">Общая стоимость</p>
-                        <p class="text-xl font-bold" x-text="stats().totalValue.toLocaleString() + ' ???'"></p>
+                        <p class="text-xl font-bold" x-text="stats().totalValue.toLocaleString() + ' ₽'"></p>
                     </div>
                     <i data-lucide="dollar-sign" class="w-6 h-6 opacity-80"></i>
                 </div>
@@ -86,7 +86,7 @@
         <!-- Search Bar -->
         <div class="relative mb-6">
             <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
-            <input type="text" placeholder="Поиск материалов..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" placeholder="Поиск по названию или стране..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
         <!-- Loading State -->
@@ -115,7 +115,12 @@
                 <div class="flex items-center justify-between mb-2">
                     <div>
                         <h3 class="font-semibold text-gray-900 text-base" x-text="material.name"></h3>
-                        <p class="text-xs text-gray-500 font-mono" x-text="material.code"></p>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <template x-if="countryFlag(material.country)">
+                                <img :src="countryFlag(material.country)" alt="" class="w-5 h-4 rounded border border-gray-200">
+                            </template>
+                            <p class="text-xs text-gray-500" x-text="material.country || 'Страна не указана'"></p>
+                        </div>
                     </div>
                     <div class="flex space-x-1">
                         <button @click="openEditForm(material)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
@@ -132,14 +137,13 @@
                                 </button>
                                 <button @click="showIncomingHistory(material)" class="p-1 text-blue-600 hover:text-blue-800" title="История приходов">
                                     <i data-lucide="history" class="w-5 h-5"></i>
+                                </button>
+                                <button @click="openDetails(material)" class="p-1 text-gray-600 hover:text-gray-900" title="Детали">
+                                    <i data-lucide="info" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-2">
-                    <div>
-                        <span class="text-gray-400">Размер:</span>
-                        <span class="font-medium text-gray-700" x-text="material.size"></span>
-                    </div>
                     <div>
                         <span class="text-gray-400">Ед.:</span>
                         <span class="font-medium text-gray-700" x-text="material.unit"></span>
@@ -157,11 +161,11 @@
                     </div>
                     <div>
                         <span class="text-gray-400">Цена:</span>
-                        <span class="font-medium text-gray-700" x-text="material.price.toLocaleString() + ' ???'"></span>
+                        <span class="font-medium text-gray-700" x-text="material.price.toLocaleString() + ' ₽'"></span>
                     </div>
                     <div>
                         <span class="text-gray-400">Общая:</span>
-                        <span class="font-semibold text-green-600" x-text="material.total_value.toLocaleString() + ' ???'"></span>
+                        <span class="font-semibold text-green-600" x-text="material.total_value.toLocaleString() + ' ₽'"></span>
                     </div>
                 </div>
                 <div class="text-xs text-gray-400 mt-1" x-text="material.description"></div>
@@ -173,11 +177,11 @@
 
     {% include 'partials/bottom_nav_mobile.html' %}
 
-    <!-- Модальные окна (добавление/редактирование/приход) -->
+    <!-- Модальные окна (добавление/редактирование/приход/детали) -->
     <!-- Add/Edit Material Modal -->
     <template x-if="showForm">
-        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="closeForm()">
-            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div class="fixed inset-0 z-40 flex items-stretch justify-end modal-bg" @click.self="closeForm()">
+            <div class="bg-white w-full max-w-md p-6 h-full overflow-y-auto shadow-2xl border-l border-gray-200">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-bold text-gray-900" x-text="editingMaterial ? 'Редактировать материал' : 'Добавить материал'"></h2>
                     <button @click="closeForm()" class="text-gray-400 hover:text-gray-600">
@@ -190,8 +194,8 @@
                         <input type="text" x-model="formData.name" placeholder="Например: Сталь листовая" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Размер</label>
-                        <input type="text" x-model="formData.size" placeholder="2x1000x2000" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Страна производителя</label>
+                        <input type="text" x-model="formData.country" placeholder="Например: Россия" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
@@ -209,7 +213,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Цена (?) <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Цена (₽) <span class="text-red-500">*</span></label>
                             <input type="number" x-model="formData.price" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
                     </div>
@@ -238,8 +242,8 @@
 
     <!-- Incoming Form Modal -->
     <template x-if="showIncomingForm">
-        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="closeIncomingForm()">
-            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div class="fixed inset-0 z-40 flex items-stretch justify-end modal-bg" @click.self="closeIncomingForm()">
+            <div class="bg-white w-full max-w-md p-6 h-full overflow-y-auto shadow-2xl border-l border-gray-200">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-bold text-gray-900">Приход материала</h2>
                     <button @click="closeIncomingForm()" class="text-gray-400 hover:text-gray-600">
@@ -249,7 +253,7 @@
                 <div class="bg-gray-50 rounded-lg p-4 mb-4">
                     <h3 class="font-semibold text-gray-900 mb-2" x-text="incomingData.material?.name"></h3>
                     <div class="grid grid-cols-2 gap-2 text-sm">
-                        <div><span class="text-gray-600">Код:</span> <span class="font-medium font-mono" x-text="incomingData.material?.code"></span></div>
+                        <div><span class="text-gray-600">Страна:</span> <span class="font-medium" x-text="incomingData.material?.country || '—'"></span></div>
                         <div><span class="text-gray-600">Текущее количество:</span> <span class="font-medium text-blue-600" x-text="`${incomingData.material?.quantity || 0} ${incomingData.material?.unit || ''}`"></span></div>
                     </div>
                 </div>
@@ -259,7 +263,7 @@
                         <input type="number" x-model="incomingData.quantity" min="0.001" step="0.001" placeholder="0" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Цена за единицу (?)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Цена за единицу (₽)</label>
                         <input type="number" x-model="incomingData.price_per_unit" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     </div>
                     <div>
@@ -277,8 +281,8 @@
 
     <!-- Success Modal -->
     <template x-if="showSuccessModal">
-        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
-            <div class="bg-white rounded-xl p-6 w-full max-w-sm text-center">
+        <div class="fixed inset-0 z-50 flex items-stretch justify-end modal-bg">
+            <div class="bg-white w-full max-w-sm p-6 h-full shadow-2xl border-l border-gray-200 flex flex-col justify-center text-center">
                 <div class="flex flex-col items-center mb-4">
                     <i data-lucide="check-circle" class="w-12 h-12 text-green-500 mb-3"></i>
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Успешно!</h3>
@@ -291,8 +295,8 @@
 
     <!-- Delete Confirmation Modal -->
     <template x-if="showDeleteModal">
-        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
-            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+        <div class="fixed inset-0 z-50 flex items-stretch justify-end modal-bg">
+            <div class="bg-white w-full max-w-sm p-6 h-full shadow-2xl border-l border-gray-200 flex flex-col justify-center mx-0">
                 <div class="text-center mb-4">
                     <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Удалить материал?</h3>
@@ -308,8 +312,8 @@
 
     <!-- Incoming History Modal -->
     <template x-if="showIncomingHistoryModal">
-        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="closeIncomingHistoryModal()">
-            <div class="bg-white rounded-t-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+        <div class="fixed inset-0 z-40 flex items-stretch justify-end modal-bg" @click.self="closeIncomingHistoryModal()">
+            <div class="bg-white w-full max-w-md h-full overflow-hidden shadow-2xl border-l border-gray-200">
                 <div class="flex items-center justify-between p-6 border-b border-gray-200">
                     <div>
                         <h2 class="text-lg font-bold text-gray-900">История приходов</h2>
@@ -347,11 +351,11 @@
                                 </div>
                                 <div x-show="incoming.price_per_unit">
                                     <span class="text-gray-500">Цена:</span>
-                                    <span class="font-medium text-blue-600 ml-1" x-text="`${incoming.price_per_unit} ?`"></span>
+                                    <span class="font-medium text-blue-600 ml-1" x-text="`${incoming.price_per_unit} ₽`"></span>
                                 </div>
                                 <div x-show="incoming.total_value" class="col-span-2">
                                     <span class="text-gray-500">Сумма:</span>
-                                    <span class="font-semibold text-green-600 ml-1" x-text="`${incoming.total_value} ?`"></span>
+                                    <span class="font-semibold text-green-600 ml-1" x-text="`${incoming.total_value} ₽`"></span>
                                 </div>
                             </div>
                             <div x-show="incoming.notes" class="text-sm">
@@ -361,6 +365,55 @@
                             <div class="text-xs text-gray-400 mt-2" x-text="new Date(incoming.created_at).toLocaleString('ru-RU')"></div>
                         </div>
                     </template>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Панель деталей -->
+    <template x-if="showDetailsPanel">
+        <div class="fixed inset-0 z-40 flex items-stretch justify-end modal-bg" @click.self="closeDetails()">
+            <div class="bg-white w-full max-w-md h-full overflow-y-auto shadow-2xl border-l border-gray-200">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Детали материала</p>
+                        <h2 class="text-lg font-bold text-gray-900" x-text="detailsMaterial?.name || 'Материал'"></h2>
+                    </div>
+                    <button @click="closeDetails()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="p-4 space-y-4 text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-gray-500">Единица</p>
+                            <p class="font-medium text-gray-900" x-text="detailsMaterial?.unit"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Страна</p>
+                            <p class="font-medium text-gray-900" x-text="detailsMaterial?.country || '—'"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Количество</p>
+                            <p class="font-semibold" x-text="(detailsMaterial?.quantity || 0) + ' ' + (detailsMaterial?.unit || '')"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Мин. остаток</p>
+                            <p class="font-semibold text-yellow-600" x-text="detailsMaterial?.min_quantity || 0"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Цена</p>
+                            <p class="font-semibold text-green-600" x-text="(detailsMaterial?.price || 0).toLocaleString() + ' ₽'"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Общая стоимость</p>
+                            <p class="font-semibold text-blue-600" x-text="(detailsMaterial?.total_value || 0).toLocaleString() + ' ₽'"></p>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 mb-1">Описание</p>
+                        <p class="text-gray-800 whitespace-pre-line" x-text="detailsMaterial?.description || 'Описание не заполнено'"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -386,30 +439,32 @@
             showDeleteModal: false,
             successModalText: '',
             materialToDelete: null,
-                columnLabels: {
-                    name: 'Название',
-                    code: 'Код',
-                    size: 'Размер',
-                    unit: 'Единица',
-                    quantity: 'Количество',
-                    min_quantity: 'Мин. кол-во',
-                    price: 'Цена',
-                    total_value: 'Общая стоимость'
-                },
+            columnLabels: {
+                name: 'Название',
+                unit: 'Единица',
+                country: 'Страна',
+                quantity: 'Количество',
+                min_quantity: 'Мин. кол-во',
+                price: 'Цена',
+                total_value: 'Общая стоимость'
+            },
             // Модальное окно прихода
             showIncomingForm: false,
             incomingData: {
-                material: null,
-                quantity: 0,
-                price_per_unit: '',
-                notes: ''
+            material: null,
+            quantity: 0,
+            price_per_unit: '',
+            notes: ''
             },
             // Модальное окно истории приходов
             showIncomingHistoryModal: false,
             incomingHistoryData: {
-                material: null,
-                incomings: []
+            material: null,
+            incomings: []
             },
+            // Панель деталей
+            showDetailsPanel: false,
+            detailsMaterial: null,
             // Модальное окно "Другое"
             // showMoreMenu: false, // Removed
 
@@ -485,9 +540,16 @@
             stats() {
                 return this._stats || { totalValue: 0, lowStockCount: 0, totalItems: 0, avgPrice: 0 };
             },
+            totalMaterialsCount() {
+                return Array.isArray(this.materials) ? this.materials.length : 0;
+            },
+            totalQuantity() {
+                if (!Array.isArray(this.materials)) return 0;
+                return this.materials.reduce((acc, m) => acc + (Number(m.quantity) || 0), 0);
+            },
 
             // Фильтрация и сортировка материалов
-                filteredMaterials() {
+            filteredMaterials() {
                     if (!this.materials || !Array.isArray(this.materials)) {
                         return [];
                     }
@@ -495,14 +557,14 @@
                     let filtered = this.materials.filter(material => {
                         if (!material) return false;
                         
-                        const searchTerm = this.searchTerm || '';
-                        const materialName = material.name || '';
-                        const materialCode = material.code || '';
-                        const materialSize = material.size || '';
+                        const searchTerm = (this.searchTerm || '').toLowerCase();
+                        const materialName = (material.name || '').toLowerCase();
+                        const materialCountry = (material.country || '').toLowerCase();
                         
-                        const matchesSearch = materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            materialCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            materialSize.toLowerCase().includes(searchTerm.toLowerCase());
+                        const matchesSearch =
+                            !searchTerm ||
+                            materialName.includes(searchTerm) ||
+                            materialCountry.includes(searchTerm);
                         const matchesLowStock = !this.showLowStock || (material.quantity <= material.min_quantity);
                         return matchesSearch && matchesLowStock;
                     });
@@ -614,11 +676,11 @@
                 openAddForm() {
                     this.formData = {
                         name: '',
-                        size: '',
                         unit: '',
                         quantity: 0,
                         min_quantity: 0,
                         price: 0,
+                        country: '',
                         description: ''
                     };
                     this.editingMaterial = null;
@@ -658,8 +720,7 @@
                         // Подготавливаем данные для таблицы
                         const excelData = materials.map(material => ({
                             'Название': material.name || '',
-                            'Артикул/Код': material.code || '',
-                            'Размер': material.size || '',
+                            'Страна производителя': material.country || '',
                             'Единица измерения': material.unit || '',
                             'Количество': material.quantity || 0,
                             'Мин. остаток': material.min_quantity || 0,
@@ -676,8 +737,7 @@
                         // Настраиваем ширину столбцов
                         const colWidths = [
                             { wch: 30 }, // Название
-                            { wch: 15 }, // Артикул/Код
-                            { wch: 15 }, // Размер
+                            { wch: 20 }, // Страна
                             { wch: 15 }, // Единица измерения
                             { wch: 12 }, // Количество
                             { wch: 12 }, // Мин. остаток
@@ -695,7 +755,7 @@
                         // Создаем лист со статистикой
                         const statsData = [
                             { 'Показатель': 'Общее количество материалов', 'Значение': materials.length },
-                            { 'Показатель': 'Общая стоимость на складе', 'Значение': this.stats().totalValue.toFixed(2) + ' ???' },
+                            { 'Показатель': 'Общая стоимость на складе', 'Значение': this.stats().totalValue.toFixed(2) + ' ₽' },
                             { 'Показатель': 'Материалы с низким остатком', 'Значение': this.stats().lowStockCount },
                             { 'Показатель': 'Общий остаток (ед.)', 'Значение': this.totalQuantity().toLocaleString() },
                             { 'Показатель': 'Дата экспорта', 'Значение': new Date().toLocaleString('ru-RU') }
@@ -724,18 +784,17 @@
                 },
 
             async duplicateMaterial(material) {
-                try {
+            try {
                     const newMaterial = { ...material };
                     delete newMaterial.id;
-                    delete newMaterial.code; // Удаляем код, чтобы он был сгенерирован автоматически
                     delete newMaterial.created_at;
                     delete newMaterial.updated_at;
                     newMaterial.name = material.name + ' (копия)';
                     
                     const resp = await fetch('/inventory/api/materials/create/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newMaterial)
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newMaterial)
                     });
                     const data = await resp.json();
                     if (data.status === 'success') {
@@ -845,6 +904,17 @@
                     material: null,
                     incomings: []
                 };
+                this.$nextTick(() => lucide.createIcons());
+            },
+            // Панель деталей
+            openDetails(material) {
+                this.detailsMaterial = material;
+                this.showDetailsPanel = true;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            closeDetails() {
+                this.showDetailsPanel = false;
+                this.detailsMaterial = null;
                 this.$nextTick(() => lucide.createIcons());
             }
         }

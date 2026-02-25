@@ -291,68 +291,6 @@ class EmployeeNotification(models.Model):
         return f"Уведомление {self.employee.get_full_name()}: {self.title}"
 
 
-class EmployeeDocument(models.Model):
-    """Документы сотрудника"""
-    DOCUMENT_TYPES = [
-        ('passport_main', 'Паспорт (основная страница)'),
-        ('passport_registration', 'Паспорт (прописка)'),
-        ('employment_contract', 'Трудовой договор'),
-        ('work_book', 'Трудовая книжка'),
-        ('employment_order', 'Приказ о приеме'),
-        ('medical_book', 'Медицинская книжка'),
-        ('other', 'Другое'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('uploaded', 'Загружен'),
-        ('pending', 'Ожидает'),
-        ('expired', 'Просрочен'),
-        ('missing', 'Отсутствует'),
-    ]
-    
-    employee = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='documents',
-        verbose_name='Сотрудник'
-    )
-    document_type = models.CharField(
-        max_length=50, 
-        choices=DOCUMENT_TYPES, 
-        verbose_name='Тип документа'
-    )
-    status = models.CharField(
-        max_length=20, 
-        choices=STATUS_CHOICES, 
-        default='missing',
-        verbose_name='Статус'
-    )
-    file = models.FileField(
-        upload_to='employee_documents/', 
-        null=True, 
-        blank=True,
-        verbose_name='Файл документа'
-    )
-    expiry_date = models.DateField(
-        null=True, 
-        blank=True,
-        verbose_name='Дата истечения'
-    )
-    notes = models.TextField(
-        blank=True, 
-        verbose_name='Примечания'
-    )
-    uploaded_at = models.DateTimeField(
-        auto_now_add=True, 
-        verbose_name='Дата загрузки'
-    )
-    
-    class Meta:
-        verbose_name = 'Документ сотрудника'
-        verbose_name_plural = 'Документы сотрудников'
-        unique_together = ['employee', 'document_type']
-    
-    def __str__(self):
         return f"Документ {self.employee.get_full_name()}: {self.get_document_type_display()}"
 
 
@@ -363,7 +301,7 @@ class EmployeeDocument(models.Model):
 #     """Автоматически создает связанные записи при создании пользователя"""
 #     if created:
 #         # Проверяем, что это сотрудник (не админ)
-#         if instance.role in [User.Role.WORKER, User.Role.MASTER]:
+#         if instance.role == User.Role.WORKER:
 #             try:
 #                 with transaction.atomic():
 #                     # Проверяем, существуют ли уже записи
@@ -414,7 +352,7 @@ class EmployeeDocument(models.Model):
 def save_employee_related_records(sender, instance, **kwargs):
     """Сохраняет связанные записи при обновлении пользователя"""
     # Проверяем, что это сотрудник (не админ)
-    if instance.role in [User.Role.WORKER, User.Role.MASTER]:
+    if instance.role == User.Role.WORKER:
         try:
             # Обновляем статистику если она существует
             if hasattr(instance, 'statistics'):

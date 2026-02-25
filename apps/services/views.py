@@ -354,7 +354,7 @@ def api_workshops(request):
 def api_master_services(request):
     if request.method == 'GET':
         # Проверяем, что пользователь является мастером
-        if not hasattr(request.user, 'role') or request.user.role not in ['master', 'founder', 'director', 'admin']:
+        if not hasattr(request.user, 'role') or request.user.role not in ['admin']:
             logger.debug("User role '%s' is not allowed", getattr(request.user, 'role', 'No role'))
             return JsonResponse({'status': 'error', 'message': 'Access denied. Only masters can access this API.'}, status=403)
         
@@ -428,7 +428,7 @@ def api_master_services(request):
 def api_master_update_price(request, pk):
     if request.method == 'PATCH':
         # Проверяем, что пользователь является мастером
-        if not hasattr(request.user, 'role') or request.user.role not in ['master', 'founder', 'director', 'admin']:
+        if not hasattr(request.user, 'role') or request.user.role not in ['admin']:
             logger.debug("User role '%s' is not allowed", getattr(request.user, 'role', 'No role'))
             return JsonResponse({'status': 'error', 'message': 'Access denied. Only masters can access this API.'}, status=403)
         
@@ -487,7 +487,7 @@ def api_master_update_price(request, pk):
 def api_master_workshops(request):
     if request.method == 'GET':
         # Проверяем, что пользователь является мастером
-        if not hasattr(request.user, 'role') or request.user.role not in ['master', 'founder', 'director', 'admin']:
+        if not hasattr(request.user, 'role') or request.user.role not in ['admin']:
             logger.debug("User role '%s' is not allowed", getattr(request.user, 'role', 'No role'))
             return JsonResponse({'status': 'error', 'message': 'Access denied. Only masters can access this API.'}, status=403)
         

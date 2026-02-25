@@ -8,7 +8,7 @@ class Workshop(models.Model):
         null=True,
         blank=True,
         related_name='operation_managed_workshops',
-        limit_choices_to={'role': 'master'},
+        limit_choices_to={'role__in': ['admin', 'worker']},
         verbose_name='Главный руководитель (мастер)'
     )
     description = models.TextField('Описание', blank=True)
@@ -49,45 +49,6 @@ class Workshop(models.Model):
         """
         from apps.users.models import User
         
-        # Если был предыдущий руководитель, возвращаем ему роль 'worker'
-        if self.manager and self.manager != user:
-            # Проверяем, не является ли он руководителем других цехов
-            other_workshops = Workshop.objects.filter(manager=self.manager).exclude(pk=self.pk)
-            other_workshop_masters = WorkshopMaster.objects.filter(master=self.manager, is_active=True).exclude(workshop=self)
-            if not other_workshops.exists() and not other_workshop_masters.exists():
-                self.manager.role = User.Role.WORKER
-                self.manager.save()
-        
-        # Назначаем нового руководителя
-        self.manager = user
-        
-        # Изменяем роль нового руководителя на 'master'
-        if user and user.role != User.Role.MASTER:
-            user.role = User.Role.MASTER
-            user.save()
-        
-        # Сохраняем цех
-        self.save()
-
-    def add_master(self, user):
-        """
-        Добавляет дополнительного мастера к цеху
-        """
-        from apps.users.models import User
-        
-        # Проверяем, не является ли пользователь уже главным мастером
-        if self.manager == user:
-            return False, "Пользователь уже является главным мастером цеха"
-        
-        # Проверяем, не является ли пользователь уже дополнительным мастером
-        if self.workshop_masters.filter(master=user, is_active=True).exists():
-            return False, "Пользователь уже является дополнительным мастером цеха"
-        
-        # Изменяем роль пользователя на 'master'
-        if user.role != User.Role.MASTER:
-            user.role = User.Role.MASTER
-            user.save()
-        
         # Создаем связь
         WorkshopMaster.objects.create(
             workshop=self,
@@ -114,11 +75,6 @@ class Workshop(models.Model):
             # Проверяем, не является ли пользователь мастером других цехов
             other_workshops = Workshop.objects.filter(manager=user)
             other_workshop_masters = WorkshopMaster.objects.filter(master=user, is_active=True)
-            if not other_workshops.exists() and not other_workshop_masters.exists():
-                # Возвращаем роль 'worker'
-                from apps.users.models import User
-                user.role = User.Role.WORKER
-                user.save()
             
             return True, "Мастер успешно удален из цеха"
         
@@ -283,7 +239,7 @@ class WorkshopMaster(models.Model):
         'users.User',
         on_delete=models.CASCADE,
         related_name='workshop_master_roles',
-        limit_choices_to={'role': 'master'},
+        limit_choices_to={'role__in': ['admin', 'worker']},
         verbose_name='Мастер'
     )
     is_active = models.BooleanField('Активен', default=True)
@@ -311,8 +267,4 @@ class WorkshopMaster(models.Model):
         """
         Автоматически устанавливаем роль 'master' при создании связи
         """
-        if not self.pk:  # Только при создании
-            if self.master.role != 'master':
-                self.master.role = 'master'
-                self.master.save()
         super().save(*args, **kwargs)

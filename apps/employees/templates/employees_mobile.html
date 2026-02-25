@@ -179,7 +179,6 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Роль <span class="text-red-500">*</span></label>
                         <select x-model="formData.role" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="worker">Сотрудник</option>
-                            <option value="master">Мастер</option>
                         </select>
                     </div>
                     <div>
@@ -252,7 +251,6 @@
                                 <i data-lucide="bell" class="w-6 h-6"></i>
                                 <span class="text-sm font-medium">Уведомления</span>
                             </button>
-                            <button @click="profileTab = 'documents'; reinitializeIcons()" :class="profileTab === 'documents' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
                                 <i data-lucide="folder" class="w-6 h-6"></i>
                                 <span class="text-sm font-medium">Документы</span>
                             </button>
@@ -281,11 +279,9 @@
                                     </div>
                                     <div class="flex items-center space-x-3">
                                         <i data-lucide="calendar" class="w-5 h-5 text-gray-400"></i>
-                                        <span class="text-gray-900" x-text="selectedEmployee.employment_date ? 'Принят: ' + new Date(selectedEmployee.employment_date).toLocaleDateString('ru-RU') : 'Дата приёма не указана'"></span>
                                     </div>
                                     <div class="flex items-center space-x-3">
                                         <i data-lucide="calendar-x" class="w-5 h-5 text-gray-400"></i>
-                                        <span class="text-gray-900" x-text="selectedEmployee.fired_date ? 'Уволен: ' + new Date(selectedEmployee.fired_date).toLocaleDateString('ru-RU') : 'Дата увольнения не указана'"></span>
                                     </div>
                                 </div>
                             </div>
@@ -296,9 +292,6 @@
                                     Документы
                                 </h4>
                                 <div class="space-y-2">
-                                    <div><span class="font-medium text-gray-700">Паспорт:</span> <span x-text="selectedEmployee.passport_number || 'Не указан'"></span></div>
-                                    <div><span class="font-medium text-gray-700">ИНН:</span> <span x-text="selectedEmployee.inn || 'Не указан'"></span></div>
-                                    <div><span class="font-medium text-gray-700">Номер договора:</span> <span x-text="selectedEmployee.contract_number || 'Не указан'"></span></div>
                                 </div>
                             </div>
 
@@ -309,6 +302,16 @@
                                 </h4>
                                 <p class="text-gray-600 text-sm" x-text="selectedEmployee.notes || 'Примечания отсутствуют'"></p>
                             </div>
+                                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 class="font-medium text-gray-700 mb-1">??? ??????:</h4>
+                                        <p class="text-gray-600 text-sm" x-text="selectedEmployee.payment_type_display || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-gray-700 mb-1">??????:</h4>
+                                        <p class="text-gray-600 text-sm" x-text="selectedEmployee.work_schedule_display || '-'"></p>
+                                    </div>
+                                </div>
                         </div>
 
                         <!-- Stats Tab -->
@@ -509,109 +512,7 @@
                         </div>
 
                         <!-- Documents Tab -->
-                        <div x-show="profileTab === 'documents'" class="space-y-4">
-                            <div class="bg-white border rounded-lg p-4">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h4 class="font-semibold">Документы сотрудника</h4>
-                                    <button class="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm flex items-center space-x-1">
-                                        <i data-lucide="plus" class="w-4 h-4"></i>
-                                        <span>Добавить</span>
-                                    </button>
-                                </div>
-                                
-                                <!-- Паспортные данные -->
-                                <div class="border rounded-lg p-3 mb-3">
-                                    <div class="flex items-center space-x-3 mb-2">
-                                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                                            <i data-lucide="id-card" class="w-4 h-4 text-red-600"></i>
-                                        </div>
-                                        <div>
-                                            <h5 class="font-medium text-gray-900">Паспортные данные</h5>
-                                            <p class="text-xs text-gray-500">2 документа</p>
-                                        </div>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Паспорт (основная страница)</span>
-                                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Загружен</span>
-                                        </div>
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Паспорт (прописка)</span>
-                                            <span class="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">Ожидает</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Трудовые документы -->
-                                <div class="border rounded-lg p-3 mb-3">
-                                    <div class="flex items-center space-x-3 mb-2">
-                                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                            <i data-lucide="briefcase" class="w-4 h-4 text-blue-600"></i>
-                                        </div>
-                                        <div>
-                                            <h5 class="font-medium text-gray-900">Трудовые документы</h5>
-                                            <p class="text-xs text-gray-500">3 документа</p>
-                                        </div>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Трудовой договор</span>
-                                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Загружен</span>
-                                        </div>
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Трудовая книжка</span>
-                                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Загружен</span>
-                                        </div>
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Приказ о приеме</span>
-                                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">Загружен</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Медицинские документы -->
-                                <div class="border rounded-lg p-3">
-                                    <div class="flex items-center space-x-3 mb-2">
-                                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                            <i data-lucide="heart" class="w-4 h-4 text-green-600"></i>
-                                        </div>
-                                        <div>
-                                            <h5 class="font-medium text-gray-900">Медицинские документы</h5>
-                                            <p class="text-xs text-gray-500">1 документ</p>
-                                        </div>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                            <span>Медицинская книжка</span>
-                                            <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">Просрочен</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Статистика документов -->
-                            <div class="bg-white border rounded-lg p-4">
-                                <h5 class="font-medium text-gray-900 mb-3">Статистика документов</h5>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-green-600">5</div>
-                                        <div class="text-sm text-gray-600">Загружено</div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-yellow-600">1</div>
-                                        <div class="text-sm text-gray-600">Ожидает</div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-red-600">1</div>
-                                        <div class="text-sm text-gray-600">Просрочено</div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-blue-600">83%</div>
-                                        <div class="text-sm text-gray-600">Полнота</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        
 
                         <!-- Action Buttons -->
                         <div class="flex space-x-3 pt-6 border-t border-gray-200">
@@ -737,11 +638,8 @@
             roles: {
                 employee: { label: 'Сотрудник', color: 'bg-green-100 text-green-800' },
                 worker: { label: 'Сотрудник', color: 'bg-green-100 text-green-800' },
-                master: { label: 'Мастер', color: 'bg-blue-100 text-blue-800' },
                 admin: { label: 'Администратор', color: 'bg-purple-100 text-purple-800' },
                 accountant: { label: 'Бухгалтер', color: 'bg-yellow-100 text-yellow-800' },
-                director: { label: 'Директор', color: 'bg-red-100 text-red-800' },
-                founder: { label: 'Учредитель', color: 'bg-indigo-100 text-indigo-800' }
             },
             async init() {
                 await this.loadWorkshops();
@@ -799,8 +697,8 @@
             get filteredEmployees() {
                 const excludedRoles = [
                     'руководитель', 'директор', 'администратор', 'бухгалтер', 'учредитель',
-                    'admin', 'director', 'accountant', 'founder',
-                    'ADMIN', 'DIRECTOR', 'ACCOUNTANT', 'FOUNDER'
+                    'admin', 'accountant',
+                    'ADMIN', 'ACCOUNTANT'
                 ];
                 const searchLower = this.searchTerm.toLowerCase();
                 return this.employees.filter(employee => {

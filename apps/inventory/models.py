@@ -30,7 +30,9 @@ class RawMaterial(models.Model):
 
     @property
     def total_value(self):
-        """Общая стоимость материала на складе"""
+        """??????? ????? ??????? ?? ???????."""
+        if self.quantity is None or self.price is None:
+            return 0
         return self.quantity * self.price
 
 class MaterialIncoming(models.Model):
@@ -52,7 +54,7 @@ class MaterialIncoming(models.Model):
 
     def save(self, *args, **kwargs):
         # Автоматически рассчитываем общую стоимость
-        if self.price_per_unit is not None and not self.total_value:
+        if self.price_per_unit is not None and self.total_value is None:
             self.total_value = self.quantity * self.price_per_unit
         super().save(*args, **kwargs) 
 

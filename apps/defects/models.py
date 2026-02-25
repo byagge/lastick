@@ -101,21 +101,11 @@ class Defect(models.Model):
         return self.user.workshop if self.user else None
     
     def can_be_confirmed_by(self, user):
-        """Проверяет, может ли пользователь подтвердить этот брак"""
-        # Разрешаем подтверждение браков мастерам и администраторам
-        if user.role not in [User.Role.MASTER, User.Role.ADMIN, User.Role.FOUNDER, User.Role.DIRECTOR]:
+        """???????? ???? ?? ????????????? ?????."""
+        if not user:
             return False
-        
-        # Для администраторов, учредителей и директоров не требуем привязки к цеху
-        if user.role in [User.Role.ADMIN, User.Role.FOUNDER, User.Role.DIRECTOR]:
-            return True
-        
-        # Мастер: разрешаем всегда (по требованию)
-        if user.role == User.Role.MASTER:
-            return True
-        
-        return False
-    
+        return user.role == User.Role.ADMIN
+
     def confirm_defect(self, master, is_repairable, defect_type=None, target_workshop=None, comment='', penalty_amount=None):
         """Подтверждает брак мастером или администратором"""
         from django.utils import timezone

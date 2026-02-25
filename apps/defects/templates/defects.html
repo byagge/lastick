@@ -548,7 +548,7 @@
                 const userRole = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
                 
                 // Разрешаем подтверждение браков мастерам и администраторам
-                const allowedRoles = ['master', 'Master', 'admin', 'Admin', 'founder', 'Founder', 'director', 'Director'];
+                const allowedRoles = ['admin', 'Admin'];
                 
                 console.log('canConfirmDefect check:', {
                     currentUser: this.currentUser,
@@ -584,7 +584,7 @@
                 }
                 
                 const userRole = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
-                const adminRoles = ['founder', 'Founder', 'director', 'Director', 'admin', 'Admin', 'master', 'Master'];
+                const adminRoles = ['admin', 'Admin'];
                 const canClose = adminRoles.includes(userRole) && defect.status === 'repaired';
                 
                 console.log('canCloseDefect check:', { userRole, defectStatus: defect.status, canClose, adminRoles });
