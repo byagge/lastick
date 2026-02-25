@@ -85,7 +85,7 @@
         </aside>
 
         <!-- Main column -->
-        <div class="flex-1 flex flex-col" x-data="inventoryData()" x-init="init()">
+        <div class="flex-1 flex flex-col">
             <!-- Top header -->
             <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
                 <div class="flex items-center justify-between px-4 lg:px-8 h-16">
@@ -120,7 +120,7 @@
             </header>
 
             <!-- Main Content -->
-            <main class="flex-1 overflow-auto px-4 lg:px-8 py-6 space-y-6">
+            <main class="flex-1 overflow-auto px-4 lg:px-8 py-6 space-y-6" x-data="inventoryData()" x-init="init()">
                 <!-- Заголовок и кнопки управления -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6 flex flex-col lg:flex-row lg:items-center justify-between">
                     <div>
@@ -547,20 +547,6 @@
             </div>  
         </div>
 
-        <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div class="flex flex-col md:flex-row md:items-center justify-between text-sm text-gray-600">
-                <div class="flex items-center space-x-6 mb-2 md:mb-0">
-                    <span>Показано: <span x-text="filteredMaterials().length"></span> из <span x-text="materials.length"></span></span>
-                    <span>Выбрано: <span x-text="selectedRows.length"></span></span>
-                </div>
-                <div class="flex items-center space-x-6">
-                    <span>Общая стоимость: <span x-text="stats().totalValue.toLocaleString() + ' ₽'"></span></span>
-                    <span class="text-red-600">Низкие остатки: <span x-text="stats().lowStockCount"></span></span>
-                </div>
-            </div>
-        </div>
-            </main>
-
         <!-- Модальная форма (создание/редактирование) -->
         <div x-show="showForm" 
              x-transition:enter="transition ease-out duration-300"
@@ -959,7 +945,19 @@
         </div>
 
         <!-- Нижняя панель статистики -->
-
+        <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between text-sm text-gray-600">
+                <div class="flex items-center space-x-6 mb-2 md:mb-0">
+                    <span>Показано: <span x-text="filteredMaterials().length"></span> из <span x-text="materials.length"></span></span>
+                    <span>Выбрано: <span x-text="selectedRows.length"></span></span>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <span>Общая стоимость: <span x-text="stats().totalValue.toLocaleString() + ' ₽'"></span></span>
+                    <span class="text-red-600">Низкие остатки: <span x-text="stats().lowStockCount"></span></span>
+                </div>
+            </div>
+        </div>
+            </main>
         </div>
     </div>
 

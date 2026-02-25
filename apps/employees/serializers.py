@@ -41,8 +41,17 @@ class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'first_name', 'last_name', 'name', 'full_name', 'position', 'phone', 'email', 'status',
-            'workshop', 'workshop_name', 'notes', 'role_display', 'is_active', 'role', 'balance',
+            'id', 'username',
+            'first_name', 'last_name', 'name', 'full_name',
+            'position', 'role', 'role_display', 'is_active', 'status',
+            'phone', 'email',
+            'workshop', 'workshop_name',
+            'notes',
+            # HR-поля (без документов)
+            'payment_type', 'payment_type_display',
+            'work_schedule', 'work_schedule_display',
+            # Финансы
+            'balance',
             # Статистика
             'salary', 'completed_works', 'defects', 'efficiency', 'monthly_salary',
             # Связанные данные
@@ -155,10 +164,10 @@ class EmployeeSerializer(serializers.ModelSerializer):
             for notification in notifications
         ]
     def create(self, validated_data):
-        # Обработка вложенных полей
-        validated_data['role'] = validated_data.pop('role', validated_data.get('position', 'worker'))
+        # Обработка вложенных полей / алиасов
+        validated_data['role'] = validated_data.get('role') or validated_data.get('position') or User.Role.WORKER
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        validated_data['role'] = validated_data.pop('role', validated_data.get('position', instance.role))
-        return super().update(instance, validated_data) 
+        validated_data['role'] = validated_data.get('role') or validated_data.get('position') or instance.role
+        return super().update(instance, validated_data)

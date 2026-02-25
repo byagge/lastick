@@ -39,6 +39,7 @@ class RoleBasedRedirectMiddleware:
         role_redirects = {
             User.Role.ADMIN: '/dashboard/',  # Администратор -> дашборд
             User.Role.ACCOUNTANT: '/finance/',  # Бухгалтер -> финансы
+            User.Role.MASTER: '/dashboard/',  # Мастер -> дашборд
             User.Role.WORKER: '/employee_tasks/tasks/',  # Рабочий -> задачи сотрудника
         }
         

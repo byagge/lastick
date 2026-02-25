@@ -35,14 +35,27 @@ def employees_workshop_list(request):
     template = 'employees_mobile.html' if is_mobile(request) else 'employees.html'
     return render(request, template, {'userWorkshopIds': [], 'userWorkshopList': []})
 
+class IsAdminOrAccountant(permissions.BasePermission):
+    """
+    Доступ только для администраторов и бухгалтеров.
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        role = getattr(user, 'role', None)
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_superuser or role in [User.Role.ADMIN, User.Role.ACCOUNTANT])
+        )
+
+
 class EmployeeViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeSerializer
-    permission_classes = []  # Временно убираем аутентификацию для тестирования
+    permission_classes = [IsAuthenticated, IsAdminOrAccountant]
 
     def get_queryset(self):
-        staff_roles = [
-            User.Role.ADMIN, User.Role.ACCOUNTANT, User.Role.WORKER
-        ]
+        staff_roles = [User.Role.ADMIN, User.Role.ACCOUNTANT, User.Role.WORKER]
         return User.objects.filter(role__in=staff_roles).order_by('last_name', 'first_name')
 
     def create(self, request, *args, **kwargs):

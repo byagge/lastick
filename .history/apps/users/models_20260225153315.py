@@ -35,7 +35,7 @@ class User(AbstractUser):
     )
     notes = models.TextField('Примечания', blank=True)
 
-    # Дополнительные HR-поля (без хранения документов)
+    # Дополнительные HR-поля
     payment_type = models.CharField(
         max_length=20,
         choices=PaymentType.choices,
@@ -47,6 +47,31 @@ class User(AbstractUser):
         choices=WorkSchedule.choices,
         default=WorkSchedule.DAY,
         verbose_name='График работы'
+    )
+    employment_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Дата приёма'
+    )
+    dismissal_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Дата увольнения'
+    )
+    passport_number = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Паспорт'
+    )
+    inn = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='ИНН'
+    )
+    contract_number = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Номер договора'
     )
 
     # Поле для баланса пользователя

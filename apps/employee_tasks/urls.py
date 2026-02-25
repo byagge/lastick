@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import EmployeeTaskViewSet, tasks_page, EmployeeFullInfoAPIView, employee_info_page, stats_employee_page, defects_management_page, task_detail_page
+from .views import EmployeeTaskViewSet, tasks_page, EmployeeFullInfoAPIView, employee_info_page, stats_employee_page, employee_orders_page, defects_management_page, task_detail_page
 from .api import (
     EmployeeTaskAssignViewSet, 
     employee_earnings_stats, 
@@ -26,6 +26,7 @@ urlpatterns = [
     path('tasks/<int:task_id>/', task_detail_page, name='task-detail-page'),
     path('employee_info/', employee_info_page, name='employee-info-page'),
     path('stats/', stats_employee_page, name='employee-stats-page'),
+    path('employee_orders/', employee_orders_page, name='employee-orders-page'),
     path('defects/', defects_management_page, name='defects-management-page'),
     path('api/employee-full-info/<int:pk>/', EmployeeFullInfoAPIView.as_view(), name='employee-full-info-api'),
     

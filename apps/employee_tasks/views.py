@@ -78,6 +78,10 @@ def stats_employee_page(request):
     return render(request, 'stats_employee.html')
 
 
+def employee_orders_page(request):
+    return render(request, 'employee_orders.html')
+
+
 def defects_management_page(request):
     """Render defects management page."""
     return render(request, 'defects_management.html')
