@@ -151,7 +151,7 @@ class AddWorkshopMasterView(APIView):
 		master_id = request.data.get('master_id')
 		
 		if not workshop_id or not master_id:
-			return Response({'error': 'Не указаны ID цеха или мастера'}, status=400)
+    	return Response({'error': 'Не указаны ID цеха или мастера'}, status=400)
 		
 		try:
 			workshop = Workshop.objects.get(id=workshop_id, is_active=True)
@@ -358,12 +358,11 @@ class MasterWorkshopsStatsView(APIView):
             }
         }
     
-    def _calculate_efficiency(completed, defects):
+		def _calculate_efficiency(self, completed, defects):
         """Рассчитывает эффективность в процентах"""
-        if completed == 0:
-            return 0
-        return round(((completed - defects) / completed) * 100, 1)
-
+		if completed == 0:
+			return 0
+		return round(((completed - defects) / completed) * 100, 1)
 
 
 class ExtrusionReportView(APIView):

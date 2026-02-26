@@ -365,7 +365,6 @@ class MasterWorkshopsStatsView(APIView):
         return round(((completed - defects) / completed) * 100, 1)
 
 
-
 class ExtrusionReportView(APIView):
     """
     Workflow для первого (экструзионного) цеха.

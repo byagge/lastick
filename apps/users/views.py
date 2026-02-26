@@ -8,7 +8,7 @@ from django.conf import settings
 from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from apps.users.models import User
+from apps.users.models import User, UserSettings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -152,3 +152,53 @@ class ProfileAPIView(APIView):
         if business:
             data['business'] = {'id': business.id, 'name': str(business)}
         return Response(data)
+
+
+class SettingsView(View):
+    template_name = 'settings.html'
+
+    @method_decorator(login_required)
+    def get(self, request):
+        return render(request, self.template_name, {
+            'user': request.user
+        })
+
+
+class UserSettingsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        settings_obj, _ = UserSettings.objects.get_or_create(user=user)
+        full_name = user.get_full_name() or user.username
+        initials = ''.join([p[0] for p in full_name.split() if p])[:2].upper() or (user.username[:1].upper())
+        data = {
+            'profile': {
+                'name': full_name,
+                'role': getattr(user, 'role', ''),
+                'initials': initials
+            },
+            'settings': {
+                'pin_login': settings_obj.pin_login,
+                'face_id': settings_obj.face_id
+            }
+        }
+        return Response(data)
+
+    def patch(self, request):
+        settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
+        payload = request.data or {}
+        updated = False
+        for field in ('pin_login', 'face_id'):
+            if field in payload:
+                setattr(settings_obj, field, bool(payload.get(field)))
+                updated = True
+        if updated:
+            settings_obj.save(update_fields=['pin_login', 'face_id', 'updated_at'])
+        return Response({
+            'status': 'ok',
+            'settings': {
+                'pin_login': settings_obj.pin_login,
+                'face_id': settings_obj.face_id
+            }
+        })

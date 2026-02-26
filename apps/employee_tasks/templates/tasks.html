@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#0e121a">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-192x192.png">
     <link rel="shortcut icon" href="/static/icons/icon-192x192.png">
@@ -12,20 +12,33 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
+    <script id="user-workshop-id" type="application/json">{% if request.user.workshop %}{{ request.user.workshop.id|default:'null' }}{% else %}null{% endif %}</script>
     <script id="user-workshop-name" type="application/json">{{ request.user.workshop.name|default:'""'|safe }}</script>
     <script id="user-payment-type" type="application/json">{{ request.user.payment_type|default:'"fixed"'|safe }}</script>
     <script>
       window.user_id = JSON.parse(document.getElementById('user-id').textContent);
     </script>
     <style>
-        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
-        .nav-active { color: #2563eb; }
-        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
-        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0e121a; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
         .modal-bg { background: rgba(0,0,0,0.35); }
         .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
         @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
         .product-image { object-fit: cover; }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .btn-dark { background-color: #0e121a; color: #fff; }
+        .btn-dark:hover { background-color: #0b0f16; }
+        .btn-loading { opacity: 0.75; }
+        .text-dark { color: #0e121a; }
+        /* Theme overrides */
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .text-blue-500 { color: #0e121a !important; }
         /* Мобильные стили */
         @media (max-width: 640px) {
             .mobile-card { margin-bottom: 0.75rem; padding: 0.75rem; }
@@ -38,9 +51,9 @@
 </head>
 <body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
     <!-- AppBar -->
-    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-3 h-14">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-3 h-14">
         <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div class="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center shadow-sm">
                 <span class="text-white font-bold text-lg">S</span>
             </div>
             <span class="text-base font-semibold text-gray-900">Задачи</span>
@@ -59,11 +72,8 @@
             <h1 class="text-xl font-bold text-gray-900">Мои задачи</h1>
         </div>
         
-        <!-- Поиск -->
-        <div class="mb-3">
-            <input type="text" x-model="searchTerm" placeholder="Поиск по названию..." 
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-        </div>
+        <!-- Поиск (только для цехов, где показываются задачи) -->
+        
         
         <!-- Loading -->
         <template x-if="loading">
@@ -76,69 +86,106 @@
         
         <!-- Экструзия: отдельный workflow по балансу материалов -->
         <template x-if="!loading && isExtrusion">
-            <div>
+            <div class="space-y-4">
                 <template x-if="!hasMaterialBalance && !extrusionSummary">
                     <div class="text-center py-8 space-y-3">
-                        <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i data-lucide="package" class="w-8 h-8 text-blue-500"></i>
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="package" class="w-8 h-8 text-gray-600"></i>
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Нет материалов в балансе</h3>
-                        <p class="text-sm text-gray-600 px-4">
-                            Чтобы начать работу, возьмите материалы со склада.
-                        </p>
-                        <a href="/inventory/issue/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">
-                            Перейти к выдаче материалов
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">&#1053;&#1077;&#1090; &#1084;&#1072;&#1090;&#1077;&#1088;&#1080;&#1072;&#1083;&#1086;&#1074; &#1085;&#1072; &#1073;&#1072;&#1083;&#1072;&#1085;&#1089;&#1077;</h3>
+                        <p class="text-sm text-gray-600 px-4">&#1044;&#1083;&#1103; &#1089;&#1090;&#1072;&#1088;&#1090;&#1072; &#1088;&#1072;&#1073;&#1086;&#1090;&#1099; &#1085;&#1091;&#1078;&#1085;&#1086; &#1074;&#1079;&#1103;&#1090;&#1100; &#1084;&#1072;&#1090;&#1077;&#1088;&#1080;&#1072;&#1083;&#1099; &#1089;&#1086; &#1089;&#1082;&#1083;&#1072;&#1076;&#1072;.</p>
+                        <a href="/inventory/issue/" class="inline-flex items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                            &#1042; &#1089;&#1082;&#1083;&#1072;&#1076;
                         </a>
                     </div>
                 </template>
 
                 <template x-if="hasMaterialBalance && !extrusionSummary">
-                    <div class="space-y-4">
-                        <div class="card bg-white rounded-lg p-4">
-                            <h2 class="text-base font-semibold text-gray-900 mb-2">Баланс материалов</h2>
-                            <p class="text-sm text-gray-600 mb-3">
-                                У вас есть материалы на балансе. После выполнения работы подтвердите общий объём произведённого товара.
-                            </p>
-                            <button @click="sendExtrusionReport"
-                                    class="w-full inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">
-                                Подтвердить выполнение работы
-                            </button>
+                    <div class="card bg-white rounded-lg p-4 space-y-4">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-900 mb-1">&#1055;&#1086;&#1076;&#1090;&#1074;&#1077;&#1088;&#1076;&#1080;&#1090;&#1077; &#1074;&#1099;&#1087;&#1091;&#1089;&#1082;</h2>
+                            <p class="text-sm text-gray-600">&#1054;&#1073;&#1097;&#1080;&#1081; &#1073;&#1072;&#1083;&#1072;&#1085;&#1089; &#1084;&#1072;&#1090;&#1077;&#1088;&#1080;&#1072;&#1083;&#1086;&#1074;: <span class="font-semibold" x-text="materialBalanceTotal.toFixed(3) + ' \u043a\u0433'" ></span></p>
                         </div>
+
+                        <template x-if="!showExtrusionForm">
+                            <button @click="showExtrusionForm = true" class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                                &#1055;&#1086;&#1076;&#1090;&#1074;&#1077;&#1088;&#1076;&#1080;&#1090;&#1100; &#1074;&#1099;&#1087;&#1086;&#1083;&#1085;&#1077;&#1085;&#1080;&#1077;
+                            </button>
+                        </template>
+
+                        <template x-if="showExtrusionForm">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">&#1057;&#1082;&#1086;&#1083;&#1100;&#1082;&#1086; &#1082;&#1075; &#1087;&#1088;&#1086;&#1080;&#1079;&#1074;&#1077;&#1076;&#1077;&#1085;&#1086;</label>
+                                    <input type="number" step="0.001" min="0"
+                                           x-model="extrusionProducedInput"
+                                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                           placeholder="&#1053;&#1072;&#1087;&#1088;&#1080;&#1084;&#1077;&#1088;: 125.5">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <div class="text-gray-500">&#1041;&#1088;&#1072;&#1082;</div>
+                                        <div class="font-semibold text-red-600" x-text="computedScrap.toFixed(3) + ' \u043a\u0433'" ></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">&#1069;&#1092;&#1092;&#1077;&#1082;&#1090;&#1080;&#1074;&#1085;&#1086;&#1089;&#1090;&#1100;</div>
+                                        <div class="font-semibold text-gray-900" x-text="computedEfficiency.toFixed(1) + ' %'"></div>
+                                    </div>
+                                </div>
+
+                                <button @click="sendExtrusionReport"
+                                        :class="{'btn-loading': extrusionSubmitState === 'loading'}"
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                                    <template x-if="extrusionSubmitState === 'loading'">
+                                        <span class="inline-flex items-center">
+                                            <svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                            </svg>
+                                            &#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1082;&#1072;...
+                                        </span>
+                                    </template>
+                                    <template x-if="extrusionSubmitState !== 'loading'">
+                                        <span>&#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100;</span>
+                                    </template>
+                                </button>
+                                <div x-show="extrusionSubmitMessage" class="text-sm"
+                                     :class="extrusionSubmitState === 'success' ? 'text-green-600' : 'text-red-600'">
+                                    <span x-text="extrusionSubmitMessage"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </template>
 
                 <template x-if="extrusionSummary">
-                    <div class="space-y-4">
-                        <div class="card bg-white rounded-lg p-4">
-                            <h2 class="text-base font-semibold text-gray-900 mb-2">Отчёт отправлен</h2>
-                            <p class="text-sm text-green-700 mb-3">
-                                Данные успешно сохранены. Полуфабрикат передан в нейтральную зону.
-                            </p>
-                            <div class="grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                    <div class="text-gray-500">Выдано материалов</div>
-                                    <div class="font-semibold text-gray-900" x-text="extrusionSummary.total_material.toFixed(3) + ' ед.'"></div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500">Выполнено</div>
-                                    <div class="font-semibold text-gray-900" x-text="extrusionSummary.produced_quantity.toFixed(3) + ' ед.'"></div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500">Брак</div>
-                                    <div class="font-semibold text-red-600" x-text="extrusionSummary.scrap_quantity.toFixed(3) + ' ед.'"></div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500">Эффективность</div>
-                                    <div class="font-semibold text-gray-900" x-text="extrusionSummary.efficiency.toFixed(1) + ' %'"></div>
-                                </div>
-                                <template x-if="paymentType === 'variable'">
-                                    <div class="col-span-2">
-                                        <div class="text-gray-500">Заработано сегодня</div>
-                                        <div class="font-semibold text-emerald-600" x-text="extrusionSummary.earnings.toFixed(2) + ' сом'"></div>
-                                    </div>
-                                </template>
+                    <div class="card bg-white rounded-lg p-4 space-y-3">
+                        <div class="flex items-center space-x-2 text-green-700">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i>
+                            <span class="font-semibold">&#1054;&#1090;&#1095;&#1077;&#1090; &#1086;&#1090;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <div class="text-gray-500">&#1054;&#1073;&#1097;&#1080;&#1081; &#1084;&#1072;&#1090;&#1077;&#1088;&#1080;&#1072;&#1083;</div>
+                                <div class="font-semibold text-gray-900" x-text="extrusionSummary.total_material.toFixed(3) + ' \u043a\u0433'" ></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">&#1042;&#1099;&#1087;&#1091;&#1097;&#1077;&#1085;&#1086;</div>
+                                <div class="font-semibold text-gray-900" x-text="extrusionSummary.produced_quantity.toFixed(3) + ' \u043a\u0433'" ></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">&#1041;&#1088;&#1072;&#1082;</div>
+                                <div class="font-semibold text-red-600" x-text="extrusionSummary.scrap_quantity.toFixed(3) + ' \u043a\u0433'" ></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">&#1069;&#1092;&#1092;&#1077;&#1082;&#1090;&#1080;&#1074;&#1085;&#1086;&#1089;&#1090;&#1100;</div>
+                                <div class="font-semibold text-gray-900" x-text="extrusionSummary.efficiency.toFixed(1) + ' %'"></div>
                             </div>
                         </div>
+                        <template x-if="paymentType === 'variable'">
+                            <div class="text-sm text-emerald-600 font-semibold" x-text="'\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e: ' + extrusionSummary.earnings.toFixed(2) + ' \u0441\u043e\u043c'" ></div>
+                        </template>
                     </div>
                 </template>
             </div>
@@ -231,21 +278,43 @@
                         </template>
 
                         <!-- Ввод объёма и отправка -->
-                        <div class="space-y-2">
-                            <label class="block text-xs text-gray-500 mb-1">Сколько единиц/кг доработано</label>
-                            <input type="number" min="0" step="0.001"
-                                   x-model.number="packagingProduced"
-                                   placeholder="Введите количество"
-                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button @click="sendPackagingReport"
-                                    class="w-full inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">
-                                Отправить
-                            </button>
-                        </div>
+                        <template x-if="!packagingSummary">
+                            <div class="space-y-2">
+                                <label class="block text-xs text-gray-500 mb-1">Сколько единиц/кг доработано</label>
+                                <input type="number" min="0" step="0.001"
+                                       x-model.number="packagingProduced"
+                                       placeholder="Введите количество"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                <button @click="sendPackagingReport"
+                                        :class="{'btn-loading': packagingSubmitState === 'loading'}"
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                                    <template x-if="packagingSubmitState === 'loading'">
+                                        <span class="inline-flex items-center">
+                                            <svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                            </svg>
+                                            Отправка...
+                                        </span>
+                                    </template>
+                                    <template x-if="packagingSubmitState !== 'loading'">
+                                        <span>Отправить</span>
+                                    </template>
+                                </button>
+                                <div x-show="packagingSubmitMessage" class="text-sm"
+                                     :class="packagingSubmitState === 'success' ? 'text-green-600' : 'text-red-600'">
+                                    <span x-text="packagingSubmitMessage"></span>
+                                </div>
+                            </div>
+                        </template>
 
                         <!-- Статистика после отправки -->
                         <template x-if="packagingSummary">
                             <div class="mt-4 border-t border-gray-200 pt-3">
+                                <div class="flex items-center space-x-2 text-green-700 mb-2">
+                                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                    <span class="text-sm font-semibold">Отчет отправлен</span>
+                                </div>
                                 <h3 class="text-sm font-semibold text-gray-900 mb-2">Статистика за сегодня</h3>
                                 <div class="grid grid-cols-2 gap-3 text-sm">
                                     <div>
@@ -280,205 +349,23 @@
 
         <!-- Обычный список задач для остальных цехов -->
         <template x-if="!loading && !isExtrusion && !isPackaging">
-            <div>
-                <template x-if="filteredTasks.length === 0">
-                    <div class="text-center py-8">
-                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i data-lucide="check-square" class="w-8 h-8 text-gray-400"></i>
-                        </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Нет задач</h3>
-                        <p class="text-sm text-gray-600">У вас пока нет задач</p>
-                    </div>
-                </template>
-                
-                <template x-for="task in filteredTasks" :key="task.id">
-                    <a :href="`/employee_tasks/tasks/${task.id}/`" class="block">
-                        <div class="card bg-white rounded-lg p-3 mb-3 flex items-start space-x-3 cursor-pointer hover:shadow-md transition-shadow duration-200 mobile-card"
-                             :class="isTaskOverdue(task) ? 'bg-red-50 border-l-4 border-l-red-400' : ''">
-                            <!-- Checkbox -->
-                            <div class="relative mt-0.5" @click.stop="toggleTask(task)">
-                                <input type="checkbox" :checked="getRealQuantity(task, 'completed') >= getRealQuantity(task, 'plan')" class="sr-only">
-                                <div class="w-5 h-5 rounded border-2 transition-all duration-200 cursor-pointer flex items-center justify-center"
-                                     :class="getRealQuantity(task, 'completed') >= getRealQuantity(task, 'plan') ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'">
-                                    <i data-lucide="check" class="w-3 h-3 text-white" x-show="getRealQuantity(task, 'completed') >= getRealQuantity(task, 'plan')"></i>
-                                </div>
-                            </div>
-                            
-                            <div class="flex-1 min-w-0">
-                                <!-- Task Title with Overdue Indicator -->
-                                <div class="flex items-center space-x-2 mb-2">
-                                    <div class="font-semibold text-gray-900 text-sm" x-text="task.stage_name ? task.stage_name : ('Этап №' + task.stage)"></div>
-                                    <template x-if="task.is_combined && task.combined_tasks">
-                                        <div class="flex items-center space-x-1 bg-blue-100 px-2 py-1 rounded-full">
-                                            <i data-lucide="package" class="w-3 h-3 text-blue-600"></i>
-                                            <span class="text-xs text-blue-700 font-medium" x-text="'Группа (' + task.combined_tasks.length + ')'"></span>
-                                        </div>
-                                    </template>
-                                    <template x-if="isTaskOverdue(task)">
-                                        <div class="flex items-center space-x-1 bg-red-100 px-2 py-1 rounded-full">
-                                            <i data-lucide="clock" class="w-3 h-3 text-red-600"></i>
-                                            <span class="text-xs text-red-700 font-medium">Просрочено</span>
-                                        </div>
-                                    </template>
-                                </div>
-                                
-                                <!-- Warning for workshops ID 1 and 3 -->
-                                <template x-if="shouldShowWarning(task)">
-                                    <div class="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                                        <div class="flex items-start space-x-2">
-                                            <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0"></i>
-                                            <div class="text-xs text-yellow-800">
-                                                <strong>Внимание:</strong> Указано количество дверей, в вашем цехе 1 дверь это две детали, то есть ваша работа количество нужно сделать в виде <strong class="text-yellow-900" x-text="(task.quantity || 0) * 2"></strong>.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
-                                
-                                <!-- Product Info -->
-                                <template x-if="task.order_item">
-                                    <div class="mb-2">
-                                        <!-- Product Image -->
-                                        <template x-if="task.order_item.product && task.order_item.product.img">
-                                            <div class="mb-2">
-                                                <img :src="task.order_item.product.img" :alt="task.order_item.product.name" 
-                                                     class="w-full h-20 rounded-lg product-image bg-gray-100">
-                                            </div>
-                                        </template>
-                                        
-                                        <!-- Product Details -->
-                                        <div class="bg-gray-50 rounded-lg p-2 mb-2">
-                                            <div class="font-medium text-gray-900 text-sm mb-1" x-text="task.order_item.product ? task.order_item.product.name : 'Товар'"></div>
-                                            
-                                            <!-- Tags -->
-                                            <div class="flex flex-wrap gap-1 mb-1">
-                                                <template x-if="task.order_item.size">
-                                                    <div class="flex items-center space-x-1 bg-blue-100 px-1.5 py-0.5 rounded-full">
-                                                        <i data-lucide="ruler" class="w-2.5 h-2.5 text-blue-600"></i>
-                                                        <span class="text-xs text-blue-700 font-medium" x-text="task.order_item.size"></span>
-                                                    </div>
-                                                </template>
-                                                <template x-if="task.order_item.color">
-                                                    <div class="flex items-center space-x-1 bg-purple-100 px-1.5 py-0.5 rounded-full">
-                                                        <i data-lucide="palette" class="w-2.5 h-2.5 text-purple-600"></i>
-                                                        <span class="text-xs text-purple-700 font-medium" x-text="task.order_item.color"></span>
-                                                    </div>
-                                                </template>
-                                                <template x-if="task.order_item.product && task.order_item.product.is_glass">
-                                                    <div class="flex items-center space-x-1 bg-cyan-100 px-1.5 py-0.5 rounded-full">
-                                                        <i data-lucide="droplets" class="w-2.5 h-2.5 text-cyan-600"></i>
-                                                        <span class="text-xs text-cyan-700 font-medium" x-text="task.order_item.glass_type_display || 'Стекло'"></span>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                            
-                                            <!-- Paint Info -->
-                                            <template x-if="task.order_item.paint_type || task.order_item.paint_color">
-                                                <div class="flex flex-wrap gap-1">
-                                                    <template x-if="task.order_item.paint_type">
-                                                        <div class="flex items-center space-x-1 bg-orange-100 px-1.5 py-0.5 rounded-full">
-                                                            <i data-lucide="brush" class="w-2.5 h-2.5 text-orange-600"></i>
-                                                            <span class="text-xs text-orange-700 font-medium" x-text="task.order_item.paint_type"></span>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="task.order_item.paint_color">
-                                                        <div class="flex items-center space-x-1 bg-red-100 px-1.5 py-0.5 rounded-full">
-                                                            <i data-lucide="droplet" class="w-2.5 h-2.5 text-red-600"></i>
-                                                            <span class="text-xs text-red-700 font-medium" x-text="task.order_item.paint_color"></span>
-                                                        </div>
-                                                    </template>
-                                                </div>
-                                            </template>
-                                            
-                                            <!-- Workshop Specifications -->
-                                            <template x-if="task.workshop_info && (task.workshop_info.cutting_specs || task.workshop_info.cnc_specs || task.workshop_info.preparation_specs)">
-                                                <div class="mt-2 pt-2 border-t border-gray-200">
-                                                    <div class="text-xs text-gray-500 font-medium mb-1">Спецификации цеха:</div>
-                                                    <div class="space-y-1">
-                                                        <template x-if="task.workshop_info.cutting_specs">
-                                                            <div class="flex items-center space-x-1">
-                                                                <i data-lucide="scissors" class="w-3 h-3 text-orange-500"></i>
-                                                                <span class="text-xs text-gray-700" x-text="task.workshop_info.cutting_specs"></span>
-                                                            </div>
-                                                        </template>
-                                                        <template x-if="task.workshop_info.cnc_specs">
-                                                            <div class="flex items-center space-x-1">
-                                                                <i data-lucide="cpu" class="w-3 h-3 text-green-500"></i>
-                                                                <span class="text-xs text-gray-700" x-text="task.workshop_info.cnc_specs"></span>
-                                                            </div>
-                                                        </template>
-                                                        <template x-if="task.workshop_info.preparation_specs">
-                                                            <div class="flex items-center space-x-1">
-                                                                <i data-lucide="settings" class="w-3 h-3 text-purple-500"></i>
-                                                                <span class="text-xs text-gray-700" x-text="task.workshop_info.preparation_specs"></span>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                                
-                                <!-- Aggregated Order Items (when no order_item) -->
-                                <template x-if="!task.order_item && task.workshop_info && task.workshop_info.items && task.workshop_info.items.length">
-                                    <div class="mb-2 bg-gray-50 p-2 rounded-lg">
-                                        <div class="text-xs text-gray-700 font-medium mb-1">Товары заказа:</div>
-                                        <div class="space-y-1">
-                                            <template x-for="it in task.workshop_info.items" :key="it.product + '-' + it.size + '-' + it.color">
-                                                <div class="flex items-center space-x-2">
-                                                    <template x-if="it.photo">
-                                                        <img :src="it.photo" :alt="it.product" class="w-8 h-8 rounded border border-gray-200">
-                                                    </template>
-                                                    <div class="flex-1">
-                                                        <div class="text-sm font-medium text-gray-900" x-text="it.product || 'Товар'"></div>
-                                                        <div class="text-xs text-gray-600">
-                                                            <span x-text="it.quantity"></span> шт.
-                                                            <template x-if="it.size"> • <span x-text="it.size"></span></template>
-                                                            <template x-if="it.color"> • <span x-text="it.color"></span></template>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                                
-                                <!-- Progress Bar -->
-                                <div class="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-                                    <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
-                                         :style="`width: ${Math.min(100, (getRealQuantity(task, 'completed') / getRealQuantity(task, 'plan')) * 100)}%`"></div>
-                                </div>
-                                
-                                <!-- Progress Info -->
-                                <div class="flex items-center justify-between text-xs">
-                                    <div class="text-gray-600">
-                                        <span class="font-medium">План:</span> <span class="text-gray-900" x-text="getDisplayQuantity(task, 'plan')"></span>
-                                        <span class="mx-1">•</span>
-                                        <span class="font-medium">Выполнено:</span> <span class="text-gray-900" x-text="getDisplayQuantity(task, 'completed')"></span>
-                                    </div>
-                                    
-                                    <template x-if="task.defective_quantity && task.defective_quantity > 0">
-                                        <div class="flex items-center space-x-1 bg-red-50 px-1.5 py-0.5 rounded-full">
-                                            <i data-lucide="alert-triangle" class="w-2.5 h-2.5 text-red-500"></i>
-                                            <span class="text-xs text-red-600 font-medium">Брак: <span x-text="getDisplayQuantity(task, 'defective')"></span></span>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                            
-                            <!-- Arrow -->
-                            <div class="text-gray-400 mt-0.5">
-                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                            </div>
-                        </div>
-                    </a>
-                </template>
+            <div class="text-center py-8">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="info" class="w-8 h-8 text-gray-400"></i>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-1">&#1057;&#1090;&#1088;&#1072;&#1085;&#1080;&#1094;&#1072; &#1076;&#1083;&#1103; &#1094;&#1077;&#1093;&#1086;&#1074; &#8470;1 &#1080; &#8470;2</h3>
+                <p class="text-sm text-gray-600">&#1042; &#1101;&#1090;&#1086;&#1081; &#1079;&#1086;&#1085;&#1077; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; &#1085;&#1077; &#1086;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1072;&#1102;&#1090;&#1089;&#1103;.</p>
             </div>
         </template>
     </main>
-    
 
-    
+    <div x-show="toastMessage" x-transition class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+        <div class="px-4 py-2 rounded-lg text-sm font-medium shadow-lg"
+             :class="toastType === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+            <span x-text="toastMessage"></span>
+        </div>
+    </div>
+
     <!-- Bottom Navigation -->
     <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full">
         <a href="/employee_tasks/tasks/" class="flex flex-col items-center nav-active">
@@ -509,12 +396,15 @@
             tasks: [],
             searchTerm: '',
             userId: null,
+            workshopId: null,
             workshopName: '',
             paymentType: 'fixed',
             isExtrusion: false,
             isPackaging: false,
             hasMaterialBalance: false,
             extrusionSummary: null,
+            showExtrusionForm: false,
+            materialBalanceTotal: 0,
             // Второй цех
             neutralBatches: [],
             selectedNeutralBatchId: '',
@@ -527,8 +417,21 @@
             selectedProductId: '',
             packagingProduced: null,
             packagingSummary: null,
+            extrusionProducedInput: '',
+            extrusionSubmitState: 'idle',
+            extrusionSubmitMessage: '',
+            packagingSubmitState: 'idle',
+            packagingSubmitMessage: '',
+            toastMessage: '',
+            toastType: 'success',
+            toastTimer: null,
             async init() {
                 this.userId = window.user_id || null;
+                try {
+                    this.workshopId = JSON.parse(document.getElementById('user-workshop-id').textContent || 'null');
+                } catch (e) {
+                    this.workshopId = null;
+                }
                 try {
                     this.workshopName = JSON.parse(document.getElementById('user-workshop-name').textContent || '""') || '';
                 } catch (e) {
@@ -540,9 +443,9 @@
                     this.paymentType = 'fixed';
                 }
 
-                const lowerName = (this.workshopName || '').toLowerCase();
-                this.isExtrusion = lowerName.includes('экструз') || lowerName.includes('экстуз');
-                this.isPackaging = lowerName.includes('пакет') || lowerName.includes('упаков');
+                // Определяем цех по ID: 1 = экструзия, 2 = пакетоотделочный
+                this.isExtrusion = this.workshopId === 1;
+                this.isPackaging = this.workshopId === 2;
 
                 if (this.isExtrusion) {
                     await this.checkMaterialBalance();
@@ -551,9 +454,18 @@
                     await this.loadPackagingOrders();
                     await this.loadPackagingProducts();
                 } else {
+                    // Для остальных цехов загружаем задачи только если не цех 1 или 2
                     await this.loadTasks();
                 }
                 lucide.createIcons();
+            },
+            showToast(message, type = 'success') {
+                this.toastMessage = message;
+                this.toastType = type;
+                if (this.toastTimer) clearTimeout(this.toastTimer);
+                this.toastTimer = setTimeout(() => {
+                    this.toastMessage = '';
+                }, 2400);
             },
             async checkMaterialBalance() {
                 this.loading = true;
@@ -561,13 +473,17 @@
                     const resp = await fetch('/inventory/api/materials/balances/');
                     const data = await resp.json();
                     if (data.status === 'success' && Array.isArray(data.data)) {
-                        this.hasMaterialBalance = data.data.some(b => (b.quantity || 0) > 0);
+                        this.materialBalanceTotal = data.data.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
+                        this.hasMaterialBalance = this.materialBalanceTotal > 0;
                     } else {
                         this.hasMaterialBalance = false;
+                        this.materialBalanceTotal = 0;
                     }
                 } catch (e) {
                     this.hasMaterialBalance = false;
+                    this.materialBalanceTotal = 0;
                 }
+                this.showExtrusionForm = false;
                 this.loading = false;
             },
             async loadTasks() {
@@ -620,10 +536,22 @@
                 
                 return groupedTasks;
             },
+            get computedScrap() {
+                const total = Number(this.materialBalanceTotal || 0);
+                const produced = Number(String(this.extrusionProducedInput || '').replace(',', '.')) || 0;
+                if (total <= 0) return 0;
+                return Math.max(0, total - produced);
+            },
+            get computedEfficiency() {
+                const total = Number(this.materialBalanceTotal || 0);
+                const produced = Number(String(this.extrusionProducedInput || '').replace(',', '.')) || 0;
+                if (total <= 0) return 0;
+                return Math.max(0, Math.min(100, (produced / total) * 100));
+            },
             async loadNeutralBatches() {
                 this.loading = true;
                 try {
-                    const resp = await fetch('/workshops/api/neutral-batches/');
+                    const resp = await fetch('/api/workshops/api/neutral-batches/');
                     const data = await resp.json();
                     this.neutralBatches = Array.isArray(data) ? data : [];
                 } catch (e) {
@@ -639,8 +567,12 @@
                     const list = data.results || data || [];
                     // Фильтруем только активные производственные заявки
                     this.packagingOrders = list.filter(o => ['production', 'new'].includes(o.status));
+                    if (!this.packagingOrders.length) {
+                        this.packagingMode = 'stock';
+                    }
                 } catch (e) {
                     this.packagingOrders = [];
+                    this.packagingMode = 'stock';
                 }
             },
             async loadPackagingProducts() {
@@ -659,16 +591,17 @@
                 this.selectedOrderItemId = '';
             },
             async sendExtrusionReport() {
-                const input = prompt('Сколько кг/единиц товара вы выполнили за смену? Введите число:');
-                if (!input) return;
-                const value = parseFloat(input.replace(',', '.'));
+                const value = parseFloat(String(this.extrusionProducedInput || '').replace(',', '.'));
                 if (Number.isNaN(value) || value <= 0) {
-                    alert('Введите положительное число.');
+                    this.extrusionSubmitState = 'error';
+                    this.extrusionSubmitMessage = '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u0447\u0438\u0441\u043b\u043e.';
                     return;
                 }
                 try {
                     this.loading = true;
-                    const resp = await fetch('/workshops/api/extrusion/report/', {
+                    this.extrusionSubmitState = 'loading';
+                    this.extrusionSubmitMessage = '';
+                    const resp = await fetch('/api/workshops/api/extrusion/report/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -678,25 +611,34 @@
                     });
                     const data = await resp.json();
                     if (!resp.ok) {
-                        alert(data.detail || 'Ошибка при отправке отчёта.');
+                        this.extrusionSubmitState = 'error';
+                        this.extrusionSubmitMessage = data.detail || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0435 \u043e\u0442\u0447\u0435\u0442\u0430.';
                         this.loading = false;
                         return;
                     }
                     this.extrusionSummary = data;
                     this.hasMaterialBalance = false;
+                    this.showExtrusionForm = false;
+                    this.extrusionSubmitState = 'success';
+                    this.extrusionSubmitMessage = '\u041e\u0442\u0447\u0435\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d.';
                 } catch (e) {
-                    alert('Ошибка сети при отправке отчёта.');
+                    this.extrusionSubmitState = 'error';
+                    this.extrusionSubmitMessage = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438 \u043f\u0440\u0438 \u043e\u0442\u0447\u0435\u0442\u0435.';
                 } finally {
                     this.loading = false;
                 }
             },
             async sendPackagingReport() {
+                this.packagingSubmitState = 'idle';
+                this.packagingSubmitMessage = '';
                 if (!this.selectedNeutralBatchId) {
-                    alert('Выберите партию из нейтральной зоны.');
+                    this.packagingSubmitState = 'error';
+                    this.packagingSubmitMessage = '\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u0430\u0440\u0442\u0438\u044e \u0438\u0437 \u043d\u0435\u0439\u0442\u0440\u0430\u043b\u044c\u043d\u043e\u0439 \u0437\u043e\u043d\u044b.';
                     return;
                 }
                 if (!this.packagingProduced || this.packagingProduced <= 0) {
-                    alert('Введите положительное количество доработанного товара.');
+                    this.packagingSubmitState = 'error';
+                    this.packagingSubmitMessage = '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0434\u043e\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043d\u043e\u0433\u043e \u0442\u043e\u0432\u0430\u0440\u0430.';
                     return;
                 }
                 const payload = {
@@ -706,20 +648,23 @@
                 };
                 if (this.packagingMode === 'order') {
                     if (!this.selectedOrderItemId) {
-                        alert('Выберите позицию заявки.');
+                        this.packagingSubmitState = 'error';
+                        this.packagingSubmitMessage = '\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u043e\u0437\u0438\u0446\u0438\u044e \u0437\u0430\u044f\u0432\u043a\u0438.';
                         return;
                     }
                     payload.order_item_id = this.selectedOrderItemId;
                 } else {
                     if (!this.selectedProductId) {
-                        alert('Выберите товар для работы на запас.');
+                        this.packagingSubmitState = 'error';
+                        this.packagingSubmitMessage = '\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u043e\u0432\u0430\u0440 \u0434\u043b\u044f \u0440\u0430\u0431\u043e\u0442\u044b \u043d\u0430 \u0437\u0430\u043f\u0430\u0441.';
                         return;
                     }
                     payload.product_id = this.selectedProductId;
                 }
                 try {
                     this.loading = true;
-                    const resp = await fetch('/workshops/api/packaging/report/', {
+                    this.packagingSubmitState = 'loading';
+                    const resp = await fetch('/api/workshops/api/packaging/report/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -729,15 +674,19 @@
                     });
                     const data = await resp.json();
                     if (!resp.ok) {
-                        alert(data.detail || 'Ошибка при отправке отчёта второго цеха.');
+                        this.packagingSubmitState = 'error';
+                        this.packagingSubmitMessage = data.detail || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u043e\u0442\u0447\u0435\u0442\u0435 \u0432\u0442\u043e\u0440\u043e\u0433\u043e \u0446\u0435\u0445\u0430.';
                         this.loading = false;
                         return;
                     }
                     this.packagingSummary = data;
+                    this.packagingSubmitState = 'success';
+                    this.packagingSubmitMessage = '\u041e\u0442\u0447\u0435\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d.';
                     // Обновляем список партий — выбранная могла быть исчерпана
                     await this.loadNeutralBatches();
                 } catch (e) {
-                    alert('Ошибка сети при отправке отчёта.');
+                    this.packagingSubmitState = 'error';
+                    this.packagingSubmitMessage = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438 \u043f\u0440\u0438 \u043e\u0442\u0447\u0435\u0442\u0435.';
                 } finally {
                     this.loading = false;
                 }
@@ -750,7 +699,7 @@
                 
                 // Если задача уже выполнена, не позволяем её отменить
                 if (isDone) {
-                    alert('Задача уже выполнена и не может быть изменена. Обратитесь к мастеру для корректировки.');
+                    this.showToast('Задача уже выполнена и не может быть изменена. Обратитесь к мастеру для корректировки.', 'error');
                     return;
                 }
                 

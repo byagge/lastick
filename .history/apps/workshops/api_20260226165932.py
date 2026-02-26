@@ -364,7 +364,7 @@ class MasterWorkshopsStatsView(APIView):
             return 0
         return round(((completed - defects) / completed) * 100, 1)
 
-
+    
 
 class ExtrusionReportView(APIView):
     """

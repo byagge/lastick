@@ -360,10 +360,9 @@ class MasterWorkshopsStatsView(APIView):
     
     def _calculate_efficiency(completed, defects):
         """Рассчитывает эффективность в процентах"""
-        if completed == 0:
-            return 0
-        return round(((completed - defects) / completed) * 100, 1)
-
+    if completed == 0:
+			return 0
+		return round(((completed - defects) / completed) * 100, 1)
 
 
 class ExtrusionReportView(APIView):

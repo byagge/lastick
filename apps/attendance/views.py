@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Q, Count
 from datetime import datetime, timedelta, time
+from decimal import Decimal
 import json
 from django.views.decorators.csrf import ensure_csrf_cookie
 from core.utils import is_mobile_device
@@ -33,13 +34,12 @@ def checkin_by_qr(request):
         else:
             return Response({'error': 'Не передан employee_id'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Проверяем, не отмечался ли уже сегодня
-        today = timezone.localdate()
         current_time = timezone.now()
-        
+        shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
+
         record, created = AttendanceRecord.objects.get_or_create(
             employee=employee,
-            date=today,
+            date=shift_date,
             defaults={'check_in': current_time}
         )
         
@@ -80,14 +80,15 @@ def checkout_employee(request):
             return Response({'error': 'Не передан employee_id'}, status=status.HTTP_400_BAD_REQUEST)
         
         employee = User.objects.get(id=employee_id)
-        today = timezone.localdate()
+        current_time = timezone.now()
+        shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
         
         try:
-            record = AttendanceRecord.objects.get(employee=employee, date=today)
+            record = AttendanceRecord.objects.get(employee=employee, date=shift_date)
             if record.check_out:
                 return Response({'detail': 'Сотрудник уже отмечен как ушедший сегодня'}, status=200)
             
-            record.check_out = timezone.now()
+            record.check_out = current_time
             record.save()
             return Response({'success': True, 'check_out': record.check_out}, status=200)
         except AttendanceRecord.DoesNotExist:
@@ -252,6 +253,42 @@ def attendance_list(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def update_attendance_penalty(request):
+    """Ручное обновление штрафа администратором"""
+    try:
+        if request.user.role != User.Role.ADMIN:
+            return Response({'error': 'Доступ запрещен'}, status=403)
+
+        record_id = request.data.get('record_id')
+        penalty_amount = request.data.get('penalty_amount')
+        if record_id is None or penalty_amount is None:
+            return Response({'error': 'Не передан record_id или penalty_amount'}, status=400)
+
+        try:
+            penalty = Decimal(str(penalty_amount))
+        except Exception:
+            return Response({'error': 'Некорректная сумма штрафа'}, status=400)
+
+        if penalty < 0:
+            return Response({'error': 'Сумма штрафа не может быть отрицательной'}, status=400)
+
+        record = AttendanceRecord.objects.get(id=record_id)
+        record.penalty_amount = penalty
+        record.penalty_manual = True
+        record.save()
+
+        return Response({
+            'success': True,
+            'record_id': record.id,
+            'penalty_amount': float(record.penalty_amount)
+        })
+    except AttendanceRecord.DoesNotExist:
+        return Response({'error': 'Запись не найдена'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def recalculate_today_penalties(request):
     """Принудительно пересчитывает штрафы за сегодня"""
     try:
@@ -291,7 +328,6 @@ def attendance_page(request):
 def employee_attendance_status(request):
     """Получение статуса посещаемости сотрудников"""
     try:
-        today = timezone.localdate()
         current_time = timezone.now()
         
         # Получаем всех сотрудников с их статусом посещаемости
@@ -300,7 +336,8 @@ def employee_attendance_status(request):
         
         for employee in employees:
             try:
-                record = AttendanceRecord.objects.get(employee=employee, date=today)
+                shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
+                record = AttendanceRecord.objects.get(employee=employee, date=shift_date)
                 status = 'checked_out' if record.check_out else 'present'
                 check_in_time = timezone.localtime(record.check_in) if record.check_in else None
                 check_out_time = timezone.localtime(record.check_out) if record.check_out else None
@@ -320,7 +357,7 @@ def employee_attendance_status(request):
             })
         
         return Response({
-            'date': today.isoformat(),
+            'date': timezone.localdate().isoformat(),
             'current_time': current_time.isoformat(),
             'employees': employees_data
         })
@@ -331,33 +368,22 @@ def employee_attendance_status(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def auto_checkout_after_6pm(request):
-    """Автоматическая отметка ухода всех сотрудников после 18:00"""
+    """Автоматическая отметка ухода после конца смены"""
     try:
-        today = timezone.localdate()
         current_time = timezone.now()
-        local_time = timezone.localtime(current_time)
-        
-        # Проверяем, что время после 18:00
-        if local_time.time() < time(18, 0):
-            return Response({
-                'message': 'Автоматическая отметка ухода доступна только после 18:00',
-                'current_time': local_time.strftime('%H:%M'),
-                'required_time': '18:00'
-            }, status=400)
-        
-        # Находим всех сотрудников, которые пришли, но не ушли
-        active_records = AttendanceRecord.objects.filter(
-            date=today,
+        active_records = AttendanceRecord.objects.select_related('employee').filter(
             check_in__isnull=False,
             check_out__isnull=True
         )
-        
+
         checked_out_count = 0
         for record in active_records:
-            record.check_out = current_time
-            record.save()
-            checked_out_count += 1
-        
+            shift_end = record.get_shift_end()
+            if shift_end and current_time >= shift_end:
+                record.check_out = shift_end
+                record.save()
+                checked_out_count += 1
+
         return Response({
             'success': True,
             'message': f'Автоматически отмечен уход для {checked_out_count} сотрудников',
@@ -374,7 +400,7 @@ def employee_status_by_workshop(request):
     """Получение статуса сотрудников по цеху"""
     try:
         workshop_id = request.GET.get('workshop_id')
-        today = timezone.localdate()
+        current_time = timezone.now()
         
         if not workshop_id:
             return Response({'error': 'Не указан workshop_id'}, status=400)
@@ -388,7 +414,8 @@ def employee_status_by_workshop(request):
         employees_data = []
         for employee in employees:
             try:
-                record = AttendanceRecord.objects.get(employee=employee, date=today)
+                shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
+                record = AttendanceRecord.objects.get(employee=employee, date=shift_date)
                 status = 'checked_out' if record.check_out else 'present'
                 check_in_time = timezone.localtime(record.check_in) if record.check_in else None
                 check_out_time = timezone.localtime(record.check_out) if record.check_out else None
@@ -409,7 +436,7 @@ def employee_status_by_workshop(request):
         
         return Response({
             'workshop_id': workshop_id,
-            'date': today.isoformat(),
+            'date': timezone.localdate().isoformat(),
             'employees': employees_data
         })
         

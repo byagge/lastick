@@ -11,6 +11,9 @@
     <!-- Alpine.js -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -35,9 +38,15 @@
             background-color: rgba(0, 0, 0, 0.5);
             z-index: 100;
         }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .text-blue-500 { color: #0e121a !important; }
     </style>
 </head>
-<body class="bg-gray-50" x-data="clientsPage()">
+<body class="min-h-screen" x-data="clientsPage()">
     {% include 'partials/app_header.html' %}
     {% include 'partials/app_sidebar.html' %}
 
@@ -117,7 +126,7 @@
                 <p class="text-sm sm:text-base text-gray-600">Управление клиентской базой</p>
             </div>
             <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                <button @click="showAddClientModal = true" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                <button @click="openAddClient()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
                     <i data-lucide="user-plus" class="w-4 h-4"></i>
                     <span>Добавить клиента</span>
                 </button>
@@ -146,6 +155,20 @@
                     <option value="inactive">Неактивные</option>
                 </select>
             </div>
+            <div class="w-full sm:w-auto flex items-center space-x-2">
+                <button @click="viewMode = 'cards'" 
+                        :class="viewMode === 'cards' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                        class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Карточки</span>
+                </button>
+                <button @click="viewMode = 'list'" 
+                        :class="viewMode === 'list' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                        class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Список</span>
+                </button>
+            </div>
         </div>
 
         <!-- Loading State -->
@@ -153,10 +176,11 @@
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
 
-        <!-- Clients Grid -->
-        <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <!-- Clients Grid -->
+        <div x-show="!loading && viewMode === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <template x-for="client in filteredClients" :key="client.id">
-                <div class="client-card bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+                <div @click="openDetails(client)" class="client-card bg-white/90 backdrop-blur rounded-xl p-4 sm:p-6 border border-gray-200/70 shadow-sm hover:shadow-xl transition cursor-pointer relative overflow-hidden">
+                    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500"></div>
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex items-center space-x-3">
                             <div :class="getClientAvatarBg(client)" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center">
@@ -167,10 +191,20 @@
                                 <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="client.phone"></p>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <button @click="openClientMenu(client)" class="text-gray-400 hover:text-gray-600 p-1">
+                        <div class="relative flex items-center" @click.away="closeClientMenu()">
+                            <button @click.stop="toggleClientMenu(client)" class="text-gray-400 hover:text-gray-600 p-1">
                                 <i data-lucide="more-vertical" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                             </button>
+                            <div x-show="menuClientId === client.id" x-transition class="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                <button @click="editClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                    <span>Редактировать</span>
+                                </button>
+                                <button @click="deleteClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    <span>Удалить</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="space-y-2 sm:space-y-3">
@@ -195,7 +229,7 @@
                     </div>
                     <div class="mt-4 pt-4 border-t border-gray-100">
                         <div class="flex items-center space-x-2">
-                            <button @click="quickCall(client)" class="flex-1 px-3 py-2 text-xs sm:text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <button @click.stop="quickCall(client)" class="flex-1 px-3 py-2 text-xs sm:text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                 <i data-lucide="phone" class="w-3 h-3 sm:w-4 sm:h-4 inline-block mr-1"></i>
                                 Позвонить
                             </button>
@@ -205,14 +239,76 @@
             </template>
         </div>
 
+        <!-- Clients List -->
+        <div x-show="!loading && viewMode === 'list'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="text-left px-4 py-3 font-medium">Клиент</th>
+                            <th class="text-left px-4 py-3 font-medium">Телефон</th>
+                            <th class="text-left px-4 py-3 font-medium">Статус</th>
+                            <th class="text-left px-4 py-3 font-medium">Компания</th>
+                            <th class="text-right px-4 py-3 font-medium">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <template x-for="client in filteredClients" :key="client.id">
+                            <tr class="hover:bg-gray-50 cursor-pointer" @click="openDetails(client)">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div :class="getClientAvatarBg(client)" class="w-8 h-8 rounded-full flex items-center justify-center">
+                                            <span :class="getClientAvatarText(client)" class="text-xs font-semibold" x-text="getClientInitials(client.name)"></span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-gray-900 truncate" x-text="client.name"></div>
+                                            <div class="text-xs text-gray-500 truncate" x-text="client.email || ''"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700" x-text="client.phone || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <span :class="getStatusClass(client.status)" class="px-2 py-1 rounded-full text-xs" x-text="getStatusText(client.status)"></span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700" x-text="client.company || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end space-x-2">
+                                        <button @click.stop="quickCall(client)" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md">
+                                            <i data-lucide="phone" class="w-4 h-4"></i>
+                                        </button>
+                                        <div class="relative flex items-center" @click.away="closeClientMenu()">
+                                            <button @click.stop="toggleClientMenu(client)" class="text-gray-400 hover:text-gray-600 p-1">
+                                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                            </button>
+                                            <div x-show="menuClientId === client.id" x-transition class="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                                <button @click="editClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                                    <span>Редактировать</span>
+                                                </button>
+                                                <button @click="deleteClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    <span>Удалить</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Empty State -->
+
         <div x-show="!loading && filteredClients.length === 0" class="text-center py-12">
             <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i data-lucide="users" class="w-8 h-8 text-gray-400"></i>
             </div>
             <h3 class="text-lg font-medium text-gray-900 mb-2">Клиенты не найдены</h3>
             <p class="text-gray-500 mb-4">Добавьте первого клиента или измените фильтры поиска</p>
-            <button @click="showAddClientModal = true; resetClientForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button @click="openAddClient()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 Добавить клиента
             </button>
         </div>
@@ -246,13 +342,13 @@
             </div>
         </div>
     </main>
-
-    <!-- Add Client Modal -->
-    <div x-show="showAddClientModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+    <!-- Add/Edit Client Drawer -->
+    <div x-show="showAddClientModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closeAddClient()"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-lg font-semibold text-gray-900" x-text="selectedClient ? 'Редактировать клиента' : 'Добавить клиента'"></h3>
-                <button @click="showAddClientModal = false; resetClientForm()" class="text-gray-400 hover:text-gray-600">
+                <button @click="closeAddClient()" class="text-gray-400 hover:text-gray-600">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -280,22 +376,22 @@
                            placeholder="client@example.com">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Компания/Организация</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Отмена??/Позвонить??</label>
                     <input type="text" 
                            x-model="clientForm.company"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           placeholder="ООО Ромашка">
+                           placeholder="Название компании">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
                     <input type="text" 
                            x-model="clientForm.address"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           placeholder="г. Ош, ул. Ленина, д. 1">
+                           placeholder="г. Бишкек, ул. ...">
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" 
-                            @click="showAddClientModal = false; resetClientForm()" 
+                            @click="closeAddClient()" 
                             class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                         Отмена
                     </button>
@@ -307,34 +403,53 @@
             </form>
         </div>
     </div>
-
-    <!-- Client Menu Modal -->
-    <div x-show="showClientMenu" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-white rounded-xl p-4 w-64">
-            <div class="space-y-2">
-                <button @click="editClient(selectedClient)" class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="edit" class="w-4 h-4"></i>
-                    <span>Редактировать</span>
+    <!-- Client Details Drawer -->
+    <div x-show="showDetailsDrawer" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closeDetails()"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">Профиль клиента</h3>
+                <button @click="closeDetails()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
-                <!-- <button @click="viewHistory(selectedClient)" class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="history" class="w-4 h-4"></i>
-                    <span>История визитов</span>
-                </button> -->
-                <!-- <button @click="addNote(selectedClient)" class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="file-text" class="w-4 h-4"></i>
-                    <span>Добавить заметку</span>
-                </button> -->
-                <button @click="deleteClient(selectedClient)" class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    <span>Удалить</span>
-                </button>
+            </div>
+            <div class="flex items-center space-x-3 mb-6">
+                <div :class="getClientAvatarBg(detailsClient)" class="w-12 h-12 rounded-full flex items-center justify-center">
+                    <span :class="getClientAvatarText(detailsClient)" class="font-semibold" x-text="getClientInitials(detailsClient.name || '')"></span>
+                </div>
+                <div>
+                    <div class="text-lg font-semibold text-gray-900" x-text="detailsClient.name || ''"></div>
+                    <div class="text-sm text-gray-500" x-text="detailsClient.phone || ''"></div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Email</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.email || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Компания</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.company || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Адрес</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.address || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Статус</div>
+                    <span :class="getStatusClass(detailsClient.status)" class="inline-flex px-2 py-1 rounded-full text-xs" x-text="getStatusText(detailsClient.status)"></span>
+                </div>
+            </div>
+            <div class="mt-6 flex space-x-2">
+                <button @click="editClient(detailsClient)" class="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg">Редактировать</button>
+                <button @click="callClient(detailsClient)" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg">Позвонить</button>
             </div>
         </div>
     </div>
-
-    <!-- Call Client Modal -->
-    <div x-show="showCallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+    <!-- Call Client Drawer -->
+    <div x-show="showCallModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showCallModal = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-lg font-semibold text-gray-900">Звонок клиенту</h3>
                 <button @click="showCallModal = false" class="text-gray-400 hover:text-gray-600">
@@ -359,26 +474,10 @@
             </div>
         </div>
     </div>
-
-    <!-- Toast Notifications -->
-    <div x-show="toast" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 transform translate-y-2"
-         x-transition:enter-end="opacity-100 transform translate-y-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 transform translate-y-0"
-         x-transition:leave-end="opacity-0 transform translate-y-2"
-         class="fixed top-4 right-4 z-50">
-        <div :class="{'bg-green-500': toast.type === 'success', 'bg-red-500': toast.type === 'error', 'bg-blue-500': toast.type === 'info'}"
-             class="px-4 py-3 rounded-lg shadow-lg text-white flex items-center space-x-2">
-            <i :data-lucide="toast.type === 'success' ? 'check-circle' : toast.type === 'error' ? 'x-circle' : 'info'" class="w-5 h-5"></i>
-            <span x-text="toast.message"></span>
-        </div>
-    </div>
-
-    <!-- Export Modal -->
-    <div x-show="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+    <!-- Export Drawer -->
+    <div x-show="showExportModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showExportModal = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-lg font-semibold text-gray-900">Экспорт клиентов</h3>
                 <button @click="showExportModal = false" class="text-gray-400 hover:text-gray-600">
@@ -387,10 +486,11 @@
             </div>
             <form @submit.prevent="exportClients" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Формат файла</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Формат</label>
                     <select x-model="exportFormat" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                         <option value="xlsx">Excel (XLSX)</option>
                         <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
                     </select>
                 </div>
                 <div>
@@ -398,11 +498,11 @@
                     <select x-model="exportStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                         <option value="all">Все</option>
                         <option value="active">Активные</option>
-                        <option value="inactive">Неактивные</option>
+                        <option value="inactive">Позвонить?</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Диапазон дат создания</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Период</label>
                     <div class="flex space-x-2">
                         <input type="date" x-model="exportDateFrom" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg">
                         <input type="date" x-model="exportDateTo" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg">
@@ -431,12 +531,14 @@
         function clientsPage() {
             return {
                 showAddClientModal: false,
-                showClientMenu: false,
                 showCallModal: false,
                 showExportModal: false,
                 showMobileMenu: false,
+                showDetailsDrawer: false,
+                detailsClient: {},
+                viewMode: 'cards',
+                menuClientId: null,
                 selectedClient: null,
-                businessId: null,
                 clients: [],
                 filteredClients: [],
                 searchQuery: '',
@@ -551,6 +653,16 @@
                         this.loading = false;
                     }
                 },
+                async refreshClients() {
+                    const hasFilters = Boolean(this.searchQuery) ||
+                        this.statusFilter !== 'all' ||
+                        this.sidebarFilter !== 'all';
+                    if (hasFilters) {
+                        await this.filterClients();
+                    } else {
+                        await this.loadClients(this.currentPage);
+                    }
+                },
                 async addClient() {
                     if (!this.clientForm.name || !this.clientForm.phone) {
                         this.showToast('Заполните обязательные поля', 'error');
@@ -564,15 +676,15 @@
                                 'Content-Type': 'application/json',
                                 'X-CSRFToken': this.getCsrfToken()
                             },
+                            credentials: 'same-origin',
                             body: JSON.stringify({
-                                ...this.clientForm,
-                                business: this.businessId
+                                ...this.clientForm
                             })
                         });
                         
                         if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.detail || 'Ошибка создания клиента');
+                            const message = await this.getErrorMessage(response, 'Ошибка создания клиента');
+                            throw new Error(message);
                         }
                         
                         this.showToast('Клиент успешно добавлен', 'success');
@@ -580,7 +692,7 @@
                         this.resetClientForm();
                         
                         // Перезагружаем текущую страницу
-                        await this.loadClients(this.currentPage);
+                        await this.refreshClients();
                     } catch (error) {
                         console.error('Ошибка создания клиента:', error);
                         this.showToast(error.message || 'Ошибка создания клиента', 'error');
@@ -596,21 +708,20 @@
                                 'Content-Type': 'application/json',
                                 'X-CSRFToken': this.getCsrfToken()
                             },
+                            credentials: 'same-origin',
                             body: JSON.stringify(this.clientForm)
                         });
                         
                         if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.detail || 'Ошибка обновления клиента');
+                            const message = await this.getErrorMessage(response, 'Ошибка обновления клиента');
+                            throw new Error(message);
                         }
                         
                         this.showToast('Клиент успешно обновлен', 'success');
-                        this.showAddClientModal = false;
-                        this.selectedClient = null;
-                        this.resetClientForm();
+                        this.closeAddClient();
                         
                         // Перезагружаем текущую страницу
-                        await this.loadClients(this.currentPage);
+                        await this.refreshClients();
                     } catch (error) {
                         console.error('Ошибка обновления клиента:', error);
                         this.showToast(error.message || 'Ошибка обновления клиента', 'error');
@@ -624,17 +735,24 @@
                             method: 'DELETE',
                             headers: {
                                 'X-CSRFToken': this.getCsrfToken()
-                            }
+                            },
+                            credentials: 'same-origin'
                         });
                         
-                        if (!response.ok) throw new Error('Ошибка удаления клиента');
+                        if (!response.ok) {
+                            const message = await this.getErrorMessage(response, 'Ошибка удаления клиента');
+                            throw new Error(message);
+                        }
                         
                         this.showToast('Клиент успешно удален', 'success');
-                        this.showClientMenu = false;
+                        this.closeClientMenu();
+                        if (this.detailsClient && this.detailsClient.id === client.id) {
+                            this.closeDetails();
+                        }
                         this.selectedClient = null;
                         
                         // Перезагружаем текущую страницу
-                        await this.loadClients(this.currentPage);
+                        await this.refreshClients();
                     } catch (error) {
                         console.error('Ошибка удаления клиента:', error);
                         this.showToast('Ошибка удаления клиента', 'error');
@@ -649,18 +767,35 @@
                         company: client.company || '',
                         address: client.address || ''
                     };
-                    this.showClientMenu = false;
+                    this.closeClientMenu();
+                    this.showDetailsDrawer = false;
                     this.showAddClientModal = true;
                 },
-                resetClientForm() {
-                    this.clientForm = {
-                        name: '',
-                        phone: '',
-                        email: '',
-                        company: '',
-                        address: ''
-                    };
-                    this.selectedClient = null;
+                
+                openAddClient() {
+                    this.resetClientForm();
+                    this.closeDetails();
+                    this.showAddClientModal = true;
+                },
+                closeAddClient() {
+                    this.showAddClientModal = false;
+                    this.resetClientForm();
+                },
+                openDetails(client) {
+                    this.detailsClient = client || {};
+                    this.showDetailsDrawer = true;
+                    this.closeClientMenu();
+                },
+                closeDetails() {
+                    this.showDetailsDrawer = false;
+                    this.detailsClient = {};
+                },
+                toggleClientMenu(client) {
+                    this.selectedClient = client;
+                    this.menuClientId = this.menuClientId === client.id ? null : client.id;
+                },
+                closeClientMenu() {
+                    this.menuClientId = null;
                 },
                 getClientInitials(name) {
                     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -730,16 +865,30 @@
                     }
                     return '';
                 },
+                async getErrorMessage(response, fallback) {
+                    const raw = await response.text();
+                    if (!raw) return fallback;
+                    try {
+                        const data = JSON.parse(raw);
+                        if (data.detail) return data.detail;
+                        if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+                            return data.non_field_errors[0];
+                        }
+                        const firstKey = Object.keys(data)[0];
+                        if (firstKey && Array.isArray(data[firstKey]) && data[firstKey].length > 0) {
+                            return data[firstKey][0];
+                        }
+                        return fallback;
+                    } catch {
+                        return raw;
+                    }
+                },
                 showToast(message, type = 'success') {
                     this.toast = { message, type };
                     setTimeout(() => this.toast = null, 3000);
                 },
-                openClientMenu(client) {
-                    this.selectedClient = client;
-                    this.showClientMenu = true;
-                },
                 viewHistory(client) {
-                    this.showClientMenu = false;
+                    this.closeClientMenu();
                     // Показываем уведомление о будущей функции
                     this.showToast('Эта функция будет доступна в следующих обновлениях', 'info');
                     this.$nextTick(() => lucide.createIcons());
@@ -753,7 +902,8 @@
                         notes: client.notes || '',
                         status: client.status
                     };
-                    this.showClientMenu = false;
+                    this.closeClientMenu();
+                    this.showDetailsDrawer = false;
                     this.showAddClientModal = true;
                 },
                 scheduleAppointment(client) {
@@ -876,7 +1026,6 @@
                     }
                     if (this.exportDateFrom) params.append('date_from', this.exportDateFrom);
                     if (this.exportDateTo) params.append('date_to', this.exportDateTo);
-                    params.append('business', this.businessId);
                     const url = `/clients/api/export/?${params.toString()}`;
                     this.showExportModal = false;
                     try {

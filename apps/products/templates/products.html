@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Продукты — Управление продуктами</title>
+    <title>Smart Factory — Продукты</title>
     <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Lucide Icons -->
@@ -11,50 +11,55 @@
     <!-- Alpine.js -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        .menu-card { transition: all 0.3s ease; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); backdrop-filter: blur(10px); }
-        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
         aside::-webkit-scrollbar { display: none; }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+<body class="min-h-screen">
     {% include 'partials/app_header.html' %}
     {% include 'partials/app_sidebar.html' %}
     <!-- Main Content -->
     <main class="flex-1 overflow-auto ml-64 p-6 pt-28" x-data="productsData()" x-init="init()">
         <!-- Заголовок и кнопки управления -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
+        <div class="glass rounded-xl border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">Продукты: управление</h1>
-                <p class="text-gray-600">Добавляйте, редактируйте и анализируйте продукты</p>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Продукты</h1>
+                <p class="text-gray-600">Управляйте продукцией, ценами и себестоимостью.</p>
             </div>
-            <div class="flex items-center space-x-4 mt-4 lg:mt-0">
-                <button @click="viewMode = 'table'" :class="{'bg-blue-600 text-white': viewMode === 'table', 'bg-gray-200 text-gray-700': viewMode !== 'table'}" class="p-2 rounded-md">
-                    <i data-lucide="grid"></i>
+            <div class="flex flex-wrap items-center gap-3 mt-4 lg:mt-0">
+                <button @click="viewMode = 'cards'" :class="viewMode === 'cards' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'" class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Карточки</span>
                 </button>
-                <button @click="viewMode = 'cards'" :class="{'bg-blue-600 text-white': viewMode === 'cards', 'bg-gray-200 text-gray-700': viewMode !== 'cards'}" class="p-2 rounded-md">
-                    <i data-lucide="list"></i>
+                <button @click="viewMode = 'table'" :class="viewMode === 'table' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'" class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Список</span>
                 </button>
-                <button @click="openAddForm()" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    <i data-lucide="plus"></i>
+                <button @click="openAddForm()" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
                     <span>Добавить</span>
                 </button>
             </div>
         </div>
         <!-- Табличный вид -->
-        <div x-show="viewMode === 'table'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div x-show="viewMode === 'table'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Название</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Тип</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Продукт</th>
                             <th class="px-4 py-3 text-left font-medium text-gray-900">Цена</th>
                             <th class="px-4 py-3 text-left font-medium text-gray-900">Себестоимость</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Услуги</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Материалы</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Примечание</th>
                             <th class="px-4 py-3 text-right font-medium text-gray-900">Действия</th>
                         </tr>
                     </thead>
@@ -62,26 +67,16 @@
                         <template x-for="product in products" :key="product.id">
                             <tr>
                                 <td class="px-4 py-3 font-medium"><span x-text="product.name"></span></td>
-                                <td class="px-4 py-3"><span x-text="product.type_display"></span></td>
-                                <td class="px-4 py-3 text-green-700 font-semibold"><span x-text="product.price + ' ⃀'"></span></td>
-                                <td class="px-4 py-3 text-blue-700 font-semibold"><span x-text="product.cost_price + ' ⃀'"></span></td>
-                                <td class="px-4 py-3">
-                                    <template x-for="service in product.services" :key="service.id">
-                                        <span class="inline-block bg-blue-100 text-blue-800 rounded px-2 py-1 text-xs mr-1 mb-1" x-text="service.name"></span>
-                                    </template>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <template x-for="mat in product.materials" :key="mat.id">
-                                        <span class="inline-block bg-gray-100 text-gray-800 rounded px-2 py-1 text-xs mr-1 mb-1" x-text="mat.name + ' (' + mat.amount + ' ' + mat.unit + ')' "></span>
-                                        </template>
-                                </td>
+                                <td class="px-4 py-3 text-green-700 font-semibold"><span x-text="product.price + ' сом'"></span></td>
+                                <td class="px-4 py-3 text-blue-700 font-semibold"><span x-text="product.cost_price + ' сом'"></span></td>
+                                <td class="px-4 py-3 text-gray-700"><span x-text="product.description || '-'"></span></td>
                                 <td class="px-4 py-3 text-right">
                                     <button @click="openEditForm(product)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
-                                            <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
-                                        </button>
+                                        <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
+                                    </button>
                                     <button @click="deleteProduct(product.id)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
-                                            <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-                                        </button>
+                                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                                    </button>
                                 </td>
                             </tr>
                         </template>
@@ -94,13 +89,14 @@
             </div>
         </div>
         <!-- Карточный вид -->
-        <div x-show="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div x-show="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <template x-for="product in products" :key="product.id">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div class="card bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-4 relative overflow-hidden">
+                    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500"></div>
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <h3 class="font-semibold text-gray-900" x-text="product.name"></h3>
-                            <p class="text-sm text-gray-600" x-text="product.type_display"></p>
+                            <p class="text-sm text-gray-500" x-text="product.description || 'Без примечания'"></p>
                         </div>
                         <div class="flex space-x-2">
                             <button @click="openEditForm(product)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
@@ -111,19 +107,8 @@
                             </button>
                         </div>
                     </div>
-                    <div class="text-sm mb-2"><span class="text-gray-600">Описание:</span> <span x-text="product.description"></span></div>
-                    <div class="text-sm mb-2"><span class="text-gray-600">Цена:</span> <span class="text-green-700 font-semibold" x-text="product.price + ' ⃀'"></span></div>
-                    <div class="text-sm mb-2"><span class="text-gray-600">Себестоимость:</span> <span class="text-blue-700 font-semibold" x-text="product.cost_price + ' ⃀'"></span></div>
-                    <div class="text-sm mb-2"><span class="text-gray-600">Услуги:</span>
-                        <template x-for="service in product.services" :key="service.id">
-                            <span class="inline-block bg-blue-100 text-blue-800 rounded px-2 py-1 text-xs mr-1 mb-1" x-text="service.name"></span>
-                                </template>
-                        </div>
-                    <div class="text-sm"><span class="text-gray-600">Материалы:</span>
-                        <template x-for="mat in product.materials" :key="mat.id">
-                            <span class="inline-block bg-gray-100 text-gray-800 rounded px-2 py-1 text-xs mr-1 mb-1" x-text="mat.name + ' (' + mat.amount + ' ' + mat.unit + ')' "></span>
-                                </template>
-                    </div>
+                    <div class="text-sm mb-2"><span class="text-gray-600">Цена:</span> <span class="text-green-700 font-semibold" x-text="product.price + ' сом'"></span></div>
+                    <div class="text-sm"><span class="text-gray-600">Себестоимость:</span> <span class="text-blue-700 font-semibold" x-text="product.cost_price + ' сом'"></span></div>
                 </div>
             </template>
             <div x-show="products.length === 0" class="col-span-full text-center py-12">
@@ -132,114 +117,31 @@
             </div>
         </div>
         <!-- Модальная форма -->
-        <div x-show="showForm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 py-12">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-y-auto my-12">
-                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                                <i data-lucide="package" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-semibold" x-text="editingProduct ? 'Редактировать продукт' : 'Добавить новый продукт'"></h2>
-                                <p class="text-blue-100 text-sm" x-text="editingProduct ? 'Обновите информацию о продукте' : 'Заполните информацию о новом продукте'"></p>
-                            </div>
-                        </div>
-                        <button @click="closeForm()" class="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-colors">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
-                    </div>
+                <div x-show="showForm" class="fixed inset-0 z-50" style="display: none;">
+            <div class="absolute inset-0 bg-black bg-opacity-40" @click="closeForm()"></div>
+            <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900" x-text="editingProduct ? 'Редактировать продукт' : 'Добавить продукт'"></h2>
+                    <button @click="closeForm()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
                 </div>
-                <form @submit.prevent="saveProduct()" class="p-6 space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-medium text-gray-900 flex items-center space-x-2">
-                            <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
-                            <span>Основная информация</span>
-                        </h3>
-                        <div class="space-y-2">
-                                <label class="block text-sm font-medium text-gray-700">Название продукта *</label>
-                                <input type="text" x-model="formData.name" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                        </div>
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-gray-700">Тип продукта *</label>
-                                <select x-model="formData.type" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                    <option value="door">Дверь</option>
-                                    <!-- Можно добавить другие типы -->
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-gray-700">Цена за продукт (⃀) *</label>
-                                <input type="number" x-model="formData.price" min="0" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                            </div>
-                        </div>
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-medium text-gray-900 flex items-center space-x-2">
-                                <i data-lucide="scissors" class="w-5 h-5 text-blue-600"></i>
-                                <span>Услуги</span>
-                        </h3>
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-gray-700">Услуги *</label>
-                                <select x-model="formData.service_ids" multiple class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <template x-for="service in allServices" :key="service.id">
-                                        <option :value="service.id" x-text="service.name"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-gray-700">Описание</label>
-                                <textarea x-model="formData.description" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
-                            </div>
-                            </div>
-                        </div>
-                    <!-- В секции материалов -->
-                    <div class="space-y-2 pt-2">
-                        <h3 class="text-lg font-medium text-gray-900 flex items-center space-x-2">
-                            <i data-lucide="package" class="w-5 h-5 text-blue-600"></i>
-                            <span>Материалы</span>
-                        </h3>
-                        <template x-if="formData.materials_consumption.length === 0">
-                            <div class="flex flex-col md:flex-row md:items-center md:space-x-2 mb-2">
-                                <select x-model.number="formData.materials_consumption[0].material_id" class="border rounded px-2 py-1 mb-2 md:mb-0">
-                                    <option value="">Выберите материал</option>
-                                    <template x-for="mat in allMaterials" :key="mat.id">
-                                        <option :value="mat.id" x-text="mat.name + ' (' + mat.unit + ')' "></option>
-                                    </template>
-                                </select>
-                                <input type="number" min="0" step="0.001" x-model="formData.materials_consumption[0].amount" class="border rounded px-2 py-1 w-24 mb-2 md:mb-0" placeholder="Кол-во">
-                                <button type="button" @click="formData.materials_consumption.splice(0, 1)" class="text-red-600 hover:text-red-800">
-                                    <i data-lucide="trash-2"></i>
-                                </button>
-                                </div>
-                        </template>
-                        <template x-for="(mc, idx) in formData.materials_consumption" :key="mc.id || idx">
-                            <div class="flex flex-col md:flex-row md:items-center md:space-x-2 mb-2">
-                                <select x-model.number="mc.material_id" class="border rounded px-2 py-1 mb-2 md:mb-0">
-                                    <option value="">Выберите материал</option>
-                                    <template x-for="mat in allMaterials" :key="mat.id">
-                                        <option :value="mat.id" x-text="mat.name + ' (' + mat.unit + ')' "></option>
-                                    </template>
-                                </select>
-                                <input type="number" min="0" step="0.001" x-model="mc.amount" class="border rounded px-2 py-1 w-24 mb-2 md:mb-0" placeholder="Кол-во">
-                                <button type="button" @click="formData.materials_consumption.splice(idx, 1)" class="text-red-600 hover:text-red-800">
-                                    <i data-lucide="trash-2"></i>
-                        </button>
+                <form @submit.prevent="saveProduct()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Название *</label>
+                        <input type="text" x-model="formData.name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                        </template>
-                        <button type="button" @click="formData.materials_consumption.push({material_id: '', amount: 0})"
-                            class="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1">
-                            <i data-lucide="plus"></i><span>Добавить материал</span>
-                        </button>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Цена (сом) *</label>
+                        <input type="number" x-model="formData.price" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                    <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-6 border-t border-gray-200">
-                        <button type="button" @click="closeForm()" class="px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-xl hover:bg-gray-200 flex items-center justify-center space-x-2">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                            <span>Отмена</span>
-                        </button>
-                        <button type="submit" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl">
-                            <i data-lucide="save" class="w-4 h-4"></i>
-                            <span x-text="editingProduct ? 'Обновить' : 'Добавить продукт'"></span>
-                        </button>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
+                        <textarea x-model="formData.description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" @click="closeForm()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Отмена</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" x-text="editingProduct ? 'Сохранить' : 'Добавить'"></button>
                     </div>
                 </form>
             </div>
@@ -249,18 +151,14 @@
         function productsData() {
             return {
                 products: [],
-                allServices: [],
-                allMaterials: [],
                 viewMode: 'table',
                 showForm: false,
                 editingProduct: null,
                 formData: {
                     name: '',
-                    type: 'door',
                     description: '',
                     price: 0,
-                    service_ids: [],
-                    materials_consumption: []
+                    type: 'door'
                 },
                 loading: false,
                 error: '',
@@ -268,10 +166,8 @@
                     this.loading = true;
                     try {
                         await this.fetchProducts();
-                        await this.fetchServices();
-                        await this.fetchAllMaterials();
                     } catch (e) {
-                        this.error = 'Ошибка загрузки данных';
+                        this.error = 'Ошибка загрузки данных.';
                     }
                     this.loading = false;
                     lucide.createIcons();
@@ -284,74 +180,33 @@
                     const data = await resp.json();
                         this.products = Array.isArray(data) ? data : (data.results || []);
                     } catch (e) {
-                        this.error = 'Ошибка загрузки продуктов';
+                        this.error = 'Ошибка загрузки продуктов.';
                     }
                     this.loading = false;
                 },
-                async fetchServices() {
-                    this.error = '';
-                    try {
-                        const resp = await fetch('/services/api/services/');
-                        const data = await resp.json();
-                        this.allServices = data.data || (data.results || []);
-                    } catch (e) {
-                        this.error = 'Ошибка загрузки услуг';
-                    }
-                },
-                async fetchAllMaterials() {
-                    this.error = '';
-                    try {
-                        const resp = await fetch('/inventory/api/materials/');
-                    const data = await resp.json();
-                        this.allMaterials = data.data || [];
-                    } catch (e) {
-                        this.error = 'Ошибка загрузки материалов';
-                    }
-                },
                 openAddForm() {
-                    this.formData = { name: '', type: 'door', description: '', price: 0, service_ids: [], materials_consumption: [] };
+                    this.formData = { name: '', description: '', price: 0, type: 'door' };
                     this.editingProduct = null;
                     this.showForm = true;
                     this.error = '';
                     this.$nextTick(() => lucide.createIcons());
                 },
                 openEditForm(product) {
-                    let mcs = (product.materials_consumption || []).map(mc => ({
-                        id: mc.id,
-                        material_id: mc.material_id || mc.material || (mc.material_name ? this.findMaterialIdByName(mc.material_name) : ''),
-                        amount: mc.amount
-                    }));
-                    // Если нет ручных норм, заполняем по materials (автоматически)
-                    if (mcs.length === 0 && product.materials && product.materials.length > 0) {
-                        mcs = product.materials.map(mat => ({
-                            material_id: mat.id,
-                            amount: mat.amount
-                        }));
-                    }
-                    if (mcs.length === 0) {
-                        mcs = [{ material_id: '', amount: 0 }];
-                    }
                     this.formData = {
                         id: product.id,
                         name: product.name,
-                        type: product.type,
                         description: product.description,
                         price: product.price,
-                        service_ids: product.services.map(s => s.id),
-                        materials_consumption: mcs
+                        type: product.type
                     };
                     this.editingProduct = product;
                     this.showForm = true;
                     this.error = '';
                     this.$nextTick(() => lucide.createIcons());
                 },
-                findMaterialIdByName(name) {
-                    const mat = this.allMaterials.find(m => m.name === name);
-                    return mat ? mat.id : '';
-                },
                 closeForm() {
                     this.showForm = false;
-                    this.formData = { name: '', type: 'door', description: '', price: 0, service_ids: [], materials_consumption: [] };
+                    this.formData = { name: '', type: 'door', description: '', price: 0 };
                     this.editingProduct = null;
                     this.error = '';
                     this.$nextTick(() => lucide.createIcons());
@@ -365,13 +220,7 @@
                         name: this.formData.name,
                         type: this.formData.type,
                         description: this.formData.description,
-                        price: this.formData.price,
-                        service_ids: this.formData.service_ids,
-                        materials_consumption: this.formData.materials_consumption.map(mc => ({
-                            id: mc.id,
-                            material_id: mc.material_id,
-                            amount: mc.amount
-                        }))
+                        price: this.formData.price
                     });
                     try {
                         const resp = await fetch(url, {
@@ -384,10 +233,10 @@
                             this.closeForm();
                         } else {
                             const data = await resp.json();
-                            this.error = data.detail || 'Ошибка сохранения продукта';
+                            this.error = data.detail || 'Ошибка сохранения продукта.';
                         }
                     } catch (e) {
-                        this.error = 'Ошибка сохранения продукта';
+                        this.error = 'Ошибка сохранения продукта.';
                     }
                     this.loading = false;
                 },
@@ -400,10 +249,10 @@
                         if (resp.ok) {
                             await this.fetchProducts();
                             } else {
-                            this.error = 'Ошибка удаления продукта';
+                            this.error = 'Ошибка удаления продукта.';
                         }
                     } catch (e) {
-                        this.error = 'Ошибка удаления продукта';
+                        this.error = 'Ошибка удаления продукта.';
                     }
                     this.loading = false;
                 }
@@ -418,3 +267,5 @@
     </script>
 </body>
 </html>
+
+
