@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+    </style>
+</head>
+<body class="min-h-screen" style="font-family: system-ui, -apple-system, sans-serif;">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                    <i data-lucide="user" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500">Профиль</div>
+                    <span class="text-lg font-semibold text-gray-900">Данные сотрудника</span>
+                </div>
+            </div>
+            <a href="{% url 'logout' %}" class="text-sm text-gray-600 hover:text-gray-900">Выход</a>
+        </div>
+    </header>
+
+    <main class="pt-24 pb-10 px-4 max-w-5xl mx-auto">
+        <section class="card bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 rounded-2xl bg-gray-900 text-white flex items-center justify-center text-xl font-semibold">
+                    {{ user.get_full_name|slice:":1"|default:user.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-900">{{ user.get_full_name|default:user.username }}</h1>
+                    <p class="text-sm text-gray-500">Роль: {{ user.get_role_display|default:"—" }}</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section class="card bg-white rounded-2xl border border-gray-200 p-6">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Основное</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Логин</span>
+                        <span class="text-gray-900 font-medium">{{ user.username|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Имя</span>
+                        <span class="text-gray-900 font-medium">{{ user.first_name|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Фамилия</span>
+                        <span class="text-gray-900 font-medium">{{ user.last_name|default:"—" }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card bg-white rounded-2xl border border-gray-200 p-6">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Контакты</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Телефон</span>
+                        <span class="text-gray-900 font-medium">{{ user.phone|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Email</span>
+                        <span class="text-gray-900 font-medium">{{ user.email|default:"—" }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card bg-white rounded-2xl border border-gray-200 p-6">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Рабочие данные</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Цех</span>
+                        <span class="text-gray-900 font-medium">{{ user.workshop|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">График</span>
+                        <span class="text-gray-900 font-medium">{{ user.get_work_schedule_display|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Оплата</span>
+                        <span class="text-gray-900 font-medium">{{ user.get_payment_type_display|default:"—" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Баланс</span>
+                        <span class="text-gray-900 font-medium">{{ user.get_balance_display|default:"—" }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card bg-white rounded-2xl border border-gray-200 p-6">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Примечание</h2>
+                <p class="text-sm text-gray-700 whitespace-pre-line">{{ user.notes|default:"—" }}</p>
+            </section>
+        </div>
+    </main>
+
+    <script>document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ from apps.inventory.models import EmployeeMaterialBalance
 from apps.services.models import Service
 from apps.defects.models import Defect
 from apps.orders.models import OrderItem
+from apps.products.models import Product
 
 User = get_user_model()
 
@@ -556,8 +557,9 @@ class PackagingReportView(APIView):
                 status=400,
             )
 
-        mode = request.data.get("mode") or "order"
+        mode = (request.data.get("mode") or "order").lower()
         order_item_id = request.data.get("order_item_id")
+        product_id = request.data.get("product_id")
 
         with transaction.atomic():
             batch = NeutralBatch.objects.select_for_update().get(pk=batch_id)
@@ -584,23 +586,45 @@ class PackagingReportView(APIView):
 
             order_item = None
             order = None
-            if mode == "order" and order_item_id:
+            product = None
+
+            if mode == "order":
+                if not order_item_id:
+                    return Response(
+                        {"detail": "order_item_id обязателен при работе по заявке."},
+                        status=400,
+                    )
                 try:
                     order_item = OrderItem.objects.select_for_update().get(pk=order_item_id)
-                    order = order_item.order
-                    # Обновляем прогресс по заявке
-                    order_item.packaging_received_quantity = (
-                        (order_item.packaging_received_quantity or 0) + int(produced_quantity)
-                    )
-                    order_item.save(update_fields=["packaging_received_quantity"])
                 except OrderItem.DoesNotExist:
-                    order_item = None
-                    order = None
+                    return Response(
+                        {"detail": "Указанная позиция заявки не найдена."},
+                        status=404,
+                    )
+                order = order_item.order
+                product = order_item.product
+                # Обновляем прогресс по заявке
+                order_item.packaging_received_quantity = (
+                    (order_item.packaging_received_quantity or 0) + int(produced_quantity)
+                )
+                order_item.save(update_fields=["packaging_received_quantity"])
+            else:  # режим "stock" / на запас
+                if not product_id:
+                    return Response(
+                        {"detail": "product_id обязателен при работе на запас."},
+                        status=400,
+                    )
+                try:
+                    product = Product.objects.get(pk=product_id)
+                except Product.DoesNotExist:
+                    return Response(
+                        {"detail": "Указанный товар (product_id) не найден."},
+                        status=404,
+                    )
 
             # Создаём запись в складе готовой продукции
             from apps.finished_goods.models import FinishedGood
 
-            product = order_item.product if order_item else None
             finished = FinishedGood.objects.create(
                 product=product,
                 order_item=order_item,

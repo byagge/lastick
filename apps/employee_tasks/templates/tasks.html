@@ -144,8 +144,142 @@
             </div>
         </template>
 
+        <!-- Пакетоотделочный / упаковочный цех: работа с нейтральной зоной и заявками -->
+        <template x-if="!loading && isPackaging">
+            <div class="space-y-4">
+                <!-- Партии нейтральной зоны -->
+                <template x-if="neutralBatches.length === 0">
+                    <div class="text-center py-8 space-y-3">
+                        <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="archive" class="w-8 h-8 text-blue-500"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">Нет полуфабриката</h3>
+                        <p class="text-sm text-gray-600 px-4">
+                            В нейтральной зоне пока нет доступных партий. Дождитесь выгрузки из первого цеха.
+                        </p>
+                    </div>
+                </template>
+
+                <template x-if="neutralBatches.length > 0">
+                    <div class="card bg-white rounded-lg p-4 space-y-4">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-900 mb-2">Выбор полуфабриката</h2>
+                            <select x-model="selectedNeutralBatchId"
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Выберите партию…</option>
+                                <template x-for="batch in neutralBatches" :key="batch.id">
+                                    <option :value="batch.id" x-text="`#${batch.id} • ${batch.employee_name} • ${batch.available_quantity.toFixed(3)} ед.`"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-900 mb-2">Режим работы</h2>
+                            <div class="flex items-center space-x-4 text-sm">
+                                <label class="inline-flex items-center space-x-2">
+                                    <input type="radio" value="order" x-model="packagingMode" class="form-radio text-blue-600">
+                                    <span>По заявке</span>
+                                </label>
+                                <label class="inline-flex items-center space-x-2">
+                                    <input type="radio" value="stock" x-model="packagingMode" class="form-radio text-blue-600">
+                                    <span>На запас</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- По заявке: выбор заявки и позиции -->
+                        <template x-if="packagingMode === 'order'">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Заявка</label>
+                                    <select x-model="selectedOrderId"
+                                            @change="onOrderChange"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Выберите заявку…</option>
+                                        <template x-for="order in packagingOrders" :key="order.id">
+                                            <option :value="order.id" x-text="`#${order.id} • ${order.name} (${order.client?.name || 'клиент не указан'})`"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Позиция в заявке</label>
+                                    <select x-model="selectedOrderItemId"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Выберите позицию…</option>
+                                        <template x-for="item in packagingItems" :key="item.id">
+                                            <option :value="item.id"
+                                                    x-text="`${item.product?.name || 'Товар'} • ${item.quantity} шт.`">
+                                            </option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- На запас: выбор товара -->
+                        <template x-if="packagingMode === 'stock'">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Товар для запаса</label>
+                                <select x-model="selectedProductId"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Выберите товар…</option>
+                                    <template x-for="p in packagingProducts" :key="p.id">
+                                        <option :value="p.id" x-text="p.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </template>
+
+                        <!-- Ввод объёма и отправка -->
+                        <div class="space-y-2">
+                            <label class="block text-xs text-gray-500 mb-1">Сколько единиц/кг доработано</label>
+                            <input type="number" min="0" step="0.001"
+                                   x-model.number="packagingProduced"
+                                   placeholder="Введите количество"
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button @click="sendPackagingReport"
+                                    class="w-full inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">
+                                Отправить
+                            </button>
+                        </div>
+
+                        <!-- Статистика после отправки -->
+                        <template x-if="packagingSummary">
+                            <div class="mt-4 border-t border-gray-200 pt-3">
+                                <h3 class="text-sm font-semibold text-gray-900 mb-2">Статистика за сегодня</h3>
+                                <div class="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <div class="text-gray-500">Входной полуфабрикат</div>
+                                        <div class="font-semibold text-gray-900" x-text="packagingSummary.input_quantity.toFixed(3) + ' ед.'"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">Доработано</div>
+                                        <div class="font-semibold text-gray-900" x-text="packagingSummary.produced_quantity.toFixed(3) + ' ед.'"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">Брак</div>
+                                        <div class="font-semibold text-red-600" x-text="packagingSummary.scrap_quantity.toFixed(3) + ' ед.'"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">Эффективность</div>
+                                        <div class="font-semibold text-gray-900" x-text="packagingSummary.efficiency.toFixed(1) + ' %'"></div>
+                                    </div>
+                                    <template x-if="paymentType === 'variable'">
+                                        <div class="col-span-2">
+                                            <div class="text-gray-500">Заработано сегодня</div>
+                                            <div class="font-semibold text-emerald-600" x-text="packagingSummary.earnings.toFixed(2) + ' сом'"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
         <!-- Обычный список задач для остальных цехов -->
-        <template x-if="!loading && !isExtrusion">
+        <template x-if="!loading && !isExtrusion && !isPackaging">
             <div>
                 <template x-if="filteredTasks.length === 0">
                     <div class="text-center py-8">
@@ -378,8 +512,21 @@
             workshopName: '',
             paymentType: 'fixed',
             isExtrusion: false,
+            isPackaging: false,
             hasMaterialBalance: false,
             extrusionSummary: null,
+            // Второй цех
+            neutralBatches: [],
+            selectedNeutralBatchId: '',
+            packagingMode: 'order',
+            packagingOrders: [],
+            selectedOrderId: '',
+            packagingItems: [],
+            selectedOrderItemId: '',
+            packagingProducts: [],
+            selectedProductId: '',
+            packagingProduced: null,
+            packagingSummary: null,
             async init() {
                 this.userId = window.user_id || null;
                 try {
@@ -395,9 +542,14 @@
 
                 const lowerName = (this.workshopName || '').toLowerCase();
                 this.isExtrusion = lowerName.includes('экструз') || lowerName.includes('экстуз');
+                this.isPackaging = lowerName.includes('пакет') || lowerName.includes('упаков');
 
                 if (this.isExtrusion) {
                     await this.checkMaterialBalance();
+                } else if (this.isPackaging) {
+                    await this.loadNeutralBatches();
+                    await this.loadPackagingOrders();
+                    await this.loadPackagingProducts();
                 } else {
                     await this.loadTasks();
                 }
@@ -468,6 +620,44 @@
                 
                 return groupedTasks;
             },
+            async loadNeutralBatches() {
+                this.loading = true;
+                try {
+                    const resp = await fetch('/workshops/api/neutral-batches/');
+                    const data = await resp.json();
+                    this.neutralBatches = Array.isArray(data) ? data : [];
+                } catch (e) {
+                    this.neutralBatches = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async loadPackagingOrders() {
+                try {
+                    const resp = await fetch('/orders/api/orders/');
+                    const data = await resp.json();
+                    const list = data.results || data || [];
+                    // Фильтруем только активные производственные заявки
+                    this.packagingOrders = list.filter(o => ['production', 'new'].includes(o.status));
+                } catch (e) {
+                    this.packagingOrders = [];
+                }
+            },
+            async loadPackagingProducts() {
+                try {
+                    const resp = await fetch('/products/api/products/');
+                    const data = await resp.json();
+                    this.packagingProducts = data.results || data || [];
+                } catch (e) {
+                    this.packagingProducts = [];
+                }
+            },
+            onOrderChange() {
+                const id = this.selectedOrderId;
+                const order = (this.packagingOrders || []).find(o => String(o.id) === String(id));
+                this.packagingItems = order && Array.isArray(order.items) ? order.items : [];
+                this.selectedOrderItemId = '';
+            },
             async sendExtrusionReport() {
                 const input = prompt('Сколько кг/единиц товара вы выполнили за смену? Введите число:');
                 if (!input) return;
@@ -494,6 +684,58 @@
                     }
                     this.extrusionSummary = data;
                     this.hasMaterialBalance = false;
+                } catch (e) {
+                    alert('Ошибка сети при отправке отчёта.');
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async sendPackagingReport() {
+                if (!this.selectedNeutralBatchId) {
+                    alert('Выберите партию из нейтральной зоны.');
+                    return;
+                }
+                if (!this.packagingProduced || this.packagingProduced <= 0) {
+                    alert('Введите положительное количество доработанного товара.');
+                    return;
+                }
+                const payload = {
+                    neutral_batch_id: this.selectedNeutralBatchId,
+                    produced_quantity: this.packagingProduced,
+                    mode: this.packagingMode,
+                };
+                if (this.packagingMode === 'order') {
+                    if (!this.selectedOrderItemId) {
+                        alert('Выберите позицию заявки.');
+                        return;
+                    }
+                    payload.order_item_id = this.selectedOrderItemId;
+                } else {
+                    if (!this.selectedProductId) {
+                        alert('Выберите товар для работы на запас.');
+                        return;
+                    }
+                    payload.product_id = this.selectedProductId;
+                }
+                try {
+                    this.loading = true;
+                    const resp = await fetch('/workshops/api/packaging/report/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        alert(data.detail || 'Ошибка при отправке отчёта второго цеха.');
+                        this.loading = false;
+                        return;
+                    }
+                    this.packagingSummary = data;
+                    // Обновляем список партий — выбранная могла быть исчерпана
+                    await this.loadNeutralBatches();
                 } catch (e) {
                     alert('Ошибка сети при отправке отчёта.');
                 } finally {
