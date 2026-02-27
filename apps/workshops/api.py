@@ -450,8 +450,10 @@ class ExtrusionReportView(APIView):
                     employee_task=None,
                     product=None,
                     user=user,
-                    status=Defect.DefectStatus.PENDING,
-                    master_comment=f"Брак экструзии: {scrap_quantity} ед. из {total_material} ед.",
+                    quantity=scrap_quantity,
+                    employee_comment=(
+                        f"Extrusion defect: {scrap_quantity} kg of {total_material} kg."
+                    ),
                 )
 
             # Расчёт заработка для сдельной оплаты: ставка берётся из первой активной услуги цеха
@@ -642,8 +644,10 @@ class PackagingReportView(APIView):
                     employee_task=None,
                     product=product,
                     user=user,
-                    status=Defect.DefectStatus.PENDING,
-                    master_comment=f"Брак второго цеха: {scrap_quantity} ед. из {total_input} ед.",
+                    quantity=scrap_quantity,
+                    employee_comment=(
+                        f"Packaging defect: {scrap_quantity} kg of {total_input} kg."
+                    ),
                 )
 
             # Заработок для сдельной оплаты

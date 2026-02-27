@@ -362,16 +362,21 @@ def create_defect_on_defective_change(sender, instance, **kwargs):
                 defect_quantity = instance.defective_quantity - old_instance.defective_quantity
                 
                 # Создаем записи браков для каждого единицы брака
-                for _ in range(defect_quantity):
+                if defect_quantity > 0:
                     Defect.objects.create(
                         employee_task=instance,
                         product=(
                             instance.stage.order_item.product
                             if instance.stage.order_item
-                            else (instance.stage.order.product if getattr(instance.stage, 'order', None) and getattr(instance.stage.order, 'product', None) else None)
+                            else (
+                                instance.stage.order.product
+                                if getattr(instance.stage, 'order', None)
+                                and getattr(instance.stage.order, 'product', None)
+                                else None
+                            )
                         ),
                         user=instance.employee,
-                        status='pending'  # Ожидает подтверждения мастера
+                        quantity=Decimal(str(defect_quantity)),
                     )
         except EmployeeTask.DoesNotExist:
             instance._delta_completed_quantity = 0

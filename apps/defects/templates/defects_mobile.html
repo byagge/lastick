@@ -4,839 +4,250 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>Браки — Мобильная версия</title>
-    <!-- Tailwind CSS -->
+    <title>Браки - Мобильная версия</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Alpine.js -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        [x-cloak] { display: none !important; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
     </style>
 </head>
-<body class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 py-4 fixed top-0 left-0 right-0 z-30">
-        <div class="flex items-center justify-between px-4">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span class="text-white font-bold text-sm">S</span>
-                </div>
-                <span class="text-lg font-semibold text-gray-900">Smart Factory</span>
+<body class="min-h-screen" x-data="defectsData()" x-init="init()">
+    <header class="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur border-b border-gray-200 z-40">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-gray-900">Браки</h1>
+                <p class="text-xs text-gray-500">Лог браков и штрафов</p>
             </div>
-            <div class="flex items-center space-x-3">
-                <a href="/notifications/" class="text-gray-600 hover:text-gray-900">
-                    <i data-lucide="bell" class="w-5 h-5"></i>
-                </a>
-                <a href="/settings/" class="text-gray-600 hover:text-gray-900">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                </a>
-        </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="pt-20 pb-20 px-4" x-data="defectsData()" x-init="init()">
-        <!-- Заголовок -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-            <h1 class="text-xl font-bold text-gray-900 mb-2">Браки (дефекты)</h1>
-            <p class="text-gray-600 text-sm">Система управления браками с подтверждением мастера</p>
-            </div>
-        
-        <!-- Поиск -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-            <input type="text" placeholder="Поиск по продукту или сотруднику..." x-model="searchTerm"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        
-        <!-- Тестовая кнопка для отладки -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-            <button @click="testModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 mb-2">
-                Тест модального окна
-            </button>
-            <button @click="showConfirmationModal = !showConfirmationModal" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mb-2">
-                Переключить модальное окно
-            </button>
-            <div class="text-xs text-gray-500">
-                Статус модального окна: <span x-text="showConfirmationModal"></span><br>
-                Текущий пользователь: <span x-text="currentUser ? currentUser.role : 'Не загружен'"></span><br>
-                Количество браков: <span x-text="defects.length"></span>
+    <main class="pt-20 px-4 pb-16">
+        <div class="mb-4">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                <input type="text" placeholder="Поиск..." x-model="searchTerm" class="pl-10 pr-4 py-3 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             </div>
         </div>
-        
 
-        
-        <!-- Статистика -->
-        <div class="grid grid-cols-3 gap-2 mb-4">
-            <div class="bg-red-50 rounded-lg p-3">
-                <p class="text-xs text-red-600">Всего</p>
-                <p class="text-lg font-bold text-red-900" x-text="stats().totalDefects || 0"></p>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Всего</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="stats.total_defects || 0"></p>
             </div>
-            <div class="bg-yellow-50 rounded-lg p-3">
-                <p class="text-xs text-yellow-600">Ожидают</p>
-                <p class="text-lg font-bold text-yellow-900" x-text="stats().pendingConfirmation || 0"></p>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Брака, кг</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="formatNumber(stats.total_quantity || 0, 3)"></p>
             </div>
-            <div class="bg-green-50 rounded-lg p-3">
-                <p class="text-xs text-green-600">Починено</p>
-                <p class="text-lg font-bold text-green-900" x-text="stats().repaired || 0"></p>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Штрафов</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="stats.with_penalty || 0"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Сумма</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="formatNumber(stats.total_penalty || 0, 2)"></p>
             </div>
         </div>
-        
-        <!-- Список браков -->
+
         <div class="space-y-3">
             <template x-for="defect in filteredDefects()" :key="defect.id">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-gray-900" x-text="defect.product && defect.product.name ? defect.product.name : 'Неизвестный продукт'"></h3>
-                            <p class="text-sm text-gray-600" x-text="defect.user && defect.user.full_name ? defect.user.full_name : 'Неизвестный сотрудник'"></p>
+                <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900" x-text="getProductName(defect)"></h3>
+                            <p class="text-xs text-gray-500" x-text="getUserName(defect)"></p>
                         </div>
-                        <span class="px-2 py-1 text-xs rounded-full" :class="getStatusClass(defect.status)">
-                            <span x-text="defect.status_display || 'Неизвестный статус'"></span>
-                        </span>
+                        <span class="text-xs font-semibold text-gray-900" x-text="formatNumber(defect.quantity || 0, 3) + ' кг'"></span>
                     </div>
-                    
-                    <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
-                        <span x-text="formatDate(defect.created_at)"></span>
-                        <span x-show="defect.defect_type" 
-                              class="px-2 py-1 text-xs rounded-full"
-                              :class="getDefectTypeClass(defect.defect_type)"
-                              x-text="defect.defect_type_display || 'Неизвестный тип'"></span>
+                    <div class="text-xs text-gray-600 space-y-1">
+                        <div><span class="text-gray-500">Комментарий:</span> <span x-text="defect.employee_comment || '-'"></span></div>
+                        <div><span class="text-gray-500">Админ:</span> <span x-text="defect.admin_comment || '-'"></span></div>
+                        <div><span class="text-gray-500">Штраф:</span> <span x-text="defect.penalty_amount !== null && defect.penalty_amount !== undefined ? formatNumber(defect.penalty_amount, 2) : 'нет'"></span></div>
+                        <div><span class="text-gray-500">Дата:</span> <span x-text="formatDate(defect.created_at)"></span></div>
                     </div>
-                    
-                    <!-- Действия -->
-                    <div class="flex space-x-2">
-                        <button x-show="canConfirmDefect(defect)" 
-                                @click="openConfirmationModal(defect)"
-                                class="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                            Подтвердить
-                        </button>
-                        <button x-show="canMarkRepaired(defect)"
-                                @click="openRepairModal(defect)"
-                                class="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                            Починен
-                        </button>
-                        <button x-show="canCloseDefect(defect)"
-                                @click="closeDefect(defect)"
-                                class="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
-                            Закрыть
-                        </button>
+                    <div class="mt-3" x-show="canAssignPenalty()">
+                        <button @click="openPenaltyModal(defect)" class="w-full px-3 py-2 text-xs rounded-lg bg-gray-900 text-white" x-text="defect.penalty_amount ? 'Изменить штраф' : 'Назначить штраф'"></button>
                     </div>
                 </div>
             </template>
-        </div>
-        
-        <!-- Пустое состояние -->
-        <div x-show="filteredDefects().length === 0" class="text-center py-12">
-            <i data-lucide="alert-triangle" class="mx-auto text-gray-400 mb-4" style="width: 48px; height: 48px;"></i>
-            <p class="text-gray-500 text-lg" x-text="searchTerm ? 'Браки не найдены по вашему запросу' : 'Браки не найдены'"></p>
-            <p x-show="searchTerm" class="text-gray-400 text-sm mt-2">Попробуйте изменить поисковый запрос</p>
+            <div x-show="filteredDefects().length === 0" class="text-center py-10 text-gray-500">
+                Браки не найдены
+            </div>
         </div>
     </main>
 
-    <!-- Модальное окно подтверждения брака -->
-    <div :style="showConfirmationModal ? 'display: flex' : 'display: none'"
-         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-
-        <div class="bg-white rounded-lg p-4 w-full max-w-sm" @click.away="closeConfirmationModal()">
-            <h3 class="text-lg font-semibold mb-4">Подтверждение брака</h3>
-            
-            <!-- Шаг 1: Подтверждение проверки -->
-            <div x-show="confirmationStep === 1">
-                <p class="text-gray-600 mb-4 text-sm">Вы подтверждаете, что подошли и тщательно проверили брак?</p>
-                <div class="space-y-2">
-                    <button @click="confirmationStep = 2" 
-                            class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                        Да, подтверждаю
-                    </button>
-                    <button @click="closeConfirmationModal()" 
-                            class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                        Отмена
+    <div x-show="showPenaltyModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closePenaltyModal()"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-base font-semibold text-gray-900">Назначить штраф</h3>
+                    <button @click="closePenaltyModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-            </div>
-            
-            <!-- Шаг 2: Можно ли починить -->
-            <div x-show="confirmationStep === 2">
-                <p class="text-gray-600 mb-4 text-sm">Можно ли починить брак?</p>
-                <div class="space-y-2">
-                    <button @click="confirmationStep = 3; selectedDefect.is_repairable = true" 
-                            class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                        Да, можно починить
-                    </button>
-                    <button @click="confirmationStep = 4; selectedDefect.is_repairable = false" 
-                            class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-                        Нет, нельзя починить
-                    </button>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Сумма штрафа</label>
+                        <input type="number" min="0" step="0.01" x-model="penaltyForm.penalty_amount" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Комментарий</label>
+                        <textarea rows="3" x-model="penaltyForm.admin_comment" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Шаг 3: Тип брака (если нельзя починить) -->
-            <div x-show="confirmationStep === 4">
-                <p class="text-gray-600 mb-4 text-sm">Выберите тип брака:</p>
-                <div class="space-y-3 mb-4">
-                    <label class="flex items-center">
-                        <input type="radio" x-model="selectedDefect.defect_type" value="technical" class="mr-2">
-                        <span class="text-sm">Технический (штраф не списывается)</span>
-                    </label>
-                    <label class="flex items-center">
-                        <input type="radio" x-model="selectedDefect.defect_type" value="manual" class="mr-2">
-                        <span class="text-sm">Ручной (штраф списывается с сотрудника)</span>
-                    </label>
-                </div>
-                <div class="space-y-2">
-                    <button @click="confirmationStep = 5" 
-                            :disabled="!selectedDefect.defect_type"
-                            class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
-                        Далее
-                    </button>
-                    <button @click="confirmationStep = 2" 
-                            class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                        Назад
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Шаг 4: Выбор цеха для исправления -->
-            <div x-show="confirmationStep === 5">
-                <p class="text-gray-600 mb-4 text-sm">Выберите цех для исправления брака:</p>
-                <select x-model="selectedDefect.target_workshop_id" class="w-full p-2 border border-gray-300 rounded mb-4">
-                    <option value="">Выберите цех...</option>
-                    <template x-for="workshop in workshops" :key="workshop.id">
-                        <option :value="workshop.id" x-text="workshop.name || 'Неизвестный цех'"></option>
-                    </template>
-                </select>
-                <div x-show="workshops.length === 0" class="text-red-500 text-sm mb-4">
-                    Не удалось загрузить список цехов. Попробуйте обновить страницу.
-                </div>
-                <div class="space-y-2">
-                    <button @click="confirmDefect()" 
-                            :disabled="!selectedDefect.target_workshop_id || workshops.length === 0"
-                            class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
-                        Подтвердить
-                    </button>
-                    <button @click="confirmationStep = 4" 
-                            class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                        Назад
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Шаг 5: Комментарий -->
-            <div x-show="confirmationStep === 3">
-                <p class="text-gray-600 mb-4 text-sm">Добавьте комментарий (необязательно):</p>
-                <textarea x-model="selectedDefect.comment" 
-                          placeholder="Комментарий мастера..."
-                          class="w-full p-2 border border-gray-300 rounded mb-4 h-20 text-sm"
-                          maxlength="500"></textarea>
-                <div class="text-xs text-gray-500 mb-4">
-                    <span x-text="(selectedDefect.comment || '').length"></span>/500 символов
-                </div>
-                <div class="space-y-2">
-                    <button @click="confirmDefect()" 
-                            class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                        Подтвердить
-                    </button>
-                    <button @click="confirmationStep = 2" 
-                            class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                        Назад
-                    </button>
+                <div class="mt-4 flex items-center justify-end gap-2">
+                    <button @click="closePenaltyModal()" class="px-3 py-2 text-xs rounded-lg border border-gray-200 text-gray-600">Отмена</button>
+                    <button @click="assignPenalty()" class="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white">Сохранить</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Модальное окно отметки починки -->
-    <div :style="showRepairModal ? 'display: flex' : 'display: none'"
-         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0">
-        <div class="bg-white rounded-lg p-4 w-full max-w-sm" @click.away="closeRepairModal()">
-            <h3 class="text-lg font-semibold mb-4">Отметить брак как починенный</h3>
-            <p class="text-gray-600 mb-4 text-sm">Добавьте комментарий по починке (необязательно):</p>
-            <textarea x-model="repairComment" 
-                      placeholder="Комментарий по починке..."
-                      class="w-full p-2 border border-gray-300 rounded mb-4 h-20 text-sm"
-                      maxlength="500"></textarea>
-            <div class="text-xs text-gray-500 mb-4">
-                <span x-text="(repairComment || '').length"></span>/500 символов
-            </div>
-            <div class="space-y-2">
-                <button @click="markAsRepaired()" 
-                        class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                    Отметить как починенный
-                </button>
-                <button @click="closeRepairModal()" 
-                        class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                    Отмена
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Нижняя навигация -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div class="flex justify-around">
-            <a href="/dashboard/" class="flex flex-col items-center py-2 text-gray-600 hover:text-blue-600">
-                <i data-lucide="home" class="w-5 h-5 mb-1"></i>
-                <span class="text-xs">Главная</span>
-            </a>
-            <a href="/employees/" class="flex flex-col items-center py-2 text-gray-600 hover:text-blue-600">
-                <i data-lucide="users" class="w-5 h-5 mb-1"></i>
-                <span class="text-xs">Сотрудники</span>
-            </a>
-            <a href="/defects/" class="flex flex-col items-center py-2 text-red-600">
-                <i data-lucide="alert-triangle" class="w-5 h-5 mb-1"></i>
-                <span class="text-xs">Браки</span>
-            </a>
-            <a href="/inventory/" class="flex flex-col items-center py-2 text-gray-600 hover:text-blue-600">
-                <i data-lucide="package" class="w-5 h-5 mb-1"></i>
-                <span class="text-xs">Склад</span>
-            </a>
-        </div>
-    </nav>
 
     <script>
-    function defectsData() {
+        function defectsData() {
             return {
-            defects: [],
-            workshops: [],
+                defects: [],
+                stats: {},
                 searchTerm: '',
-            showConfirmationModal: false,
-            showRepairModal: false,
-            confirmationStep: 1,
-            selectedDefect: {},
-            repairComment: '',
-            currentUser: null,
-            
-            async fetchDefects() {
-                try {
-                    console.log('Fetching defects...');
+                showPenaltyModal: false,
+                selectedDefect: null,
+                penaltyForm: {
+                    penalty_amount: '',
+                    admin_comment: ''
+                },
+                currentUser: null,
+                async fetchDefects() {
                     const resp = await fetch('/defects/api/defects/');
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        console.log('Defects data received:', data);
-                        // Проверяем структуру данных
-                        if (data && Array.isArray(data)) {
-                            this.defects = data;
-                        } else if (data && data.results && Array.isArray(data.results)) {
-                            this.defects = data.results;
-                        } else {
-                            this.defects = [];
+                    const data = await resp.json();
+                    this.defects = Array.isArray(data) ? data : (data.results || []);
+                },
+                async fetchStats() {
+                    const resp = await fetch('/defects/api/stats/');
+                    this.stats = await resp.json();
+                },
+                async fetchCurrentUser() {
+                    try {
+                        const resp = await fetch('/accounts/api/profile/');
+                        if (resp.ok) {
+                            this.currentUser = await resp.json();
                         }
-                    } else {
-                        console.log('Defects fetch failed with status:', resp.status);
-                        this.defects = [];
-                    }
-                    console.log('Defects set to:', this.defects.length, 'items');
-                } catch (error) {
-                    console.error('Error fetching defects:', error);
-                    this.defects = [];
-                }
-            },
-            
-            async fetchWorkshops() {
-                try {
-                    const resp = await fetch('/workshops/api/workshops/');
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        // Проверяем структуру данных
-                        if (data && Array.isArray(data)) {
-                            this.workshops = data;
-                        } else if (data && data.results && Array.isArray(data.results)) {
-                            this.workshops = data.results;
-                        } else {
-                            this.workshops = [];
-                        }
-                    } else {
-                        this.workshops = [];
-                    }
-                } catch (error) {
-                    console.error('Error fetching workshops:', error);
-                    this.workshops = [];
-                }
-            },
-            
-            async fetchCurrentUser() {
-                try {
-                    console.log('Fetching current user...');
-                    const resp = await fetch('/accounts/api/profile/');
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        console.log('User data received:', data);
-                        // Проверяем структуру данных
-                        if (data && typeof data === 'object') {
-                            this.currentUser = data;
-                        } else {
-                            this.currentUser = null;
-                        }
-                    } else {
-                        console.log('User fetch failed with status:', resp.status);
+                    } catch (e) {
                         this.currentUser = null;
                     }
-                    console.log('Current user set to:', this.currentUser);
-                } catch (error) {
-                    console.error('Error fetching current user:', error);
-                    this.currentUser = null;
-                }
-            },
-            
-            filteredDefects() {
-                if (!this.defects || this.defects.length === 0) {
-                    return [];
-                }
-                
-                const term = this.searchTerm.toLowerCase();
-                return this.defects.filter(d =>
-                    (d.product && d.product.name ? d.product.name : '').toLowerCase().includes(term) ||
-                    (d.user && d.user.full_name ? d.user.full_name : '').toLowerCase().includes(term) ||
-                    (d.employee_task ? `задача ${d.employee_task.id}` : '').toLowerCase().includes(term)
-                );
-            },
-            
-            formatDate(dateStr) {
-                if (!dateStr) return 'Дата не указана';
-                try {
-                const d = new Date(dateStr);
-                    if (isNaN(d.getTime())) return 'Неверная дата';
-                return d.toLocaleString('ru-RU');
-                } catch (error) {
-                    return 'Ошибка даты';
-                }
-            },
-            
-            getStatusClass(status) {
-                if (!status) return 'bg-gray-100 text-gray-800';
-                
-                const classes = {
-                    'pending': 'bg-yellow-100 text-yellow-800',
-                    'confirmed': 'bg-blue-100 text-blue-800',
-                    'repairable': 'bg-green-100 text-green-800',
-                    'irreparable': 'bg-red-100 text-red-800',
-                    'transferred': 'bg-purple-100 text-purple-800',
-                    'repaired': 'bg-green-100 text-green-800',
-                    'closed': 'bg-gray-100 text-gray-800'
-                };
-                return classes[status] || 'bg-gray-100 text-gray-800';
-            },
-            
-            getDefectTypeClass(type) {
-                if (!type) return 'bg-gray-100 text-gray-800';
-                
-                const classes = {
-                    'technical': 'bg-blue-100 text-blue-800',
-                    'manual': 'bg-red-100 text-red-800'
-                };
-                return classes[type] || 'bg-gray-100 text-gray-800';
-            },
-            
-            canConfirmDefect(defect) {
-                if (!this.currentUser || !defect) return false;
-                // Check for master role - handle different possible role formats
-                const userRole = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
-                
-                console.log('canConfirmDefect check:', {
-                    currentUser: this.currentUser,
-                    userRole: userRole,
-                    defectStatus: defect.status,
-                    canConfirm: userRole && (userRole === 'admin' || userRole === 'Admin') && defect.status === 'pending'
-                });
-                
-                if (!userRole || (userRole !== 'admin' && userRole !== 'Admin')) return false;
-                return defect.status === 'pending';
-            },
-            
-            canMarkRepaired(defect) {
-                if (!this.currentUser || !defect) return false;
-                return defect.status === 'repairable' || defect.status === 'transferred';
-            },
-            
-            canCloseDefect(defect) {
-                if (!this.currentUser || !defect) return false;
-                const adminRoles = ['admin'];
-                return adminRoles.includes(this.currentUser.role) && defect.status === 'repaired';
-            },
-            
-            openConfirmationModal(defect) {
-                if (!defect) return;
-                try {
-                    console.log('openConfirmationModal called with defect:', defect);
-                    console.log('Current modal state before:', {
-                        showConfirmationModal: this.showConfirmationModal,
-                        showRepairModal: this.showRepairModal
+                },
+                getProductName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.product === 'string') return defect.product;
+                    return defect.product && defect.product.name ? defect.product.name : 'Без продукта';
+                },
+                getUserName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.user === 'string') return defect.user;
+                    return defect.user && defect.user.full_name ? defect.user.full_name : 'Без сотрудника';
+                },
+                formatDate(value) {
+                    if (!value) return '-';
+                    try {
+                        return new Date(value).toLocaleString('ru-RU');
+                    } catch (e) {
+                        return '-';
+                    }
+                },
+                formatNumber(value, digits) {
+                    const num = Number(value || 0);
+                    return num.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+                },
+                filteredDefects() {
+                    const term = this.searchTerm.toLowerCase();
+                    return this.defects.filter(defect => {
+                        const product = this.getProductName(defect).toLowerCase();
+                        const user = this.getUserName(defect).toLowerCase();
+                        const employeeComment = (defect.employee_comment || '').toLowerCase();
+                        const adminComment = (defect.admin_comment || '').toLowerCase();
+                        return product.includes(term) || user.includes(term) || employeeComment.includes(term) || adminComment.includes(term);
                     });
-                    
-                    // Проверяем, что DOM готов
-                    if (document.readyState === 'loading') {
-                        console.warn('DOM not ready, waiting...');
-                        document.addEventListener('DOMContentLoaded', () => {
-                            this.openConfirmationModal(defect);
-                        });
+                },
+                canAssignPenalty() {
+                    if (!this.currentUser) return false;
+                    const role = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
+                    return role === 'admin' || role === 'accountant';
+                },
+                openPenaltyModal(defect) {
+                    this.selectedDefect = defect;
+                    this.penaltyForm.penalty_amount = defect.penalty_amount || '';
+                    this.penaltyForm.admin_comment = defect.admin_comment || '';
+                    this.showPenaltyModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closePenaltyModal() {
+                    this.showPenaltyModal = false;
+                    this.selectedDefect = null;
+                    this.penaltyForm.penalty_amount = '';
+                    this.penaltyForm.admin_comment = '';
+                },
+                getCSRFToken() {
+                    const metaToken = document.querySelector('meta[name=\"csrf-token\"]');
+                    if (metaToken) return metaToken.getAttribute('content');
+                    const name = 'csrftoken';
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                },
+                async assignPenalty() {
+                    if (!this.selectedDefect) return;
+                    const csrfToken = this.getCSRFToken();
+                    if (this.penaltyForm.penalty_amount === '' || this.penaltyForm.penalty_amount === null) {
+                        alert('Укажите сумму штрафа');
                         return;
                     }
-                    
-                    this.selectedDefect = { ...defect };
-                    this.confirmationStep = 1;
-                    this.showConfirmationModal = true;
-                    this.showRepairModal = false; // Закрываем другое модальное окна
-                    
-                    console.log('Modal state after setting:', {
-                        showConfirmationModal: this.showConfirmationModal,
-                        showRepairModal: this.showRepairModal,
-                        selectedDefect: this.selectedDefect
-                    });
-                    
-                    // Принудительно обновляем DOM
-                    this.$nextTick(() => {
-                        console.log('DOM updated, modal should be visible');
-                    });
-                    
-                } catch (error) {
-                    console.error('Error opening confirmation modal:', error);
-                }
-            },
-            
-            openRepairModal(defect) {
-                if (!defect) return;
-                try {
-                    this.selectedDefect = defect;
-                    this.repairComment = '';
-                    this.showRepairModal = true;
-                    this.showConfirmationModal = false; // Закрываем другое модальное окно
-                } catch (error) {
-                    console.error('Error opening repair modal:', error);
-                }
-            },
-            
-            closeConfirmationModal() {
-                try {
-                    this.showConfirmationModal = false;
-                    this.confirmationStep = 1;
-                    this.selectedDefect = {};
-                } catch (error) {
-                    console.error('Error closing confirmation modal:', error);
-                }
-            },
-            
-            closeRepairModal() {
-                try {
-                    this.showRepairModal = false;
-                    this.repairComment = '';
-                    this.selectedDefect = {};
-                } catch (error) {
-                    console.error('Error closing repair modal:', error);
-                }
-            },
-            
-            async confirmDefect() {
-                if (!this.selectedDefect || !this.selectedDefect.id) {
-                    this.showNotification('Ошибка: брак не выбран', 'error');
-                    return;
-                }
-                
-                const csrfToken = this.getCSRFToken();
-                
-                if (!csrfToken) {
-                    this.showNotification('Ошибка: CSRF токен не найден. Обновите страницу.', 'error');
-                    return;
-                }
-                
-                const requestBody = {
-                    is_repairable: this.selectedDefect.is_repairable,
-                    defect_type: this.selectedDefect.defect_type,
-                    target_workshop_id: this.selectedDefect.target_workshop_id,
-                    comment: this.selectedDefect.comment || ''
-                };
-                
-                try {
-                    const response = await fetch(`/defects/api/defects/${this.selectedDefect.id}/confirm/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-                    
-                    if (response.ok) {
-                        const result = await response.json();
-                        this.closeConfirmationModal();
-                        await this.fetchDefects();
-                        this.showNotification('Брак успешно подтвержден', 'success');
-                    } else {
-                        const errorText = await response.text();
-                        let errorMessage = 'Ошибка при подтверждении брака';
-                        
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            errorMessage = errorData.error || errorData.message || errorMessage;
-                        } catch (e) {
-                            errorMessage = `Ошибка ${response.status}: ${errorText}`;
-                        }
-                        
-                        this.showNotification(errorMessage, 'error');
-                    }
-                } catch (error) {
-                    this.showNotification(`Ошибка при подтверждении брака: ${error.message}`, 'error');
-                }
-            },
-            
-            async markAsRepaired() {
-                if (!this.selectedDefect || !this.selectedDefect.id) {
-                    this.showNotification('Ошибка: брак не выбран', 'error');
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/defects/api/defects/${this.selectedDefect.id}/mark_repaired/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': this.getCSRFToken()
-                        },
-                        body: JSON.stringify({
-                            comment: this.repairComment
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        this.closeRepairModal();
-                        await this.fetchDefects();
-                        this.showNotification('Брак отмечен как починенный', 'success');
-                    } else {
-                        const error = await response.json();
-                        this.showNotification(error.error || 'Ошибка при отметке брака', 'error');
-                    }
-                } catch (error) {
-                    this.showNotification('Ошибка при отметке брака', 'error');
-                }
-            },
-            
-            async closeDefect(defect) {
-                if (!defect || !defect.id) {
-                    this.showNotification('Ошибка: брак не выбран', 'error');
-                    return;
-                }
-                
-                if (!confirm('Вы уверены, что хотите закрыть этот брак?')) return;
-                
-                try {
-                    const response = await fetch(`/defects/api/defects/${defect.id}/close/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': this.getCSRFToken()
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        await this.fetchDefects();
-                        this.showNotification('Брак закрыт', 'success');
-                    } else {
-                        const error = await response.json();
-                        this.showNotification(error.error || 'Ошибка при закрытии брака', 'error');
-                    }
-                } catch (error) {
-                    this.showNotification('Ошибка при закрытии брака', 'error');
-                }
-            },
-            
-            getCSRFToken() {
-                // Сначала пытаемся получить из meta тега
-                const metaToken = document.querySelector('meta[name="csrf-token"]');
-                if (metaToken) {
-                    return metaToken.getAttribute('content');
-                }
-                
-                // Затем из cookie
-                const name = 'csrftoken';
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                
-                if (cookieValue) {
-                    return cookieValue;
-                }
-                
-                // Если ничего не найдено, попробуем получить из Django формы
-                const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                if (csrfInput) {
-                    return csrfInput.value;
-                }
-                
-                return null;
-            },
-            
-            showNotification(message, type) {
-                alert(message);
-            },
-            
-            testModal() {
-                console.log('Test modal button clicked');
-                console.log('Current state:', {
-                    showConfirmationModal: this.showConfirmationModal,
-                    showRepairModal: this.showRepairModal,
-                    currentUser: this.currentUser,
-                    defects: this.defects
-                });
-                
-                // Тестируем открытие модального окна
-                this.showConfirmationModal = true;
-                this.confirmationStep = 1;
-                this.selectedDefect = { id: 'test', product: { name: 'Test Product' } };
-                
-                console.log('After setting test modal state:', {
-                    showConfirmationModal: this.showConfirmationModal,
-                    confirmationStep: this.confirmationStep
-                });
-                
-                // Принудительно обновляем DOM
-                this.$nextTick(() => {
-                    console.log('DOM updated, checking modal visibility...');
-                    const modal = document.querySelector('.fixed.inset-0');
-                    if (modal) {
-                        console.log('Modal element found:', modal);
-                        console.log('Modal computed style:', window.getComputedStyle(modal));
-                        console.log('Modal display style:', modal.style.display);
-                    } else {
-                        console.log('Modal element not found');
-                    }
-                });
-                
-                alert('Модальное окно должно быть открыто!');
-            },
-            
-
-            
-            async init() {
-                try {
-                    console.log('Initializing defects data...');
-                    
-                    // Явно устанавливаем модальные окна в скрытое состояние
-                    this.showConfirmationModal = false;
-                    this.showRepairModal = false;
-                    this.confirmationStep = 1;
-                    this.selectedDefect = {};
-                    this.repairComment = '';
-                    
-                    console.log('Initial modal state:', {
-                        showConfirmationModal: this.showConfirmationModal,
-                        showRepairModal: this.showRepairModal
-                    });
-                    
-                    // Дополнительная проверка - принудительно скрываем модальные окна
-                    setTimeout(() => {
-                        if (this.showConfirmationModal !== undefined) {
-                            this.showConfirmationModal = false;
-                        }
-                        if (this.showRepairModal !== undefined) {
-                            this.showRepairModal = false;
-                        }
-                        console.log('Modal state after timeout:', {
-                            showConfirmationModal: this.showConfirmationModal,
-                            showRepairModal: this.showRepairModal
-                        });
-                    }, 100);
-                    
-                    await Promise.all([
-                        this.fetchDefects(),
-                        this.fetchWorkshops(),
-                        this.fetchCurrentUser()
-                    ]);
-                    
-                    console.log('All data fetched, final state:', {
-                        defectsCount: this.defects.length,
-                        workshopsCount: this.workshops.length,
-                        currentUser: this.currentUser,
-                        showConfirmationModal: this.showConfirmationModal,
-                        showRepairModal: this.showRepairModal
-                    });
-                    
-                    // Безопасное создание иконок
-                    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                        try {
-                            // Проверяем, что DOM готов
-                            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                                lucide.createIcons();
-                            } else {
-                                // Ждем загрузки DOM
-                                document.addEventListener('DOMContentLoaded', () => {
-                                    try {
-                                        lucide.createIcons();
-                                    } catch (error) {
-                                        // Игнорируем ошибки создания иконок
-                                    }
-                                });
-                            }
-                        } catch (error) {
-                            // Игнорируем ошибки создания иконок
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error in init:', error);
-                }
-            },
-            
-            stats() {
-                if (!this.defects || this.defects.length === 0) {
-                    return {
-                        totalDefects: 0,
-                        pendingConfirmation: 0,
-                        repairable: 0,
-                        repaired: 0,
-                        irreparable: 0,
-                        closed: 0
+                    const payload = {
+                        penalty_amount: Number(this.penaltyForm.penalty_amount),
+                        admin_comment: this.penaltyForm.admin_comment || ''
                     };
+                    try {
+                        const response = await fetch(`/defects/api/defects/${this.selectedDefect.id}/assign_penalty/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            await this.fetchDefects();
+                            await this.fetchStats();
+                            this.closePenaltyModal();
+                        } else {
+                            alert('Ошибка при назначении штрафа');
+                        }
+                    } catch (e) {
+                        alert('Ошибка при назначении штрафа');
+                    }
+                },
+                async init() {
+                    await Promise.all([this.fetchDefects(), this.fetchStats(), this.fetchCurrentUser()]);
+                    this.$nextTick(() => lucide.createIcons());
                 }
-                
-                const totalDefects = this.defects.length;
-                const pendingConfirmation = this.defects.filter(d => d.status === 'pending').length;
-                const repairable = this.defects.filter(d => d.status === 'repairable').length;
-                const repaired = this.defects.filter(d => d.status === 'repaired').length;
-                const irreparable = this.defects.filter(d => d.status === 'irreparable').length;
-                const closed = this.defects.filter(d => d.status === 'closed').length;
-                
-                return { 
-                    totalDefects, 
-                    pendingConfirmation, 
-                    repairable, 
-                    repaired,
-                    irreparable,
-                    closed
-                };
             }
         }
-    }
-    
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('defectsData', defectsData);
-    });
-    </script>
-    
-    <script>
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('defectsData', defectsData);
+        });
         document.addEventListener('DOMContentLoaded', function() {
-            try {
-                if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                    lucide.createIcons();
-                }
-            } catch (error) {
-                // Игнорируем ошибки создания иконок
-            }
+            lucide.createIcons();
         });
     </script>
 </body>
-</html> 
+</html>
