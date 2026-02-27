@@ -11,6 +11,7 @@ urlpatterns = [
     path('master/', views.master_dashboard, name='master-dashboard'),
     path('api/workshops/<int:workshop_id>/orders/', views.workshop_orders_info, name='workshop-orders-info'),
     path('api/workshops/orders/', views.all_workshops_orders_info, name='all-workshops-orders-info'),
+    path('api/workshops/stats/', views.workshops_stats, name='workshops-stats'),
     # Добавляем недостающие API endpoints
     path('api/masters/', views.workshop_masters, name='workshop-masters'),
     path('api/employees/', views.workshop_employees, name='workshop-employees'),

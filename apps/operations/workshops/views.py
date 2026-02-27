@@ -20,6 +20,9 @@ class WorkshopViewSet(viewsets.ModelViewSet):
 	search_fields = ['name', 'description']
 	ordering_fields = ['name', 'created_at']
 
+def _get_active_workshops(limit=2):
+	return Workshop.objects.filter(is_active=True).order_by('id')[:limit]
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def workshop_orders_info(request, workshop_id):
@@ -44,7 +47,7 @@ def all_workshops_orders_info(request):
 	"""
 	Получает информацию о заказах во всех цехах
 	"""
-	workshops = Workshop.objects.filter(is_active=True)
+	workshops = _get_active_workshops()
 	result = []
 	
 	for workshop in workshops:
@@ -57,6 +60,47 @@ def all_workshops_orders_info(request):
 		})
 	
 	return Response(result)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def workshops_stats(request):
+	"""
+	Получает статистику по цехам и общую статистику (для первых 2 активных цехов).
+	"""
+	from apps.employee_tasks.models import EmployeeTask
+	from apps.defects.models import Defect
+	from django.utils import timezone
+	from datetime import timedelta
+
+	workshops = list(_get_active_workshops())
+	now = timezone.now()
+	week_ago = now - timedelta(days=7)
+	month_ago = now - timedelta(days=30)
+
+	if workshops:
+		total_stats = _calculate_total_stats(workshops, week_ago, month_ago)
+	else:
+		total_stats = {
+			'total_workshops': 0,
+			'total_employees': 0,
+			'week_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+			'month_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+			'total_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+		}
+
+	workshops_stats = []
+	for workshop in workshops:
+		stats = _calculate_workshop_stats(workshop, week_ago, month_ago)
+		stats['manager_name'] = workshop.manager.get_full_name() if workshop.manager else 'Цех не назначен'
+		stats['active_tasks'] = EmployeeTask.objects.filter(stage__workshop=workshop).count()
+		stats['defects'] = Defect.objects.filter(user__workshop=workshop).count()
+		stats['summary'] = workshop.get_workshop_summary()
+		workshops_stats.append(stats)
+
+	return Response({
+		'total_stats': total_stats,
+		'workshops': workshops_stats,
+	})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -358,19 +402,27 @@ def workshops_list(request):
 	if is_mobile:
 		return render(request, 'workshops_mobile.html')
 	
-	# Получаем все активные цеха с предзагрузкой связанных данных
-	workshops = Workshop.objects.filter(is_active=True).prefetch_related(
-		'users', 
+	# Получаем первые 2 активных цеха с предзагрузкой связанных данных
+	workshops = list(_get_active_workshops().prefetch_related(
+		'users',
 		'workshop_masters__master',
 		'manager'
-	)
+	))
 	
 	# Подготавливаем данные для каждого цеха
 	workshops_data = []
+	from django.utils import timezone
+	from datetime import timedelta
+	now = timezone.now()
+	week_ago = now - timedelta(days=7)
+	month_ago = now - timedelta(days=30)
+
 	for workshop in workshops:
 		try:
+			workshop_stats = _calculate_workshop_stats(workshop, week_ago, month_ago)
+			workshop_summary = workshop.get_workshop_summary()
 			# Подсчитываем сотрудников в цехе
-			employees_count = workshop.users.count()
+			employees_count = workshop_stats.get('employees_count', workshop.users.count())
 			
 			# Подсчитываем активные задачи
 			active_tasks = EmployeeTask.objects.filter(stage__workshop=workshop).count()
@@ -387,11 +439,7 @@ def workshops_list(request):
 			productivity = completed_tasks if completed_tasks > 0 else 0
 			
 			# Создаем график производительности (реальные данные за последние 7 дней)
-			from django.utils import timezone
-			from datetime import timedelta
-			
 			productivity_chart = []
-			now = timezone.now()
 			
 			for i in range(7):
 				date = now - timedelta(days=i)
@@ -432,6 +480,10 @@ def workshops_list(request):
 				'productivity': productivity,
 				'productivity_chart': productivity_chart,
 				'workshop_masters': workshop_masters,
+				'week_stats': workshop_stats.get('week_stats', {}),
+				'month_stats': workshop_stats.get('month_stats', {}),
+				'total_stats': workshop_stats.get('total_stats', {}),
+				'summary': workshop_summary,
 			})
 		except Exception as e:
 			print(f"Ошибка при обработке цеха {workshop.id}: {e}")
@@ -449,6 +501,10 @@ def workshops_list(request):
 				'productivity': 0,
 				'productivity_chart': [1, 1, 1, 1, 1, 1, 1],
 				'workshop_masters': [],
+				'week_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+				'month_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+				'total_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+				'summary': {},
 			})
 	
 	# Общая статистика
@@ -456,13 +512,22 @@ def workshops_list(request):
 	total_employees = sum(w['employees_count'] for w in workshops_data)
 	total_active_tasks = sum(w['active_tasks'] for w in workshops_data)
 	avg_productivity = sum(w['productivity'] for w in workshops_data) // max(total_workshops, 1)
-	
+
+	total_stats = _calculate_total_stats(workshops, week_ago, month_ago) if workshops else {
+		'total_workshops': 0,
+		'total_employees': 0,
+		'week_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+		'month_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+		'total_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
+	}
+
 	context = {
 		'workshops': workshops_data,
 		'total_workshops': total_workshops,
 		'total_employees': total_employees,
 		'total_active_tasks': total_active_tasks,
 		'avg_productivity': avg_productivity,
+		'total_stats': total_stats,
 	}
 	
 	return render(request, 'workshops.html', context)

@@ -347,6 +347,10 @@ def expenses(request):
 			expenses_qs = expenses_qs.filter(date__lte=parsed_to)
 		except ValueError:
 			pass
+	total_expenses = expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+	expenses_count = expenses_qs.count()
+	avg_expense = (total_expenses / expenses_count) if expenses_count else Decimal('0.00')
+	latest_expense_date = expenses_qs.values_list('date', flat=True).first()
 	paginator = Paginator(expenses_qs, 25)
 	page_obj = paginator.get_page(request.GET.get('page'))
 	# Preserve filters in pagination
@@ -359,6 +363,10 @@ def expenses(request):
 		'expenses': page_obj.object_list,
 		'categories': categories,
 		'suppliers': suppliers,
+		'total_expenses': total_expenses,
+		'expenses_count': expenses_count,
+		'avg_expense': avg_expense,
+		'latest_expense_date': latest_expense_date,
 		'page_obj': page_obj,
 		'is_paginated': page_obj.paginator.num_pages > 1,
 		'query_string': query_string,
@@ -417,13 +425,29 @@ def incomes(request):
 			incomes_qs = incomes_qs.filter(date__lte=parsed_to)
 		except ValueError:
 			pass
+	total_income = incomes_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+	income_count = incomes_qs.count()
+	avg_income = (total_income / income_count) if income_count else Decimal('0.00')
+	income_by_type = incomes_qs.values('income_type').annotate(total=Sum('amount'))
+	income_type_totals = {row['income_type']: row['total'] or Decimal('0.00') for row in income_by_type}
+	latest_income_date = incomes_qs.values_list('date', flat=True).first()
 	paginator = Paginator(incomes_qs, 25)
 	page_obj = paginator.get_page(request.GET.get('page'))
 	# Preserve filters in pagination
 	query_params = request.GET.copy()
 	query_params.pop('page', None)
 	query_string = query_params.urlencode()
-	return render(request, 'finance/incomes.html', {'incomes': page_obj.object_list, 'page_obj': page_obj, 'is_paginated': page_obj.paginator.num_pages > 1, 'query_string': query_string})
+	return render(request, 'finance/incomes.html', {
+		'incomes': page_obj.object_list,
+		'page_obj': page_obj,
+		'is_paginated': page_obj.paginator.num_pages > 1,
+		'query_string': query_string,
+		'total_income': total_income,
+		'income_count': income_count,
+		'avg_income': avg_income,
+		'income_type_totals': income_type_totals,
+		'latest_income_date': latest_income_date,
+	})
 
 @login_required
 def income_create(request):
@@ -446,12 +470,22 @@ def income_create(request):
 def factory_assets(request):
 	"""Список имущества завода"""
 	assets_qs = FactoryAsset.objects.select_related('supplier').all().order_by('-current_value', '-id')
+	total_current_value = assets_qs.aggregate(total=Sum('current_value'))['total'] or Decimal('0.00')
+	total_purchase_value = assets_qs.aggregate(total=Sum('purchase_price'))['total'] or Decimal('0.00')
+	assets_count = assets_qs.count()
+	active_assets = assets_qs.filter(is_active=True).count()
+	avg_asset_value = (total_current_value / assets_count) if assets_count else Decimal('0.00')
 	paginator = Paginator(assets_qs, 25)
 	page_obj = paginator.get_page(request.GET.get('page'))
 	return render(request, 'finance/factory_assets.html', {
 		'assets': page_obj.object_list,
 		'page_obj': page_obj,
 		'is_paginated': page_obj.paginator.num_pages > 1,
+		'total_current_value': total_current_value,
+		'total_purchase_value': total_purchase_value,
+		'assets_count': assets_count,
+		'active_assets': active_assets,
+		'avg_asset_value': avg_asset_value,
 	})
 
 @login_required
@@ -500,6 +534,8 @@ def factory_asset_delete(request, pk):
 def financial_reports(request):
 	"""Список финансовых отчетов"""
 	reports_qs = FinancialReport.objects.select_related('created_by').all().order_by('-start_date', '-id')
+	reports_count = reports_qs.count()
+	latest_report = reports_qs.first()
 	paginator = Paginator(reports_qs, 25)
 	page_obj = paginator.get_page(request.GET.get('page'))
 	
@@ -515,6 +551,8 @@ def financial_reports(request):
 		'total_income': total_income,
 		'total_expenses': total_expenses,
 		'total_profit': net_profit,
+		'reports_count': reports_count,
+		'latest_report': latest_report,
 	}
 	return render(request, 'finance/financial_reports.html', context)
 
@@ -784,12 +822,21 @@ def debts(request):
             debts_qs = debts_qs.filter(amount_paid__gt=Decimal('0.00')).exclude(amount_paid__gte=F('original_amount'))
         else:
             debts_qs = debts_qs.filter(amount_paid__gte=F('original_amount'))
+    total_original = debts_qs.aggregate(total=Sum('original_amount'))['total'] or Decimal('0.00')
+    total_paid = debts_qs.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+    total_outstanding = total_original - total_paid
+    today = timezone.now().date()
+    overdue_count = debts_qs.filter(due_date__lt=today).exclude(amount_paid__gte=F('original_amount')).count()
     paginator = Paginator(debts_qs, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'finance/debts.html', {
         'debts': page_obj.object_list,
         'page_obj': page_obj,
         'is_paginated': page_obj.paginator.num_pages > 1,
+        'total_original': total_original,
+        'total_paid': total_paid,
+        'total_outstanding': total_outstanding,
+        'overdue_count': overdue_count,
     })
 
 @login_required

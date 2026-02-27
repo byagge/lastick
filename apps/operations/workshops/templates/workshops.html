@@ -1,173 +1,314 @@
- <!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="ru" x-data="workshopsPage()" x-init="init()">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Цеха — Smart Factory</title>
+    <title>Smart Factory - Цеха</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        .menu-card {
-            transition: all 0.3s ease;
-            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-            backdrop-filter: blur(10px);
-        }
-        .menu-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-        .productivity-bar {
-            height: 4px;
-            background: linear-gradient(to top, #EF4444, #F87171);
-        }
-        .productivity-bar[data-value="1"] { height: 4px; background: linear-gradient(to top, #EF4444, #F87171); }
-        .productivity-bar[data-value="2"] { height: 6px; background: linear-gradient(to top, #EF4444, #F87171); }
-        .productivity-bar[data-value="3"] { height: 8px; background: linear-gradient(to top, #F59E0B, #FCD34D); }
-        .productivity-bar[data-value="4"] { height: 10px; background: linear-gradient(to top, #F59E0B, #FCD34D); }
-        .productivity-bar[data-value="5"] { height: 12px; background: linear-gradient(to top, #F59E0B, #FCD34D); }
-        .productivity-bar[data-value="6"] { height: 14px; background: linear-gradient(to top, #10B981, #34D399); }
-        .productivity-bar[data-value="7"] { height: 16px; background: linear-gradient(to top, #10B981, #34D399); }
-        .product-image { object-fit: cover; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.08); }
+        .metric-chip { background: #f8fafc; border: 1px solid #e2e8f0; }
         .modal-bg { background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); }
         .modal-content { animation: scaleIn 0.2s; }
+        .product-image { object-fit: cover; }
         @keyframes scaleIn {
-            from { transform: scale(0.95); opacity: 0; }
+            from { transform: scale(0.98); opacity: 0; }
             to   { transform: scale(1); opacity: 1; }
         }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" style="font-family: system-ui, -apple-system, sans-serif;">
+<body class="min-h-screen">
     <div>
         {% include 'partials/app_header.html' %}
         {% include 'partials/app_sidebar.html' %}
 
-        <!-- Main Content -->
         <main class="flex-1 overflow-auto ml-64 p-6 pt-28">
-            <!-- Dashboard статистика -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+            <section class="glass rounded-2xl border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Цеха</h1>
+                    <p class="text-gray-600">Два ключевых цеха, их загрузка, эффективность и активные заказы.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-4 lg:mt-0">
+                    <button @click="showOrdersInfo = !showOrdersInfo; if(showOrdersInfo) loadWorkshopsOrdersInfo()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                        <i data-lucide="list" class="w-4 h-4"></i>
+                        <span x-text="showOrdersInfo ? 'Скрыть заказы' : 'Показать заказы'"></span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Всего цехов</p>
+                        <p class="text-sm text-gray-600">Цехов</p>
                         <p class="text-2xl font-bold text-gray-900">{{ total_workshops }}</p>
                     </div>
                     <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                         <i data-lucide="factory" class="w-5 h-5 text-blue-600"></i>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Сотрудников</p>
-                        <p class="text-2xl font-bold text-green-700">{{ total_employees }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ total_employees }}</p>
                     </div>
-                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="users" class="w-5 h-5 text-green-600"></i>
+                    <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="users" class="w-5 h-5 text-emerald-600"></i>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Средняя производительность</p>
-                        <p class="text-2xl font-bold text-blue-700">{{ avg_productivity }} ед/мес</p>
+                        <p class="text-sm text-gray-600">Активных задач</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ total_active_tasks }}</p>
                     </div>
-                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="activity" class="w-5 h-5 text-blue-600"></i>
+                    <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="list-checks" class="w-5 h-5 text-amber-600"></i>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Активные задачи</p>
-                        <p class="text-2xl font-bold text-purple-700">{{ total_active_tasks }}</p>
+                        <p class="text-sm text-gray-600">Средняя выработка</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ avg_productivity }} шт</p>
                     </div>
-                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="list-checks" class="w-5 h-5 text-purple-600"></i>
+                    <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i data-lucide="activity" class="w-5 h-5 text-indigo-600"></i>
                     </div>
                 </div>
-            </div>
-            
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Цеха</h1>
-                    <p class="text-gray-600">Список всех производственных цехов и их описание</p>
+            </section>
+
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-900">Неделя</h3>
+                        <span class="text-xs text-gray-500">7 дней</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <p class="text-gray-500">Выполнено</p>
+                            <p class="font-semibold text-gray-900">{{ total_stats.week_stats.completed_works|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Браки</p>
+                            <p class="font-semibold text-red-600">{{ total_stats.week_stats.defects|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Эффект.</p>
+                            <p class="font-semibold text-emerald-600">{{ total_stats.week_stats.efficiency|default:0 }}%</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex space-x-2">
-                    <button @click="showOrdersInfo = !showOrdersInfo; if(showOrdersInfo) loadWorkshopsOrdersInfo()" 
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-                        <i data-lucide="list" class="w-4 h-4"></i>
-                        <span x-text="showOrdersInfo ? 'Скрыть заказы' : 'Показать заказы'"></span>
-                    </button>
+                <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-900">Месяц</h3>
+                        <span class="text-xs text-gray-500">30 дней</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <p class="text-gray-500">Выполнено</p>
+                            <p class="font-semibold text-gray-900">{{ total_stats.month_stats.completed_works|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Браки</p>
+                            <p class="font-semibold text-red-600">{{ total_stats.month_stats.defects|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Эффект.</p>
+                            <p class="font-semibold text-emerald-600">{{ total_stats.month_stats.efficiency|default:0 }}%</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Информация о заказах -->
+                <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-900">Всего</h3>
+                        <span class="text-xs text-gray-500">Общий итог</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <p class="text-gray-500">Выполнено</p>
+                            <p class="font-semibold text-gray-900">{{ total_stats.total_stats.completed_works|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Браки</p>
+                            <p class="font-semibold text-red-600">{{ total_stats.total_stats.defects|default:0 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Эффект.</p>
+                            <p class="font-semibold text-emerald-600">{{ total_stats.total_stats.efficiency|default:0 }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+                {% for workshop in workshops %}
+                <div class="card bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">{{ workshop.name }}</h2>
+                                <p class="text-sm text-gray-500">{{ workshop.description|default:"Без описания" }}</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <i data-lucide="factory" class="w-6 h-6 text-blue-600"></i>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="metric-chip rounded-lg p-3">
+                                <p class="text-xs text-gray-500">Сотрудников</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ workshop.employees_count }}</p>
+                            </div>
+                            <div class="metric-chip rounded-lg p-3">
+                                <p class="text-xs text-gray-500">Активных задач</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ workshop.active_tasks }}</p>
+                            </div>
+                            <div class="metric-chip rounded-lg p-3">
+                                <p class="text-xs text-gray-500">Браков</p>
+                                <p class="text-lg font-semibold text-red-600">{{ workshop.defects }}</p>
+                            </div>
+                            <div class="metric-chip rounded-lg p-3">
+                                <p class="text-xs text-gray-500">Эффективность</p>
+                                <p class="text-lg font-semibold text-emerald-600">{{ workshop.total_stats.efficiency|default:0 }}%</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-xl p-4 mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm font-semibold text-gray-900">Готовность заказов</p>
+                                <span class="text-sm text-gray-600">{{ workshop.summary.completion_rate|default:0|floatformat:0 }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ workshop.summary.completion_rate|default:0 }}%"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 text-xs text-gray-500 mt-3">
+                                <div>Этапов: <span class="text-gray-900 font-medium">{{ workshop.summary.total_stages|default:0 }}</span></div>
+                                <div>Задач: <span class="text-gray-900 font-medium">{{ workshop.summary.total_tasks|default:0 }}</span></div>
+                                <div>Выполнено: <span class="text-gray-900 font-medium">{{ workshop.summary.completed_tasks|default:0 }}</span></div>
+                                <div>Активных заказов: <span class="text-gray-900 font-medium">{{ workshop.summary.active_orders|default:0 }}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3 mb-4 text-xs">
+                            <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                <p class="text-gray-500 mb-1">Неделя</p>
+                                <p class="text-sm font-semibold text-gray-900">{{ workshop.week_stats.completed_works|default:0 }}</p>
+                                <p class="text-gray-400">Браки: <span class="text-red-600">{{ workshop.week_stats.defects|default:0 }}</span></p>
+                                <p class="text-gray-400">Эфф.: <span class="text-emerald-600">{{ workshop.week_stats.efficiency|default:0 }}%</span></p>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                <p class="text-gray-500 mb-1">Месяц</p>
+                                <p class="text-sm font-semibold text-gray-900">{{ workshop.month_stats.completed_works|default:0 }}</p>
+                                <p class="text-gray-400">Браки: <span class="text-red-600">{{ workshop.month_stats.defects|default:0 }}</span></p>
+                                <p class="text-gray-400">Эфф.: <span class="text-emerald-600">{{ workshop.month_stats.efficiency|default:0 }}%</span></p>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                <p class="text-gray-500 mb-1">Всего</p>
+                                <p class="text-sm font-semibold text-gray-900">{{ workshop.total_stats.completed_works|default:0 }}</p>
+                                <p class="text-gray-400">Браки: <span class="text-red-600">{{ workshop.total_stats.defects|default:0 }}</span></p>
+                                <p class="text-gray-400">Эфф.: <span class="text-emerald-600">{{ workshop.total_stats.efficiency|default:0 }}%</span></p>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <p class="text-xs text-gray-500 mb-2">Производительность (7 дней)</p>
+                            <div class="flex items-end space-x-1 h-12">
+                                {% for value in workshop.productivity_chart %}
+                                    <div class="flex-1 bg-gray-200 rounded-t" style="height: calc({{ value }} * 6px)"></div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="text-xs text-gray-400">
+                            <span>Создан: {{ workshop.created_at|date:'d.m.Y' }}</span>
+                            <span class="ml-3">Обновлен: {{ workshop.updated_at|date:'d.m.Y' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4"></div>
+                </div>
+                {% empty %}
+                <div class="col-span-2 text-center text-gray-400 py-12">
+                    Цеха не найдены
+                </div>
+                {% endfor %}
+            </section>
             <template x-if="showOrdersInfo">
-                <div class="mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Информация о заказах в цехах</h2>
+                <section class="mb-10">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-900">Активные заказы по цехам</h2>
+                        <span class="text-sm text-gray-500">Обновление в реальном времени</span>
+                    </div>
                     <template x-if="loading">
                         <div class="text-center py-8">
-                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                            <p class="mt-4 text-gray-600">Загрузка информации о заказах...</p>
+                            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900 mx-auto"></div>
+                            <p class="mt-3 text-sm text-gray-600">Загрузка заказов...</p>
                         </div>
                     </template>
                     <template x-if="!loading">
                         <div class="space-y-6">
                             <template x-for="workshopData in workshopsOrdersInfo" :key="workshopData.workshop.workshop_name">
-                                <div class="bg-white rounded-lg shadow-md p-6">
+                                <div class="card bg-white rounded-2xl border border-gray-200 p-6">
                                     <div class="flex items-center justify-between mb-4">
-                                        <h3 class="text-xl font-semibold text-gray-900" x-text="workshopData.workshop.workshop_name"></h3>
-                                        <div class="text-sm text-gray-600">
-                                            <span x-text="workshopData.workshop.manager_name"></span> • 
-                                            <span x-text="workshopData.workshop.active_orders"></span> активных заказов
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-900" x-text="workshopData.workshop.workshop_name"></h3>
+                                            <p class="text-sm text-gray-500" x-text="workshopData.workshop.manager_name"></p>
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            Активных заказов: <span class="text-gray-900 font-semibold" x-text="workshopData.workshop.active_orders"></span>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Статистика цеха -->
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 text-sm">
                                         <div class="bg-blue-50 rounded-lg p-3">
-                                            <div class="text-sm text-blue-600">Этапов</div>
+                                            <div class="text-xs text-blue-600">Этапов</div>
                                             <div class="text-lg font-bold text-blue-700" x-text="workshopData.workshop.total_stages"></div>
                                         </div>
-                                        <div class="bg-green-50 rounded-lg p-3">
-                                            <div class="text-sm text-green-600">Задач</div>
-                                            <div class="text-lg font-bold text-green-700" x-text="workshopData.workshop.total_tasks"></div>
+                                        <div class="bg-emerald-50 rounded-lg p-3">
+                                            <div class="text-xs text-emerald-600">Задач</div>
+                                            <div class="text-lg font-bold text-emerald-700" x-text="workshopData.workshop.total_tasks"></div>
                                         </div>
-                                        <div class="bg-purple-50 rounded-lg p-3">
-                                            <div class="text-sm text-purple-600">Выполнено</div>
-                                            <div class="text-lg font-bold text-purple-700" x-text="workshopData.workshop.completed_tasks"></div>
+                                        <div class="bg-amber-50 rounded-lg p-3">
+                                            <div class="text-xs text-amber-600">Выполнено</div>
+                                            <div class="text-lg font-bold text-amber-700" x-text="workshopData.workshop.completed_tasks"></div>
                                         </div>
-                                        <div class="bg-orange-50 rounded-lg p-3">
-                                            <div class="text-sm text-orange-600">Процент</div>
-                                            <div class="text-lg font-bold text-orange-700" x-text="Math.round(workshopData.workshop.completion_rate) + '%'"></div>
+                                        <div class="bg-gray-100 rounded-lg p-3">
+                                            <div class="text-xs text-gray-600">Готовность</div>
+                                            <div class="text-lg font-bold text-gray-900" x-text="Math.round(workshopData.workshop.completion_rate) + '%'"
+                                            ></div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Список заказов -->
+
                                     <template x-if="workshopData.orders.length > 0">
                                         <div class="space-y-4">
-                                            <h4 class="text-lg font-semibold text-gray-900">Активные заказы:</h4>
                                             <template x-for="order in workshopData.orders" :key="order.stage.id">
-                                                <div class="border border-gray-200 rounded-lg p-4">
+                                                <div class="border border-gray-200 rounded-xl p-4">
                                                     <div class="flex items-start space-x-4">
-                                                        <!-- Изображение товара -->
                                                         <template x-if="order.product.img">
                                                             <div class="flex-shrink-0">
-                                                                <img :src="order.product.img" :alt="order.product.name" 
+                                                                <img :src="order.product.img" :alt="order.product.name"
                                                                      class="w-20 h-20 rounded-lg product-image bg-gray-100">
                                                             </div>
                                                         </template>
-                                                        
                                                         <div class="flex-1">
-                                                            <!-- Информация о заказе -->
-                                                            <div class="flex items-center justify-between mb-2">
-                                                                <h5 class="font-semibold text-gray-900" x-text="order.order.name"></h5>
-                                                                <span class="text-sm text-gray-600" x-text="order.order.client_name"></span>
+                                                            <div class="flex items-start justify-between mb-2">
+                                                                <div>
+                                                                    <h5 class="font-semibold text-gray-900" x-text="order.order.name"></h5>
+                                                                    <p class="text-xs text-gray-500" x-text="order.order.client_name"></p>
+                                                                </div>
+                                                                <span class="text-xs text-gray-400" x-text="order.stage.operation"></span>
                                                             </div>
-                                                            
-                                                            <!-- Информация о товаре -->
-                                                            <div class="mb-3">
-                                                                <div class="font-medium text-gray-900 mb-2" x-text="order.product.name"></div>
-                                                                
-                                                                <!-- Характеристики товара -->
-                                                                <div class="flex flex-wrap gap-2 mb-2">
+                                                            <div class="mb-2">
+                                                                <div class="font-medium text-gray-900" x-text="order.product.name"></div>
+                                                                <div class="flex flex-wrap gap-2 mt-2">
                                                                     <template x-if="order.product.size">
                                                                         <div class="flex items-center space-x-1 bg-blue-100 px-2 py-1 rounded-full">
                                                                             <i data-lucide="ruler" class="w-3 h-3 text-blue-600"></i>
@@ -183,39 +324,21 @@
                                                                     <template x-if="order.product.is_glass">
                                                                         <div class="flex items-center space-x-1 bg-cyan-100 px-2 py-1 rounded-full">
                                                                             <i data-lucide="droplets" class="w-3 h-3 text-cyan-600"></i>
-                                                                            <span class="text-xs text-cyan-700 font-medium">
-                                                                                Стекло: <span x-text="order.product.glass_type_display || 'Не указан'"></span>
-                                                                            </span>
+                                                                            <span class="text-xs text-cyan-700 font-medium" x-text="order.product.glass_type_display || 'Без типа'"></span>
                                                                         </div>
                                                                     </template>
                                                                 </div>
-                                                                
-                                                                <!-- Спецификации -->
-                                                                <template x-if="order.product.cutting_specs || order.product.cnc_specs">
-                                                                    <div class="space-y-1">
-                                                                        <template x-if="order.product.cutting_specs">
-                                                                            <div class="text-xs text-gray-600">
-                                                                                <span class="font-medium">Распил:</span> <span x-text="order.product.cutting_specs"></span>
-                                                                            </div>
-                                                                        </template>
-                                                                        <template x-if="order.product.cnc_specs">
-                                                                            <div class="text-xs text-gray-600">
-                                                                                <span class="font-medium">ЧПУ:</span> <span x-text="order.product.cnc_specs"></span>
-                                                                            </div>
-                                                                        </template>
-                                                                    </div>
-                                                                </template>
                                                             </div>
-                                                            
-                                                            <!-- Прогресс выполнения -->
-                                                            <div class="mb-3">
-                                                                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                                                    <span>Прогресс выполнения</span>
-                                                                    <span x-text="Math.round(order.statistics.progress_percent) + '%'"></span>
+                                                            <div class="mb-2">
+                                                                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                                                    <span>Выполнение</span>
+                                                                    <span x-text="Math.round(order.statistics.progress_percent) + '%'"
+                                                                    ></span>
                                                                 </div>
                                                                 <div class="w-full bg-gray-200 rounded-full h-2">
-                                                                    <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                                                                         :style="'width: ' + Math.min(100, Math.max(0, order.statistics.progress_percent)) + '%'"></div>
+                                                                    <div class="bg-emerald-600 h-2 rounded-full"
+                                                                         :style="'width: ' + Math.min(100, Math.max(0, order.statistics.progress_percent)) + '%'"
+                                                                    ></div>
                                                                 </div>
                                                                 <div class="flex justify-between text-xs text-gray-500 mt-1">
                                                                     <span>0</span>
@@ -228,139 +351,40 @@
                                             </template>
                                         </div>
                                     </template>
+                                    <template x-if="workshopData.orders.length === 0">
+                                        <div class="text-center py-6 text-gray-500">
+                                            <i data-lucide="package" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
+                                            <p class="text-sm">Нет активных заказов</p>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
                     </template>
-                </div>
-            </div>
-            
-            <!-- Список цехов -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for workshop in workshops %}
-                <div class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500 shadow-md flex flex-col justify-between">
-                  <div>
-                    <div class="flex items-center space-x-4 mb-2">
-                      <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i data-lucide="factory" class="w-6 h-6 text-blue-600"></i>
-                      </div>
-                      <div>
-                        <h3 class="text-lg font-semibold text-gray-900">{{ workshop.name }}</h3>
-                        <p class="text-gray-600 text-sm">{{ workshop.description }}</p>
-                      </div>
-                    </div>
-                    
-                    <!-- Информация о мастерах -->
-                    <div class="mt-4 space-y-2">
-                        <!-- Главный мастер -->
-                        <div class="flex items-center text-sm text-gray-700">
-                            <i data-lucide="crown" class="w-4 h-4 mr-2 text-yellow-500"></i>
-                            <span class="font-medium">Главный мастер:</span>
-                            <span class="ml-2">{{ workshop.manager|default:"Не назначен" }}</span>
-                        </div>
-                        
-                        <!-- Дополнительные мастера -->
-                        <div class="flex items-center text-sm text-gray-600">
-                            <i data-lucide="users" class="w-4 h-4 mr-2 text-blue-500"></i>
-                            <span>Дополнительные мастера:</span>
-                            <span class="ml-2 text-gray-500">{{ workshop.workshop_masters.count }}</span>
-                        </div>
-                        
-                        <!-- Список всех мастеров -->
-                        <div class="mt-2 space-y-1">
-                            {% for master in workshop.workshop_masters.all %}
-                                <div class="flex items-center justify-between text-xs">
-                                    <div class="flex items-center">
-                                        <i data-lucide="user" class="w-3 h-3 mr-1 text-blue-500"></i>
-                                        <span>{{ master.master.get_full_name }}</span>
-                                        <span class="ml-1 px-1 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
-                                            Доп.
-                                        </span>
-                                    </div>
-                                </div>
-                            {% empty %}
-                                <div class="text-xs text-gray-400">Дополнительные мастера не назначены</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    
-                    <div class="mt-2 flex items-center text-xs text-gray-400">
-                      <span>Создан: {{ workshop.created_at|date:'d.m.Y' }}</span>
-                      <span class="ml-4">Обновлён: {{ workshop.updated_at|date:'d.m.Y' }}</span>
-                    </div>
-                    <div class="mt-4 grid grid-cols-2 gap-2">
-                      <div class="bg-green-50 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-xs text-green-600">Сотрудников</span>
-                        <span class="text-lg font-bold text-green-700">{{ workshop.employees_count }}</span>
-                      </div>
-                      <div class="bg-blue-50 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-xs text-blue-600">Производительность</span>
-                        <span class="text-lg font-bold text-blue-700">{{ workshop.productivity }} ед/мес</span>
-                      </div>
-                      <div class="bg-red-50 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-xs text-red-600">Браки</span>
-                        <span class="text-lg font-bold text-red-700">{{ workshop.defects }}</span>
-                      </div>
-                      <div class="bg-purple-50 rounded-lg p-2 flex flex-col items-center">
-                        <span class="text-xs text-purple-600">Активные задачи</span>
-                        <span class="text-lg font-bold text-purple-700">{{ workshop.active_tasks }}</span>
-                      </div>
-                    </div>
-                    <!-- Мини-график производительности -->
-                    <div class="mt-4">
-                      <span class="text-xs text-gray-500">Производительность (7 дней)</span>
-                      <div class="flex items-end space-x-1 h-10">
-                        {% for value in workshop.productivity_chart %}
-                          <div class="flex-1 bg-gray-200 rounded-t productivity-bar" data-value="{{ value }}"></div>
-                        {% endfor %}
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Кнопки управления -->
-                  <div class="mt-4 flex space-x-2">
-                    <button @click="openManageMastersModal({{ workshop.id }}, '{{ workshop.name }}')" 
-                            class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                        <i data-lucide="users" class="w-4 h-4 inline mr-1"></i>
-                        Мастера
-                    </button>
-                    <button @click="openWorkshopDetails({{ workshop.id }})" 
-                            class="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm">
-                        <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>
-                        Детали
-                    </button>
-                  </div>
-                </div>
-                {% empty %}
-                <div class="col-span-3 text-center text-gray-400 py-12">
-                    Нет цехов для отображения
-                </div>
-                {% endfor %}
-            </div>
+                </section>
+            </template>
         </main>
     </div>
-
-    <!-- Модальное окно управления мастерами -->
     <template x-if="showManageMastersModal">
         <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg" @click.self="showManageMastersModal = false">
-            <div class="modal-content bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="modal-content bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-bold text-gray-900">Управление мастерами цеха: <span x-text="selectedWorkshopName"></span></h2>
+                    <h2 class="text-xl font-bold text-gray-900">Мастера цеха: <span x-text="selectedWorkshopName"></span></h2>
                     <button @click="showManageMastersModal = false" class="text-gray-400 hover:text-gray-600">
                         <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
                 </div>
-                
-                <!-- Текущие мастера -->
+
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Текущие мастера</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Назначенные мастера</h3>
                     <template x-if="workshopMasters.length > 0">
                         <div class="space-y-3">
                             <template x-for="master in workshopMasters" :key="master.id">
                                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-8 h-8 rounded-full flex items-center justify-center" 
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center"
                                              :class="master.role === 'main_manager' ? 'bg-yellow-100' : 'bg-blue-100'">
-                                            <i data-lucide="user" class="w-4 h-4" 
+                                            <i data-lucide="user" class="w-4 h-4"
                                                :class="master.role === 'main_manager' ? 'text-yellow-600' : 'text-blue-600'"></i>
                                         </div>
                                         <div>
@@ -370,7 +394,7 @@
                                     </div>
                                     <div class="flex items-center space-x-2">
                                         <template x-if="master.role === 'additional_master'">
-                                            <button @click="removeMaster(master.id)" 
+                                            <button @click="removeMaster(master.id)"
                                                     class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors">
                                                 Удалить
                                             </button>
@@ -392,8 +416,7 @@
                         </div>
                     </template>
                 </div>
-                
-                <!-- Добавление нового мастера -->
+
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Добавить мастера</h3>
                     <div class="space-y-4">
@@ -407,11 +430,11 @@
                             </select>
                         </div>
                         <div class="flex justify-end space-x-3">
-                            <button @click="showManageMastersModal = false" 
+                            <button @click="showManageMastersModal = false"
                                     class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                                 Отмена
                             </button>
-                            <button @click="addMaster()" 
+                            <button @click="addMaster()"
                                     :disabled="!newMasterId"
                                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Добавить мастера
@@ -435,11 +458,11 @@
                 workshopMasters: [],
                 availableEmployees: [],
                 newMasterId: '',
-                
+
                 async init() {
                     lucide.createIcons();
                 },
-                
+
                 async loadWorkshopsOrdersInfo() {
                     this.loading = true;
                     try {
@@ -447,12 +470,12 @@
                         const data = await response.json();
                         this.workshopsOrdersInfo = data;
                     } catch (error) {
-                        console.error('Ошибка загрузки информации о заказах:', error);
+                        console.error('Ошибка загрузки данных о заказах:', error);
                     } finally {
                         this.loading = false;
                     }
                 },
-                
+
                 async openManageMastersModal(workshopId, workshopName) {
                     this.selectedWorkshopId = workshopId;
                     this.selectedWorkshopName = workshopName;
@@ -460,7 +483,7 @@
                     await this.loadWorkshopMasters(workshopId);
                     await this.loadAvailableEmployees(workshopId);
                 },
-                
+
                 async loadWorkshopMasters(workshopId) {
                     try {
                         const response = await fetch(`/workshops/api/masters/?workshop=${workshopId}`);
@@ -470,22 +493,21 @@
                         console.error('Ошибка загрузки мастеров цеха:', error);
                     }
                 },
-                
+
                 async loadAvailableEmployees(workshopId) {
                     try {
                         const response = await fetch(`/workshops/api/employees/?workshop=${workshopId}`);
                         const data = await response.json();
-                        // Фильтруем только тех, кто еще не является мастером
                         const masterIds = this.workshopMasters.map(m => m.id);
                         this.availableEmployees = data.filter(emp => !masterIds.includes(emp.id));
                     } catch (error) {
                         console.error('Ошибка загрузки сотрудников:', error);
                     }
                 },
-                
+
                 async addMaster() {
                     if (!this.newMasterId) return;
-                    
+
                     try {
                         const response = await fetch('/workshops/api/add-master/', {
                             method: 'POST',
@@ -498,28 +520,26 @@
                                 master_id: this.newMasterId
                             })
                         });
-                        
+
                         const data = await response.json();
-                        
+
                         if (data.success) {
-                            // Обновляем список мастеров
                             await this.loadWorkshopMasters(this.selectedWorkshopId);
                             await this.loadAvailableEmployees(this.selectedWorkshopId);
                             this.newMasterId = '';
-                            // Показываем уведомление
                             alert('Мастер успешно добавлен!');
                         } else {
                             alert('Ошибка: ' + data.error);
                         }
                     } catch (error) {
                         console.error('Ошибка добавления мастера:', error);
-                        alert('Ошибка сети при добавлении мастера');
+                        alert('Ошибка при добавлении мастера');
                     }
                 },
-                
+
                 async removeMaster(masterId) {
-                    if (!confirm('Вы уверены, что хотите удалить этого мастера из цеха?')) return;
-                    
+                    if (!confirm('Удалить мастера из цеха?')) return;
+
                     try {
                         const response = await fetch('/workshops/api/remove-master/', {
                             method: 'POST',
@@ -532,35 +552,26 @@
                                 master_id: masterId
                             })
                         });
-                        
+
                         const data = await response.json();
-                        
+
                         if (data.success) {
-                            // Обновляем список мастеров
                             await this.loadWorkshopMasters(this.selectedWorkshopId);
                             await this.loadAvailableEmployees(this.selectedWorkshopId);
-                            // Показываем уведомление
-                            alert('Мастер успешно удален!');
+                            alert('Мастер удален');
                         } else {
                             alert('Ошибка: ' + data.error);
                         }
                     } catch (error) {
                         console.error('Ошибка удаления мастера:', error);
-                        alert('Ошибка сети при удалении мастера');
+                        alert('Ошибка при удалении мастера');
                     }
                 },
-                
-                getWorkshopMasters(workshopId) {
-                    // Возвращаем мастеров для конкретного цеха
-                    // Эта функция больше не нужна, так как данные загружаются на сервере
-                    return [];
-                },
-                
+
                 openWorkshopDetails(workshopId) {
-                    // Открытие детальной информации о цехе
-                    console.log('Открытие деталей цеха:', workshopId);
+                    console.log('Открыть подробности цеха:', workshopId);
                 },
-                
+
                 getCsrfToken() {
                     const name = 'csrftoken';
                     const cookies = document.cookie.split(';');
@@ -574,7 +585,7 @@
                 }
             }
         }
-        
+
         document.addEventListener('DOMContentLoaded', function() {
             lucide.createIcons();
         });
