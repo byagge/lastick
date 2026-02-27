@@ -228,7 +228,7 @@
                         
                         <div class="flex justify-end">
                             <button x-show="record.status === 'present'" 
-                                    @click="checkoutEmployee(record.employee.id)"
+                                    @click="checkoutEmployee(record.employee.id, record.id)"
                                     class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
                                 Отметить уход
                             </button>
@@ -381,7 +381,7 @@
                     }
                 },
 
-                async checkoutEmployee(employeeId) {
+                async checkoutEmployee(employeeId, recordId) {
                     try {
                         const response = await fetch('/attendance/api/checkout/', {
                             method: 'POST',
@@ -389,7 +389,7 @@
                                 'Content-Type': 'application/json',
                                 'X-CSRFToken': this.getCsrfToken()
                             },
-                            body: JSON.stringify({ employee_id: employeeId })
+                            body: JSON.stringify({ employee_id: employeeId, record_id: recordId })
                         });
                         
                         if (response.ok) {
@@ -470,7 +470,15 @@
                 },
 
                 getCsrfToken() {
-                    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                    const name = 'csrftoken';
+                    const cookies = document.cookie.split(';');
+                    for (let cookie of cookies) {
+                        cookie = cookie.trim();
+                        if (cookie.startsWith(name + '=')) {
+                            return decodeURIComponent(cookie.substring(name.length + 1));
+                        }
+                    }
+                    return '';
                 },
 
                 formatDate(dateString) {

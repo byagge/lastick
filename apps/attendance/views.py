@@ -75,16 +75,19 @@ def checkout_employee(request):
     """Отметка ухода сотрудника"""
     try:
         data = request.data
-        employee_id = data.get('employee_id')
-        if not employee_id:
-            return Response({'error': 'Не передан employee_id'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        employee = User.objects.get(id=employee_id)
         current_time = timezone.now()
-        shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
+        record_id = data.get('record_id')
+        employee_id = data.get('employee_id')
         
         try:
-            record = AttendanceRecord.objects.get(employee=employee, date=shift_date)
+            if record_id:
+                record = AttendanceRecord.objects.get(id=record_id)
+            else:
+                if not employee_id:
+                    return Response({'error': 'Не передан employee_id'}, status=status.HTTP_400_BAD_REQUEST)
+                employee = User.objects.get(id=employee_id)
+                shift_date = AttendanceRecord.resolve_shift_date(employee, current_time)
+                record = AttendanceRecord.objects.get(employee=employee, date=shift_date)
             if record.check_out:
                 return Response({'detail': 'Сотрудник уже отмечен как ушедший сегодня'}, status=200)
             
@@ -256,7 +259,7 @@ def attendance_list(request):
 def update_attendance_penalty(request):
     """Ручное обновление штрафа администратором"""
     try:
-        if request.user.role != User.Role.ADMIN:
+        if not (request.user.is_superuser or request.user.is_staff or request.user.role == User.Role.ADMIN):
             return Response({'error': 'Доступ запрещен'}, status=403)
 
         record_id = request.data.get('record_id')

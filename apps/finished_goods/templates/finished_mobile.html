@@ -1,25 +1,28 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru" x-data="finishedGoodsMobile()" x-init="init()">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
-    <title>Smart Factory — Готовая продукция</title>
+    <meta name="theme-color" content="#0e121a">
+    <title>Smart Factory - Готовая продукция</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
-        .nav-active { color: #2563eb; }
-        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
-        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0e121a; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15,23,42,0.1); }
+        .card { box-shadow: 0 2px 12px 0 rgba(15,23,42,0.08); }
         .modal-bg { background: rgba(0,0,0,0.35); }
         .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
         @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
-    <!-- AppBar -->
     <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
         <div class="flex items-center space-x-3">
             <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
@@ -28,14 +31,13 @@
             <span class="text-lg font-semibold text-gray-900">Готовая продукция</span>
         </div>
     </header>
-    <!-- Main Content -->
+
     <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
-        <!-- Search Bar -->
         <div class="relative mb-6">
             <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
-            <input type="text" placeholder="Поиск по продукции, заказу, получателю..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" placeholder="Поиск по продукту, заказу, получателю..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <!-- Loading State -->
+
         <template x-if="loading">
             <div class="space-y-4 animate-pulse">
                 <div class="h-20 rounded-xl skeleton"></div>
@@ -43,7 +45,7 @@
                 <div class="h-20 rounded-xl skeleton"></div>
             </div>
         </template>
-        <!-- Готовая продукция -->
+
         <template x-if="!loading">
             <div>
                 <template x-if="filteredGoods().length === 0">
@@ -52,258 +54,166 @@
                             <i data-lucide="package" class="w-10 h-10 text-gray-400"></i>
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 mb-2">Готовая продукция не найдена</h3>
-                        <p class="text-gray-600">Попробуйте изменить параметры поиска</p>
+                        <p class="text-gray-600">Измените фильтры или поисковый запрос.</p>
                     </div>
                 </template>
                 <template x-for="good in filteredGoods()" :key="good.id">
-                    <div class="card bg-white rounded-xl p-4 mb-4 cursor-pointer" @click="openDetailModal(good.id)">
+                    <div class="card bg-white rounded-xl p-4 mb-4 cursor-pointer" @click="openDetailPanel(good.id)">
                         <div class="flex items-center justify-between mb-2">
                             <div>
-                                <h3 class="font-semibold text-gray-900 text-base" x-text="good.product"></h3>
-                                <p class="text-xs text-gray-500" x-text="good.order"></p>
+                                <h3 class="font-semibold text-gray-900 text-base" x-text="getProductName(good)"></h3>
+                                <p class="text-xs text-gray-500" x-text="getOrderName(good) || 'Без заказа'"></p>
                             </div>
                             <span class="inline-block px-2 py-1 rounded text-xs font-semibold" :class="good.status === 'issued' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'" x-text="good.status_display"></span>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs mb-2">
-                            <div><span class="text-gray-400">Кол-во:</span> <span class="font-medium text-gray-700" x-text="good.quantity"></span></div>
-                            <div><span class="text-gray-400">Поступление:</span> <span class="font-medium text-gray-700" x-text="good.received_at ? new Date(good.received_at).toLocaleString('ru-RU') : ''"></span></div>
-                            <div><span class="text-gray-400">Выдача:</span> <span class="font-medium text-gray-700" x-text="good.issued_at ? new Date(good.issued_at).toLocaleString('ru-RU') : ''"></span></div>
-                            <div><span class="text-gray-400">Получатель:</span> <span class="font-medium text-gray-700" x-text="good.recipient"></span></div>
+                            <div><span class="text-gray-400">Количество:</span> <span class="font-medium text-gray-700" x-text="good.quantity"></span></div>
+                            <div><span class="text-gray-400">Принято:</span> <span class="font-medium text-gray-700" x-text="formatDate(good.received_at)"></span></div>
+                            <div><span class="text-gray-400">Выдано:</span> <span class="font-medium text-gray-700" x-text="formatDate(good.issued_at)"></span></div>
+                            <div><span class="text-gray-400">Получатель:</span> <span class="font-medium text-gray-700" x-text="good.recipient || '-' "></span></div>
                         </div>
-                        <div class="mt-2 text-xs text-gray-400" x-text="good.comment"></div>
+                        <div class="mt-2 text-xs text-gray-400" x-text="good.comment || '-' "></div>
                     </div>
                 </template>
             </div>
         </template>
-        <!-- Модальное окно подробной информации -->
-        <template x-if="showDetailModal">
-            <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg p-2">
-                <div class="bg-white rounded-2xl w-full max-w-md mx-auto overflow-y-auto max-h-[95vh] relative">
-                    <button @click="closeDetailModal()" class="absolute top-2 right-2 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                    <div class="px-4 py-4">
-                        <h2 class="text-xl font-bold mb-4 text-blue-700">Подробная информация</h2>
-                        <template x-if="detailLoading">
-                            <div class="text-center py-8 text-gray-400">Загрузка...</div>
-                        </template>
-                        <template x-if="!detailLoading && detailGood">
-                            <div>
-                                <!-- Этапы-индикатор -->
-                                <div class="flex items-center justify-center mb-4">
-                                    <template x-for="(step, idx) in steps" :key="idx">
-                                        <div class="flex items-center">
-                                            <div :class="['w-3 h-3 rounded-full', currentStep === idx ? 'bg-blue-600' : 'bg-gray-300']"></div>
-                                            <template x-if="idx < steps.length - 1">
-                                                <div class="w-8 h-0.5 bg-gray-300 mx-1"></div>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </div>
-                                <!-- Этапы -->
-                                <div x-show="currentStep === 0" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Основные данные</h3>
-                                    <div class="grid grid-cols-2 gap-4 text-sm">
-                                        <div><span class="text-gray-600">ID:</span> <span x-text="detailGood.id"></span></div>
-                                        <div><span class="text-gray-600">Количество:</span> <span x-text="detailGood.quantity"></span></div>
-                                        <div><span class="text-gray-600">Статус:</span> <span x-text="detailGood.status_display"></span></div>
-                                        <div><span class="text-gray-600">Поступление:</span> <span x-text="detailGood.received_at ? new Date(detailGood.received_at).toLocaleString('ru-RU') : ''"></span></div>
-                                        <div><span class="text-gray-600">Выдача:</span> <span x-text="detailGood.issued_at ? new Date(detailGood.issued_at).toLocaleString('ru-RU') : ''"></span></div>
-                                        <div><span class="text-gray-600">Получатель:</span> <span x-text="detailGood.recipient"></span></div>
-                                        <div class="col-span-2"><span class="text-gray-600">Комментарий:</span> <span x-text="detailGood.comment"></span></div>
-                                    </div>
-                                </div>
-                                <div x-show="currentStep === 1" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Продукт</h3>
-                                    <template x-if="detailGood.product">
-                                        <div class="space-y-2">
-                                            <div><span class="text-gray-600">ID:</span> <span x-text="detailGood.product.id"></span></div>
-                                            <div><span class="text-gray-600">Наименование:</span> <span x-text="detailGood.product.name"></span></div>
-                                            <div><span class="text-gray-600">Тип:</span> <span x-text="detailGood.product.type"></span></div>
-                                            <div><span class="text-gray-600">Описание:</span> <span x-text="detailGood.product.description"></span></div>
-                                            <div><span class="text-gray-600">Цена:</span> <span x-text="detailGood.product.price"></span></div>
-                                            <div><span class="text-gray-600">Дата создания:</span> <span x-text="detailGood.product.created_at ? new Date(detailGood.product.created_at).toLocaleString('ru-RU') : ''"></span></div>
-                                            <div><span class="text-gray-600">Дата обновления:</span> <span x-text="detailGood.product.updated_at ? new Date(detailGood.product.updated_at).toLocaleString('ru-RU') : ''"></span></div>
-                                            <template x-if="detailGood.product.services && detailGood.product.services.length">
-                                                <div>
-                                                    <span class="text-gray-600">Услуги:</span>
-                                                    <ul class="list-disc ml-6">
-                                                        <template x-for="service in detailGood.product.services" :key="service.id">
-                                                            <li x-text="service.name"></li>
-                                                        </template>
-                                                    </ul>
-                                                </div>
-                                            </template>
-                                            <template x-if="detailGood.product.materials && detailGood.product.materials.length">
-                                                <div>
-                                                    <span class="text-gray-600">Материалы:</span>
-                                                    <ul class="list-disc ml-6">
-                                                        <template x-for="mat in detailGood.product.materials" :key="mat.id">
-                                                            <li><span x-text="mat.name"></span> — <span x-text="mat.amount"></span> <span x-text="mat.unit"></span> (<span x-text="mat.price"></span> ⃀)</li>
-                                                        </template>
-                                                    </ul>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </div>
-                                <div x-show="currentStep === 2" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Заказ</h3>
-                                    <template x-if="detailGood.order">
-                                        <div class="space-y-2">
-                                            <div><span class="text-gray-600">ID:</span> <span x-text="detailGood.order.id"></span></div>
-                                            <div><span class="text-gray-600">Название заявки:</span> <span x-text="detailGood.order.name"></span></div>
-                                            <div><span class="text-gray-600">Количество:</span> <span x-text="detailGood.order.quantity"></span></div>
-                                            <div><span class="text-gray-600">Статус:</span> <span x-text="detailGood.order.status"></span></div>
-                                            <div><span class="text-gray-600">Комментарий:</span> <span x-text="detailGood.order.comment"></span></div>
-                                            <div><span class="text-gray-600">Дата создания:</span> <span x-text="detailGood.order.created_at ? new Date(detailGood.order.created_at).toLocaleString('ru-RU') : ''"></span></div>
-                                        </div>
-                                    </template>
-                                </div>
-                                <div x-show="currentStep === 3" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Клиент</h3>
-                                    <template x-if="detailGood.order && detailGood.order.client">
-                                        <div class="bg-gray-50 rounded-lg p-4 mt-2">
-                                            <div class="grid grid-cols-2 gap-2 text-sm">
-                                                <div><span class="text-gray-600">ID:</span> <span x-text="detailGood.order.client.id"></span></div>
-                                                <div><span class="text-gray-600">Имя:</span> <span x-text="detailGood.order.client.name"></span></div>
-                                                <template x-if="detailGood.order.client.company">
-                                                    <div class="col-span-2"><span class="text-gray-600">Компания:</span> <span x-text="detailGood.order.client.company"></span></div>
-                                                </template>
-                                                <template x-if="detailGood.order.client.phone">
-                                                    <div><span class="text-gray-600">Телефон:</span> <span x-text="detailGood.order.client.phone"></span></div>
-                                                </template>
-                                                <template x-if="detailGood.order.client.email">
-                                                    <div><span class="text-gray-600">Email:</span> <span x-text="detailGood.order.client.email"></span></div>
-                                                </template>
-                                                <template x-if="detailGood.order.client.address">
-                                                    <div class="col-span-2"><span class="text-gray-600">Адрес:</span> <span x-text="detailGood.order.client.address"></span></div>
-                                                </template>
-                                                <template x-if="detailGood.order.client.created_at">
-                                                    <div><span class="text-gray-600">Создан:</span> <span x-text="new Date(detailGood.order.client.created_at).toLocaleString('ru-RU')"></span></div>
-                                                </template>
-                                                <template x-if="detailGood.order.client.updated_at">
-                                                    <div><span class="text-gray-600">Обновлён:</span> <span x-text="new Date(detailGood.order.client.updated_at).toLocaleString('ru-RU')"></span></div>
-                                                </template>
-                                                <template x-for="(value, key) in detailGood.order.client" :key="key">
-                                                    <template x-if="!['id','name','company','phone','email','address','created_at','updated_at'].includes(key)">
-                                                        <div class="col-span-2"><span class="text-gray-600" x-text="key+':'"></span> <span x-text="value"></span></div>
-                                                    </template>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                                <div x-show="currentStep === 4" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Этапы заказа</h3>
-                                    <template x-if="detailGood.order && detailGood.order.stages && detailGood.order.stages.length">
-                                        <ul class="list-disc ml-6">
-                                            <template x-for="stage in detailGood.order.stages" :key="stage.id">
-                                                <li>
-                                                    <span x-text="stage.workshop ? stage.workshop.name : ''"></span>
-                                                    — <span x-text="stage.in_progress"></span> в работе, <span x-text="stage.completed"></span> передано, <span x-text="stage.defective"></span> брак
-                                                    <span class="text-gray-400 ml-2" x-text="stage.date ? new Date(stage.date).toLocaleString('ru-RU') : ''"></span>
-                                                    <template x-if="stage.comment"><span class="ml-2 text-gray-500">(<span x-text="stage.comment"></span>)</span></template>
-                                                </li>
-                                            </template>
-                                        </ul>
-                                    </template>
-                                </div>
-                                <div x-show="currentStep === 5" x-transition>
-                                    <h3 class="font-semibold text-lg text-gray-900 mb-2">Браки по заказу</h3>
-                                    <template x-if="detailGood.order && detailGood.order.defects && detailGood.order.defects.length">
-                                        <ul class="list-disc ml-6">
-                                            <template x-for="def in detailGood.order.defects" :key="def.id">
-                                                <li>
-                                                    <span x-text="def.workshop ? def.workshop.name : ''"></span> — <span x-text="def.quantity"></span> шт.
-                                                    <span class="text-gray-400 ml-2" x-text="def.date ? new Date(def.date).toLocaleString('ru-RU') : ''"></span>
-                                                    <template x-if="def.comment"><span class="ml-2 text-gray-500">(<span x-text="def.comment"></span>)</span></template>
-                                                </li>
-                                            </template>
-                                        </ul>
-                                    </template>
-                                </div>
-                                <!-- Кнопки навигации -->
-                                <div class="flex justify-between mt-6">
-                                    <button @click="prevStep()" :disabled="currentStep === 0" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold disabled:opacity-50">Назад</button>
-                                    <button @click="nextStep()" :disabled="currentStep === steps.length - 1" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold disabled:opacity-50">Далее</button>
-                                </div>
-                            </div>
-                        </template>
+
+        <template x-if="showDetailPanel">
+            <div class="fixed inset-0 z-50">
+                <div class="absolute inset-0 modal-bg" @click="closeDetailPanel()"></div>
+                <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white rounded-l-2xl p-6 overflow-y-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">Детали партии</h2>
+                            <p class="text-xs text-gray-500" x-text="detailGood ? getProductName(detailGood) : ''"></p>
+                        </div>
+                        <button @click="closeDetailPanel()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                            <i data-lucide="x" class="w-5 h-5 text-gray-600"></i>
+                        </button>
                     </div>
+
+                    <template x-if="detailLoading">
+                        <div class="text-center py-8 text-gray-400">Загрузка...</div>
+                    </template>
+
+                    <template x-if="!detailLoading && detailGood">
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 rounded-xl p-4 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-500">Количество</span><span x-text="detailGood.quantity"></span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Статус</span><span x-text="detailGood.status_display"></span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Получатель</span><span x-text="detailGood.recipient || '-' "></span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Принято</span><span x-text="formatDate(detailGood.received_at)"></span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Выдано</span><span x-text="formatDate(detailGood.issued_at)"></span></div>
+                                <div class="mt-2"><span class="text-gray-500">Комментарий</span><div class="text-gray-900" x-text="detailGood.comment || '-' "></div></div>
+                            </div>
+
+                            <div class="border border-gray-200 rounded-xl p-4 text-sm">
+                                <h3 class="font-semibold text-gray-900 mb-2">Продукт</h3>
+                                <template x-if="detailGood.product">
+                                    <div class="space-y-1">
+                                        <div><span class="text-gray-500">Название:</span> <span x-text="detailGood.product.name"></span></div>
+                                        <div><span class="text-gray-500">Тип:</span> <span x-text="detailGood.product.type"></span></div>
+                                        <div><span class="text-gray-500">Описание:</span> <span x-text="detailGood.product.description || '-' "></span></div>
+                                    </div>
+                                </template>
+                                <template x-if="!detailGood.product">
+                                    <div class="text-gray-500">Нет данных о продукте.</div>
+                                </template>
+                            </div>
+
+                            <div class="border border-gray-200 rounded-xl p-4 text-sm">
+                                <h3 class="font-semibold text-gray-900 mb-2">Заказ</h3>
+                                <template x-if="detailGood.order">
+                                    <div class="space-y-1">
+                                        <div><span class="text-gray-500">Название:</span> <span x-text="detailGood.order.name || detailGood.order"></span></div>
+                                        <div><span class="text-gray-500">Статус:</span> <span x-text="detailGood.order.status"></span></div>
+                                        <div><span class="text-gray-500">Комментарий:</span> <span x-text="detailGood.order.comment || '-' "></span></div>
+                                    </div>
+                                </template>
+                                <template x-if="!detailGood.order">
+                                    <div class="text-gray-500">Нет данных о заказе.</div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </template>
     </main>
-    <!-- Bottom Navigation -->
+
     {% include 'partials/bottom_nav_mobile.html' %}
 
     <script>
-    function finishedGoodsMobile() {
-        return {
-            loading: true,
-            goods: [],
-            searchTerm: '',
-            showDetailModal: false,
-            detailGood: null,
-            detailLoading: false,
-            currentStep: 0,
-            steps: [
-                'Основные', 'Продукт', 'Заказ', 'Клиент', 'Этапы', 'Браки'
-            ],
-            async fetchGoods() {
-                const resp = await fetch('/finished_goods/api/finished_goods/');
-                const data = await resp.json();
-                this.goods = data.results;
-            },
-            filteredGoods() {
-                let filtered = this.goods.filter(good => {
-                    return (
-                        good.product.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                        (good.order && good.order.toLowerCase().includes(this.searchTerm.toLowerCase())) ||
-                        (good.recipient && good.recipient.toLowerCase().includes(this.searchTerm.toLowerCase())) ||
-                        (good.comment && good.comment.toLowerCase().includes(this.searchTerm.toLowerCase()))
-                    );
-                });
-                return filtered;
-            },
-            async init() {
-                await this.fetchGoods();
-                this.loading = false;
-                this.$nextTick(() => lucide.createIcons());
-            },
-            async openDetailModal(id) {
-                this.showDetailModal = true;
-                this.detailLoading = true;
-                this.detailGood = null;
-                this.currentStep = 0;
-                try {
-                    const resp = await fetch(`/finished_goods/api/finished_goods/${id}/`);
-                    this.detailGood = await resp.json();
-                } catch (e) {
+        function finishedGoodsMobile() {
+            return {
+                loading: true,
+                goods: [],
+                searchTerm: '',
+                showDetailPanel: false,
+                detailGood: null,
+                detailLoading: false,
+                async fetchGoods() {
+                    const resp = await fetch('/finished_goods/api/finished_goods/');
+                    const data = await resp.json();
+                    this.goods = Array.isArray(data) ? data : (data.results || []);
+                },
+                getProductName(good) {
+                    if (!good) return '';
+                    if (typeof good.product === 'string') return good.product;
+                    return good.product && good.product.name ? good.product.name : '';
+                },
+                getOrderName(good) {
+                    if (!good) return '';
+                    if (typeof good.order === 'string') return good.order;
+                    return good.order && good.order.name ? good.order.name : '';
+                },
+                formatDate(value) {
+                    if (!value) return '-';
+                    try {
+                        return new Date(value).toLocaleString('ru-RU');
+                    } catch (e) {
+                        return '-';
+                    }
+                },
+                filteredGoods() {
+                    const term = this.searchTerm.toLowerCase();
+                    return this.goods.filter(good => {
+                        const product = this.getProductName(good).toLowerCase();
+                        const order = this.getOrderName(good).toLowerCase();
+                        const recipient = (good.recipient || '').toLowerCase();
+                        const comment = (good.comment || '').toLowerCase();
+                        return product.includes(term) || order.includes(term) || recipient.includes(term) || comment.includes(term);
+                    });
+                },
+                async init() {
+                    await this.fetchGoods();
+                    this.loading = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                async openDetailPanel(id) {
+                    this.showDetailPanel = true;
+                    this.detailLoading = true;
                     this.detailGood = null;
+                    try {
+                        const resp = await fetch(`/finished_goods/api/finished_goods/${id}/`);
+                        this.detailGood = await resp.json();
+                    } catch (e) {
+                        this.detailGood = null;
+                    }
+                    this.detailLoading = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeDetailPanel() {
+                    this.showDetailPanel = false;
+                    this.detailGood = null;
+                    this.detailLoading = false;
+                    this.$nextTick(() => lucide.createIcons());
                 }
-                this.detailLoading = false;
-                this.$nextTick(() => lucide.createIcons());
-            },
-            closeDetailModal() {
-                this.showDetailModal = false;
-                this.detailGood = null;
-                this.detailLoading = false;
-                this.currentStep = 0;
-                this.$nextTick(() => lucide.createIcons());
-            },
-            nextStep() {
-                if (this.currentStep < this.steps.length - 1) this.currentStep++;
-            },
-            prevStep() {
-                if (this.currentStep > 0) this.currentStep--;
             }
         }
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        lucide.createIcons();
-    });
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
     </script>
 </body>
-</html> 
+</html>
