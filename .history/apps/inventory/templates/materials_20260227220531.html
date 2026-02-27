@@ -13,26 +13,26 @@
     <!-- SheetJS для Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
-        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
-        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.08); }
+        body { font-family: system-ui, -apple-system, sans-serif; }
         .menu-card { transition: all 0.3s ease; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); backdrop-filter: blur(10px); }
         .menu-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
         aside::-webkit-scrollbar { display: none; }
-        .bg-blue-600 { background-color: #0e121a !important; }
-        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
-        .text-blue-600 { color: #0e121a !important; }
-        .bg-blue-100 { background-color: #e2e8f0 !important; }
-        .bg-blue-50 { background-color: #f1f5f9 !important; }
     </style>
 </head>
-<body class="min-h-screen text-gray-900" x-data="inventoryData()" x-init="init()">
-    {% include 'partials/app_header.html' %}
-    {% include 'partials/app_sidebar.html' %}
+<body class="min-h-screen bg-slate-50">
+    <div class="min-h-screen flex bg-slate-50 text-gray-900">
+        <!-- Sidebar -->
+        {}
 
-    <main class="flex-1 overflow-auto px-4 lg:px-8 py-6 space-y-6 md:ml-64 mt-16">
+        <!-- Main column -->
+        <div class="flex-1 flex flex-col" x-data="inventoryData()" x-init="init()">
+            <!-- Top header -->
+            {% include 'partials/app_header.html' %}
+
+            <!-- Main Content -->
+            <main class="flex-1 overflow-auto px-4 lg:px-8 py-6 space-y-6">
                 <!-- Заголовок и кнопки управления -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6 flex flex-col lg:flex-row lg:items-center justify-between">
                     <div>

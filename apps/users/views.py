@@ -11,7 +11,8 @@ from django.utils.decorators import method_decorator
 from apps.users.models import User, UserSettings
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
+from functools import wraps
 import re
 
 # Create your views here.
@@ -123,6 +124,26 @@ class LogoutView(View):
         messages.success(request, 'Вы успешно вышли из системы.')
         return redirect('login')
 
+def _is_worker(user):
+    return getattr(user, 'role', None) == User.Role.WORKER
+
+
+def worker_required(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not _is_worker(request.user):
+            return redirect('/')
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+class IsWorker(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and _is_worker(request.user)
+
+
+@method_decorator(login_required, name='dispatch')
+@method_decorator(worker_required, name='dispatch')
 class ProfileView(View):
     template_name = 'profile.html'
     
@@ -136,7 +157,7 @@ class ProfileView(View):
         })
 
 class ProfileAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorker]
 
     def get(self, request):
         user = request.user
@@ -157,7 +178,6 @@ class ProfileAPIView(APIView):
 class SettingsView(View):
     template_name = 'settings.html'
 
-    @method_decorator(login_required)
     def get(self, request):
         return render(request, self.template_name, {
             'user': request.user

@@ -464,9 +464,6 @@ def workshops_list(request):
 				else:
 					productivity_chart.insert(0, 7)
 			
-			# Получаем информацию о мастерах
-			workshop_masters = workshop.workshop_masters.filter(is_active=True)
-			
 			workshops_data.append({
 				'id': workshop.id,
 				'name': workshop.name,
@@ -479,7 +476,6 @@ def workshops_list(request):
 				'defects': defects,
 				'productivity': productivity,
 				'productivity_chart': productivity_chart,
-				'workshop_masters': workshop_masters,
 				'week_stats': workshop_stats.get('week_stats', {}),
 				'month_stats': workshop_stats.get('month_stats', {}),
 				'total_stats': workshop_stats.get('total_stats', {}),
@@ -500,7 +496,6 @@ def workshops_list(request):
 				'defects': 0,
 				'productivity': 0,
 				'productivity_chart': [1, 1, 1, 1, 1, 1, 1],
-				'workshop_masters': [],
 				'week_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
 				'month_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},
 				'total_stats': {'completed_works': 0, 'defects': 0, 'efficiency': 0},

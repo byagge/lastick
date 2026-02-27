@@ -9,10 +9,17 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
-        body { font-family: system-ui, -apple-system, sans-serif; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.08); }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
     </style>
 </head>
-<body class="min-h-screen bg-slate-50">
+<body class="min-h-screen">
     {% include 'partials/app_header.html' %}
     {% include 'partials/app_sidebar.html' %}
 

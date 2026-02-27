@@ -34,6 +34,7 @@ urlpatterns = [
     
     # Расходы
     path('expenses/', views.expenses, name='expenses'),
+    path('expenses/mobile/', views.expenses_mobile, name='expenses_mobile'),
     path('expenses/create/', views.expense_create, name='expense_create'),
     path('expenses/<int:pk>/edit/', views.expense_edit, name='expense_edit'),
     path('expenses/<int:pk>/details/', views.expense_details, name='expense_details'),

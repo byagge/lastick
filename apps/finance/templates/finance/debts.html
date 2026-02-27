@@ -4,18 +4,38 @@
 
 {% block content %}
 <div>
-	<div class="flex justify-between items-center mb-8">
+	<div class="glass rounded-xl border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
 		<div>
-			<h1 class="text-3xl font-bold text-gray-900 mb-2">Долги</h1>
+			<h1 class="text-2xl font-bold text-gray-900 mb-2">Долги</h1>
 			<p class="text-gray-600">Управление дебиторской и кредиторской задолженностью</p>
 		</div>
-		<a href="{% url 'finance:debt_create' %}" class="btn btn-success flex items-center space-x-2">
+		<a href="{% url 'finance:debt_create' %}" class="btn btn-success flex items-center space-x-2 mt-4 lg:mt-0">
 			<i data-lucide="plus" class="w-4 h-4"></i>
 			<span>Новый долг</span>
 		</a>
 	</div>
 
-	<div class="bg-white rounded-xl p-6 border border-gray-200 mb-6 shadow-sm">
+	
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+            <p class="text-xs text-gray-500">Total Original</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ total_original|floatformat:2 }} KGS</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+            <p class="text-xs text-gray-500">Total Paid</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ total_paid|floatformat:2 }} KGS</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+            <p class="text-xs text-gray-500">Outstanding</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ total_outstanding|floatformat:2 }} KGS</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+            <p class="text-xs text-gray-500">Overdue</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ overdue_count }}</p>
+        </div>
+    </div>
+
+<div class="bg-white rounded-xl p-6 border border-gray-200 mb-6 shadow-sm">
 		<form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
 			<div class="form-group">
 				<label class="form-label">Направление</label>
@@ -113,13 +133,13 @@
 				<nav aria-label="Навигация по страницам">
 					<ul class="pagination justify-content-center mb-0">
 						{% if page_obj.has_previous %}
-						<li class="page-item"><a class="page-link" href="?page=1">&laquo; Первая</a></li>
-						<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a></li>
+						<li class="page-item"><a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page=1">&laquo; Первая</a></li>
+						<li class="page-item"><a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Предыдущая</a></li>
 						{% endif %}
 						<li class="page-item active"><span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span></li>
 						{% if page_obj.has_next %}
-						<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a></li>
-						<li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Последняя &raquo;</a></li>
+						<li class="page-item"><a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Следующая</a></li>
+						<li class="page-item"><a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Последняя &raquo;</a></li>
 						{% endif %}
 					</ul>
 				</nav>

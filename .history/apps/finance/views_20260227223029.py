@@ -1214,11 +1214,13 @@ def journal_entry_export(request, format):
 	if format == 'json':
 		return JsonResponse(operation_data, json_dumps_params={'indent': 2})
 	elif format == 'xml':
-		xml_content = f"""<journal_entry>
+	"""?????????? ?????????"""
+<journal_entry>
 	<date>{date}</date>
 	<memo>{memo}</memo>
-	<posted>{str(posted).lower()}</posted>
+	<posted>{posted}</posted>
 	<lines>"""
+		
 		for line in lines:
 			xml_content += f"""
 		<line>
@@ -1227,11 +1229,13 @@ def journal_entry_export(request, format):
 			<credit>{line['credit']}</credit>
 			<description>{line['description']}</description>
 		</line>"""
-		xml_content += f"""
+		
+		xml_content += """
 	</lines>
-	<exported_at>{operation_data['exported_at']}</exported_at>
-	<export_format>{format}</export_format>
-</journal_entry>"""
+	<exported_at>{}</exported_at>
+	<export_format>{}</export_format>
+</journal_entry>""".format(datetime.now().isoformat(), format)
+		
 		response = HttpResponse(xml_content, content_type='application/xml')
 		response['Content-Disposition'] = f'attachment; filename="journal_entry_{date}.xml"'
 		return response
@@ -1544,7 +1548,7 @@ def get_requests(request):
 
 @login_required
 def create_request(request):
-	"""API: создание заявки"""
+
 	if request.method != 'POST':
 		return JsonResponse({'error': 'Метод не поддерживается'}, status=405)
 	

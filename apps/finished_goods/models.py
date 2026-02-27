@@ -64,6 +64,34 @@ class FinishedGood(models.Model):
         self.comment = comment
         self.save()
 
+
+class FinishedGoodSale(models.Model):
+    finished_good = models.ForeignKey(
+        FinishedGood,
+        on_delete=models.CASCADE,
+        related_name='sales'
+    )
+    client = models.ForeignKey(
+        'clients.Client',
+        on_delete=models.PROTECT,
+        related_name='finished_good_sales'
+    )
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='finished_good_sales'
+    )
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    sold_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sold_at']
+
+    def __str__(self):
+        return f"Sale #{self.id} - {self.finished_good} -> {self.client}"
+
 def create_example_finished_good():
     from apps.products.models import Product
     from apps.orders.models import Order

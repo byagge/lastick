@@ -1237,6 +1237,32 @@ def journal_entry_export(request, format):
 		return response
 	else:
 		return JsonResponse({'error': 'Неподдерживаемый формат экспорта'}, status=400)
+<journal_entry>
+	<date>{date}</date>
+	<memo>{memo}</memo>
+	<posted>{posted}</posted>
+	<lines>"""
+		
+		for line in lines:
+			xml_content += f"""
+		<line>
+			<account>{line['account']}</account>
+			<debit>{line['debit']}</debit>
+			<credit>{line['credit']}</credit>
+			<description>{line['description']}</description>
+		</line>"""
+		
+		xml_content += """
+	</lines>
+	<exported_at>{}</exported_at>
+	<export_format>{}</export_format>
+</journal_entry>""".format(datetime.now().isoformat(), format)
+		
+		response = HttpResponse(xml_content, content_type='application/xml')
+		response['Content-Disposition'] = f'attachment; filename="journal_entry_{date}.xml"'
+		return response
+	else:
+		return JsonResponse({'error': 'Неподдерживаемый формат экспорта'}, status=400)
 
 @login_required
 def trial_balance(request):

@@ -17,21 +17,11 @@
         .toast { box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
-    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-4 h-16">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
-                <span class="text-white font-bold text-2xl">S</span>
-            </div>
-            <div>
-                <div class="text-xs text-gray-500">Склад</div>
-                <span class="text-lg font-semibold text-gray-900">Выдача материалов</span>
-            </div>
-        </div>
-        <div class="text-xs text-gray-500">Сотрудник</div>
-    </header>
+<body class="min-h-screen" style="font-family: system-ui, -apple-system, sans-serif;">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
 
-    <main class="flex-1 pt-20 pb-8 px-4 max-w-md mx-auto w-full">
+    <main class="flex-1 pt-6 pb-8 px-4 max-w-md mx-auto w-full md:ml-64 mt-16">
         <div class="relative mb-4">
             <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
             <input type="text"
