@@ -87,6 +87,10 @@ def defects_management_page(request):
     return render(request, 'defects_management.html')
 
 
+def employee_dashboard_page(request):
+    return render(request, 'employee_dashboard.html')
+
+
 def task_detail_page(request, task_id):
     """Render task detail page."""
     return render(request, 'task_detail.html', {

@@ -39,6 +39,15 @@ urlpatterns = [
     
     # API для одобрения заявок
     path('api/requests/approve/<int:request_id>/', ApproveRequestAPIView.as_view(), name='approve-request'),
+    path('api/', include(router.urls)),
+    path('api/create/', OrderCreateAPIView.as_view(), name='orders-create'),
+    path('api/stages/<int:stage_id>/confirm/', OrderStageConfirmAPIView.as_view(), name='order-stage-confirm'),
+    path('api/stages/<int:stage_id>/transfer/', OrderStageTransferAPIView.as_view(), name='order-stage-transfer'),
+    path('api/stages/<int:stage_id>/postpone/', OrderStagePostponeAPIView.as_view(), name='order-stage-postpone'),
+    path('api/stages/<int:stage_id>/no-transfer/', OrderStageNoTransferAPIView.as_view(), name='order-stage-no-transfer'),
+    path('api/dashboard/overview/', DashboardOverviewAPIView.as_view(), name='orders-dashboard-overview'),
+    path('api/dashboard/revenue-chart/', DashboardRevenueChartAPIView.as_view(), name='orders-dashboard-revenue-chart'),
+    path('api/workshop-stages/', WorkshopStagesView.as_view(), name='orders-workshop-stages'),
     path('export/excel/', ExportRequestsExcelView.as_view(), name='export_requests_excel'),
     path('export/excel/client/<int:client_id>/', ExportRequestsExcelForClientView.as_view(), name='export_requests_excel_for_client'),
 ] 

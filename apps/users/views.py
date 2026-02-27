@@ -131,6 +131,8 @@ def _is_worker(user):
 def worker_required(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
         if not _is_worker(request.user):
             return redirect('/')
         return view_func(request, *args, **kwargs)

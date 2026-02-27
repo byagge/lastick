@@ -421,19 +421,22 @@ def build_expenses_context(request):
 
 @login_required
 def expense_create(request):
-	"""Создание нового расхода"""
+	"""???????? ???????"""
 	if request.method == 'POST':
 		form = ExpenseForm(request.POST)
 		if form.is_valid():
 			expense = form.save(commit=False)
 			expense.created_by = request.user
 			expense.save()
-			messages.success(request, 'Расход успешно создан!')
+			messages.success(request, '?????? ??????? ??????!')
 			return redirect('finance:expenses')
 	else:
 		form = ExpenseForm()
-	
-	return render(request, 'finance/expense_form.html', {'form': form, 'title': 'Новый расход'})
+
+	user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+	is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+	template = 'finance/new_expenses_mobile.html' if is_mobile else 'finance/new_expense.html'
+	return render(request, template, {'form': form, 'title': '????? ??????'})
 
 @login_required
 def expense_edit(request, pk):

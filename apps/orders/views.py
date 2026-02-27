@@ -27,6 +27,16 @@ class OrderViewSet(viewsets.ModelViewSet):
 	queryset = Order.objects.select_related('client', 'workshop', 'product').prefetch_related('items__product', 'stages__workshop', 'order_defects__workshop').all().order_by('-created_at')
 	serializer_class = OrderSerializer
 	permission_classes = [permissions.IsAuthenticated]
+
+	def get_queryset(self):
+		queryset = super().get_queryset()
+		search = self.request.query_params.get('search')
+		if search:
+			queryset = queryset.filter(
+				Q(name__icontains=search) |
+				Q(client__name__icontains=search)
+			)
+		return queryset
 	
 	@action(detail=False, methods=['get'])
 	def by_workshop(self, request):

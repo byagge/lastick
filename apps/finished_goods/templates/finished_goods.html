@@ -305,32 +305,27 @@
                     <form @submit.prevent="submitSale()" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Товар со склада</label>
-                            <select x-model="saleForm.finished_good_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                <option value="">Выберите товар</option>
-                                <template x-for="good in stockGoods()" :key="good.id">
-                                    <option :value="good.id" x-text="`${getProductName(good)} (ID ${good.id})`"></option>
-                                </template>
-                            </select>
+                            <div class="flex gap-2">
+                                <input type="text" x-model="saleForm.good_label" readonly placeholder="Товар не выбран" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                                <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50" @click="openPicker('good')">Выбрать</button>
+                            </div>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Клиент</label>
-                            <select x-model="saleForm.client_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                <option value="">Выберите клиента</option>
-                                <template x-for="client in clients" :key="client.id">
-                                    <option :value="client.id" x-text="client.name"></option>
-                                </template>
-                            </select>
+                            <div class="flex gap-2">
+                                <input type="text" x-model="saleForm.client_label" readonly placeholder="Клиент не выбран" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                                <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50" @click="openPicker('client')">Выбрать</button>
+                            </div>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Заказ (необязательно)</label>
-                            <select x-model="saleForm.order_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                <option value="">Без заказа</option>
-                                <template x-for="order in orders" :key="order.id">
-                                    <option :value="order.id" x-text="order.name"></option>
-                                </template>
-                            </select>
+                            <div class="flex gap-2">
+                                <input type="text" x-model="saleForm.order_label" readonly placeholder="Без заказа" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                                <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50" @click="openPicker('order')">Выбрать</button>
+                                <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50" @click="clearOrder()">Очистить</button>
+                            </div>
                         </div>
 
                         <div>
@@ -346,6 +341,39 @@
                 </div>
             </div>
         </div>
+
+        <div x-show="pickerOpen" class="fixed inset-0 z-50" style="display: none;">
+            <div class="absolute inset-0 bg-black bg-opacity-40" @click="closePicker()"></div>
+            <div class="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl p-6 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900" x-text="pickerTitle"></h3>
+                        <p class="text-sm text-gray-500">Введите для поиска и выберите нужный вариант.</p>
+                    </div>
+                    <button @click="closePicker()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="relative mb-4">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                    <input type="text" x-model="pickerSearch" @input.debounce.300ms="loadPickerResults()" placeholder="Поиск..." class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <template x-if="pickerLoading">
+                    <div class="text-center py-6 text-gray-400">Загрузка...</div>
+                </template>
+                <template x-if="!pickerLoading">
+                    <div class="space-y-2">
+                        <template x-for="item in pickerResults" :key="item.id">
+                            <button type="button" class="w-full text-left border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50" @click="selectPickerItem(item)">
+                                <div class="font-medium text-gray-900" x-text="item.title"></div>
+                                <div class="text-xs text-gray-500" x-text="item.subtitle"></div>
+                            </button>
+                        </template>
+                        <div x-show="pickerResults.length === 0" class="text-center text-sm text-gray-400 py-6">Ничего не найдено.</div>
+                    </div>
+                </template>
+            </div>
+        </div>
     </main>
 
     <script>
@@ -353,8 +381,6 @@
             return {
                 goods: [],
                 sales: [],
-                clients: [],
-                orders: [],
                 activeSection: 'stock',
                 searchTerm: '',
                 sortField: 'received_at',
@@ -362,12 +388,21 @@
                 viewMode: 'table',
                 saleForm: {
                     finished_good_id: '',
+                    good_label: '',
                     client_id: '',
+                    client_label: '',
                     order_id: '',
+                    order_label: '',
                     price: ''
                 },
                 saleError: '',
                 saleSuccess: '',
+                pickerOpen: false,
+                pickerType: '',
+                pickerTitle: '',
+                pickerSearch: '',
+                pickerResults: [],
+                pickerLoading: false,
                 columns: ['product', 'quantity', 'order', 'status_display', 'received_at', 'issued_at', 'recipient', 'comment'],
                 columnLabels: {
                     product: 'Продукт',
@@ -392,25 +427,87 @@
                     const data = await resp.json();
                     this.sales = Array.isArray(data) ? data : (data.results || []);
                 },
-                async fetchClients() {
-                    const resp = await fetch('/clients/api/clients/');
-                    const data = await resp.json();
-                    this.clients = Array.isArray(data) ? data : (data.results || data.clients || []);
-                },
-                async fetchOrders() {
-                    const resp = await fetch('/orders/api/orders/');
-                    const data = await resp.json();
-                    this.orders = Array.isArray(data) ? data : (data.results || []);
-                },
                 stockGoods() {
                     return this.goods.filter(good => good.status === 'stock');
                 },
                 prepareSale(good) {
                     if (!good || good.status === 'issued') return;
                     this.saleForm.finished_good_id = String(good.id);
+                    this.saleForm.good_label = `${this.getProductName(good)} (ID ${good.id})`;
                     this.activeSection = 'sales';
                     this.saleError = '';
                     this.saleSuccess = '';
+                },
+                clearOrder() {
+                    this.saleForm.order_id = '';
+                    this.saleForm.order_label = '';
+                },
+                openPicker(type) {
+                    this.pickerType = type;
+                    this.pickerTitle = type === 'good' ? 'Выбор товара' : (type === 'client' ? 'Выбор клиента' : 'Выбор заказа');
+                    this.pickerSearch = '';
+                    this.pickerResults = [];
+                    this.pickerOpen = true;
+                    this.loadPickerResults();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closePicker() {
+                    this.pickerOpen = false;
+                },
+                async loadPickerResults() {
+                    const term = this.pickerSearch.trim().toLowerCase();
+                    this.pickerLoading = true;
+                    if (this.pickerType === 'good') {
+                        const goods = this.stockGoods().filter(good => {
+                            const name = this.getProductName(good).toLowerCase();
+                            return !term || name.includes(term) || String(good.id).includes(term);
+                        }).slice(0, 30);
+                        this.pickerResults = goods.map(good => ({
+                            id: good.id,
+                            title: `${this.getProductName(good)} (ID ${good.id})`,
+                            subtitle: `Количество: ${good.quantity}`
+                        }));
+                        this.pickerLoading = false;
+                        return;
+                    }
+                    const baseUrl = this.pickerType === 'client'
+                        ? '/clients/api/clients/'
+                        : '/orders/api/orders/';
+                    const url = `${baseUrl}?search=${encodeURIComponent(term)}&page_size=20`;
+                    try {
+                        const resp = await fetch(url);
+                        const data = await resp.json();
+                        const results = Array.isArray(data) ? data : (data.results || []);
+                        if (this.pickerType === 'client') {
+                            this.pickerResults = results.map(client => ({
+                                id: client.id,
+                                title: client.name,
+                                subtitle: client.company || client.phone || client.email || ''
+                            }));
+                        } else {
+                            this.pickerResults = results.map(order => ({
+                                id: order.id,
+                                title: order.name,
+                                subtitle: order.client && order.client.name ? order.client.name : ''
+                            }));
+                        }
+                    } catch (e) {
+                        this.pickerResults = [];
+                    }
+                    this.pickerLoading = false;
+                },
+                selectPickerItem(item) {
+                    if (this.pickerType === 'good') {
+                        this.saleForm.finished_good_id = String(item.id);
+                        this.saleForm.good_label = item.title;
+                    } else if (this.pickerType === 'client') {
+                        this.saleForm.client_id = String(item.id);
+                        this.saleForm.client_label = item.title;
+                    } else if (this.pickerType === 'order') {
+                        this.saleForm.order_id = String(item.id);
+                        this.saleForm.order_label = item.title;
+                    }
+                    this.closePicker();
                 },
                 async submitSale() {
                     this.saleError = '';
@@ -439,7 +536,7 @@
                         this.saleError = 'Не удалось оформить продажу.';
                         return;
                     }
-                    this.saleForm = { finished_good_id: '', client_id: '', order_id: '', price: '' };
+                    this.saleForm = { finished_good_id: '', good_label: '', client_id: '', client_label: '', order_id: '', order_label: '', price: '' };
                     this.saleSuccess = 'Продажа сохранена.';
                     await this.fetchSales();
                     await this.fetchGoods();
@@ -517,8 +614,6 @@
                 async init() {
                     await this.fetchGoods();
                     await this.fetchSales();
-                    await this.fetchClients();
-                    await this.fetchOrders();
                     this.$nextTick(() => lucide.createIcons());
                 },
                 async openDetailPanel(id) {

@@ -3,201 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Factory">
-    <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>Статистика (Мастер)</title>
+    <title>Статистика сотрудника</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
-    <script>
-      window.user_id = JSON.parse(document.getElementById('user-id').textContent);
-      
-      // Функция для получения CSRF токена из cookies
-      function getCookie(name) {
-          let cookieValue = null;
-          if (document.cookie && document.cookie !== '') {
-              const cookies = document.cookie.split(';');
-              for (let i = 0; i < cookies.length; i++) {
-                  const cookie = cookies[i].trim();
-                  if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                      cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                      break;
-                  }
-              }
-          }
-          return cookieValue;
-      }
-      
-      // Получаем CSRF токен из мета-тега или cookies
-      window.csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || getCookie('csrftoken');
-    </script>
     <style>
-        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
-        .nav-active { color: #2563eb; }
-        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0f172a; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .glass { background: rgba(255,255,255,0.82); backdrop-filter: blur(12px); }
+        .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        .chip { border: 1px solid #e2e8f0; color: #334155; }
+        .chip-active { background: #0f172a; color: #fff; border-color: #0f172a; }
+        [x-cloak] { display: none !important; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
     </style>
 </head>
 <body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
-    <!-- AppBar -->
-    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
-        <div class="flex items-center space-x-3">
-            <a href="/employee_tasks/tasks/" class="text-gray-600 hover:text-gray-900">
-                <i data-lucide="arrow-left" class="w-5 h-5"></i>
-            </a>
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                <span class="text-white font-bold text-2xl">Z</span>
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-3 h-14">
+        <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                <span class="text-white font-bold text-lg">S</span>
             </div>
-            <span class="text-lg font-semibold text-gray-900">Статистика</span>
+            <div>
+                <div class="text-xs text-gray-500">Smart Factory</div>
+                <span class="text-base font-semibold text-gray-900">Статистика</span>
+            </div>
         </div>
+        <div class="text-xs text-gray-500" x-text="todayLabel"></div>
     </header>
-    <!-- Main Content -->
-    <main class="flex-1 pt-20 pb-20 px-3 max-w-2xl mx-auto w-full">
-        <!-- Overview Cards -->
-        <div class="grid grid-cols-2 gap-3 mb-4" x-show="!loading">
-            <div class="bg-white rounded-lg p-3 shadow-sm">
-                <div class="text-xs text-gray-500 mb-1">Заработок</div>
-                <div class="text-lg font-bold text-gray-900" x-text="formatMoney(overview.total_earnings)"></div>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm">
-                <div class="text-xs text-gray-500 mb-1">Штрафы</div>
-                <div class="text-lg font-bold text-gray-900" x-text="formatMoney(overview.total_penalties)"></div>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm">
-                <div class="text-xs text-gray-500 mb-1">Чистый доход</div>
-                <div class="text-lg font-bold text-gray-900" x-text="formatMoney(overview.total_net_earnings)"></div>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm">
-                <div class="text-xs text-gray-500 mb-1">Задачи</div>
-                <div class="text-lg font-bold text-gray-900" x-text="`${overview.completed_tasks}/${overview.total_tasks}`"></div>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm col-span-2">
-                <div class="text-xs text-gray-500 mb-1">Баланс</div>
-                <div class="text-lg font-bold text-gray-900" x-text="formatMoney(balance)"></div>
-            </div>
-        </div>
-        
-        <!-- Debug Info and Actions -->
-        <!-- <div class="bg-white rounded-lg p-3 shadow-sm mb-4" x-show="!loading">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="font-semibold text-gray-900">Отладка</h3>
-                <button @click="recalculateEarnings()" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
-                    Пересчитать
-                </button>
-            </div>
-            <div class="text-xs text-gray-600 space-y-1">
-                <div>User ID: <span x-text="userId"></span></div>
-                <div>Tasks count: <span x-text="tasks.length"></span></div>
-                <div>Overview: <span x-text="JSON.stringify(overview)"></span></div>
-            </div>
-        </div> -->
 
-        <!-- Loading State -->
+    <main class="flex-1 pt-16 pb-20 px-3 w-full max-w-md mx-auto">
         <template x-if="loading">
             <div class="space-y-3 animate-pulse">
-                <div class="h-24 rounded-lg bg-white"></div>
-                <div class="h-40 rounded-lg bg-white"></div>
+                <div class="h-24 rounded-2xl skeleton"></div>
+                <div class="h-32 rounded-2xl skeleton"></div>
+                <div class="h-40 rounded-2xl skeleton"></div>
             </div>
         </template>
 
-        <!-- Monthly Chart-like list (simple) -->
-        <div class="bg-white rounded-lg p-3 shadow-sm mb-4" x-show="!loading && monthly.length">
-            <div class="flex items-center justify-between mb-2">
-                <div class="font-semibold text-gray-900">По месяцам</div>
-                <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
-            </div>
-            <div class="space-y-2">
-                <template x-for="m in monthly" :key="m.month">
-                    <div class="flex items-center justify-between text-sm">
-                        <div class="text-gray-600">Месяц <span x-text="m.month"></span></div>
-                        <div class="font-medium text-gray-900" x-text="formatMoney(m.total_net)"></div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- Task History -->
-        <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900">История задач</h2>
-            <div class="text-xs text-gray-500" x-text="`Всего: ${tasks.length}`"></div>
-        </div>
-        <div class="space-y-3">
-            <template x-for="task in tasks" :key="task.id">
-                <a :href="`/employee_tasks/tasks/${task.id}/`" class="block group">
-                    <div class="bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-blue-200">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1 min-w-0">
-                                <div class="font-semibold text-gray-900 text-sm mb-1 group-hover:text-blue-600 transition-colors duration-200" x-text="task.stage_name || ('Этап #' + task.stage)"></div>
-                                <div class="text-xs text-gray-600 mb-1" x-text="task.title || ''"></div>
-                                <div class="text-xs text-gray-500">
-                                    <span>План: <span class="text-gray-900" x-text="getDisplayQuantity(task, 'plan')"></span></span>
-                                    <span class="mx-1">•</span>
-                                    <span>Выполнено: <span class="text-gray-900" x-text="getDisplayQuantity(task, 'completed')"></span></span>
-                                    <template x-if="task.defective_quantity && task.defective_quantity > 0">
-                                        <span>
-                                            <span class="mx-1">•</span>
-                                            <span class="text-red-600">Брак: <span x-text="getDisplayQuantity(task, 'defective')"></span></span>
-                                        </span>
-                                    </template>
-                                </div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    <span>Создано: <span x-text="formatDate(task.created_at)"></span></span>
-                                    <template x-if="task.completed_at">
-                                        <span>
-                                            <span class="mx-1">•</span>
-                                            <span>Завершено: <span x-text="formatDate(task.completed_at)"></span></span>
-                                        </span>
-                                    </template>
-                                </div>
-                                <div class="text-xs text-gray-400 mt-1">
-                                    <span>Заработок: <span x-text="formatMoney(task.earnings || 0)"></span></span>
-                                    <span class="mx-1">•</span>
-                                    <span>Штрафы: <span x-text="formatMoney(task.penalties || 0)"></span></span>
-                                    <span class="mx-1">•</span>
-                                    <span>Чистый: <span x-text="formatMoney(task.net_earnings || 0)"></span></span>
-                                </div>
-                            </div>
-                            <div class="text-right ml-3">
-                                <div class="text-xs text-gray-500">Чистый</div>
-                                <div class="text-sm font-semibold text-gray-900" x-text="formatMoney(task.net_earnings || 0)"></div>
-                                <div class="text-xs text-blue-400 mt-1 group-hover:text-blue-600 transition-colors duration-200">
-                                    <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                                </div>
+        <template x-if="!loading">
+            <div x-cloak>
+                <section class="card bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-2xl p-4 text-white mb-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs opacity-80">Чистый доход за период</p>
+                            <p class="text-2xl font-bold mt-1" x-text="formatMoney(periodStats().total_net)"></p>
+                            <p class="text-xs opacity-70 mt-1" x-text="periodLabel()"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs opacity-80">Баланс</p>
+                            <p class="text-lg font-semibold" x-text="formatMoney(balance)"></p>
+                            <div class="inline-flex items-center text-xs opacity-80 mt-1">
+                                <i data-lucide="wallet" class="w-3 h-3 mr-1"></i>
+                                <span>Доступно</span>
                             </div>
                         </div>
                     </div>
-                </a>
-            </template>
-        </div>
+                    <div class="grid grid-cols-3 gap-2 mt-4">
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Заданий</p>
+                            <p class="text-base font-semibold" x-text="periodStats().tasks_count"></p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Выполнено</p>
+                            <p class="text-base font-semibold" x-text="periodStats().completed_rate_label"></p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Брак</p>
+                            <p class="text-base font-semibold" x-text="periodStats().defect_rate_label"></p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-gray-900">Период</h2>
+                        <span class="text-xs text-gray-500" x-text="periodLabel()"></span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-1 rounded-full text-xs chip" :class="periodDays === 7 ? 'chip-active' : ''" @click="setPeriod(7)">7 дней</button>
+                        <button class="px-3 py-1 rounded-full text-xs chip" :class="periodDays === 30 ? 'chip-active' : ''" @click="setPeriod(30)">30 дней</button>
+                        <button class="px-3 py-1 rounded-full text-xs chip" :class="periodDays === 90 ? 'chip-active' : ''" @click="setPeriod(90)">90 дней</button>
+                        <button class="px-3 py-1 rounded-full text-xs chip" :class="periodDays === null ? 'chip-active' : ''" @click="setPeriod(null)">Все</button>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="card bg-white rounded-xl p-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-gray-500">Начислено</p>
+                            <i data-lucide="coins" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                        <p class="text-lg font-semibold text-gray-900 mt-2" x-text="formatMoney(periodStats().total_earnings)"></p>
+                        <p class="text-xs text-gray-500 mt-1">Среднее за задачу</p>
+                        <p class="text-xs text-gray-700" x-text="formatMoney(periodStats().avg_earnings)"></p>
+                    </div>
+                    <div class="card bg-white rounded-xl p-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-gray-500">Штрафы</p>
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                        <p class="text-lg font-semibold text-gray-900 mt-2" x-text="formatMoney(periodStats().total_penalties)"></p>
+                        <p class="text-xs text-gray-500 mt-1">Доля штрафов</p>
+                        <p class="text-xs text-gray-700" x-text="periodStats().penalty_share_label"></p>
+                    </div>
+                    <div class="card bg-white rounded-xl p-3 col-span-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs text-gray-500">Чистый доход</p>
+                            <i data-lucide="sparkles" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                        <div class="flex items-end justify-between">
+                            <p class="text-xl font-semibold text-gray-900" x-text="formatMoney(periodStats().total_net)"></p>
+                            <p class="text-xs text-gray-500" x-text="periodStats().daily_avg_label"></p>
+                        </div>
+                        <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-2 bg-gradient-to-r from-green-400 to-green-600" :style="progressStyle(periodStats().net_vs_earnings_ratio)"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card bg-white rounded-2xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-gray-900">Производительность</h2>
+                        <span class="text-xs text-gray-500" x-text="periodStats().productivity_label"></span>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <span>Выполнение плана</span>
+                                <span class="text-gray-900 font-medium" x-text="periodStats().completed_rate_label"></span>
+                            </div>
+                            <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-2 bg-blue-600" :style="progressStyle(periodStats().completed_rate)"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <span>Брак</span>
+                                <span class="text-gray-900 font-medium" x-text="periodStats().defect_rate_label"></span>
+                            </div>
+                            <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-2 bg-red-500" :style="progressStyle(periodStats().defect_rate)"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 pt-2">
+                            <div class="bg-gray-50 rounded-lg p-2 text-center">
+                                <div class="text-sm font-semibold text-gray-900" x-text="periodStats().total_plan"></div>
+                                <div class="text-[11px] text-gray-500">План</div>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-2 text-center">
+                                <div class="text-sm font-semibold text-green-700" x-text="periodStats().total_completed"></div>
+                                <div class="text-[11px] text-green-600">Готово</div>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-2 text-center">
+                                <div class="text-sm font-semibold text-red-700" x-text="periodStats().total_defective"></div>
+                                <div class="text-[11px] text-red-600">Брак</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card bg-white rounded-2xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-gray-900">Месяцы</h2>
+                        <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <template x-if="monthly.length === 0">
+                        <p class="text-xs text-gray-500">Нет данных по месяцам.</p>
+                    </template>
+                    <div class="space-y-2" x-show="monthly.length > 0">
+                        <template x-for="m in monthly" :key="m.month">
+                            <div class="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                <span class="text-gray-600" x-text="m.month"></span>
+                                <div class="text-right">
+                                    <div class="text-gray-900 font-medium" x-text="formatMoney(m.total_net)"></div>
+                                    <div class="text-[11px] text-gray-500" x-text="formatMoney(m.total_earnings) + ' / ' + formatMoney(m.total_penalties)"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+
+                <section class="mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-gray-900">История работ</h2>
+                        <span class="text-xs text-gray-500" x-text="`Найдено: ${filteredTasks().length}`"></span>
+                    </div>
+                    <div class="relative mb-3">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                        <input type="text" placeholder="Поиск по задаче..." x-model="searchTerm"
+                               class="w-full pl-9 pr-3 py-2 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm">
+                    </div>
+                    <template x-if="filteredTasks().length === 0">
+                        <div class="card bg-white rounded-2xl p-6 text-center">
+                            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="inbox" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-sm text-gray-600">Нет задач в выбранном периоде.</p>
+                        </div>
+                    </template>
+                    <div class="space-y-3" x-show="filteredTasks().length > 0">
+                        <template x-for="task in filteredTasks()" :key="task.id">
+                            <a :href="`/employee_tasks/tasks/${task.id}/`" class="block">
+                                <div class="card bg-white rounded-2xl p-3 border border-transparent hover:border-gray-200 transition">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="font-semibold text-gray-900 text-sm truncate" x-text="task.stage_name || ('Этап #' + task.stage)"></div>
+                                            <div class="text-xs text-gray-500 mt-1" x-text="task.title || ''"></div>
+                                            <div class="text-[11px] text-gray-500 mt-2">
+                                                <span>План: <span class="text-gray-900" x-text="getDisplayQuantity(task, 'plan')"></span></span>
+                                                <span class="mx-1">•</span>
+                                                <span>Готово: <span class="text-gray-900" x-text="getDisplayQuantity(task, 'completed')"></span></span>
+                                                <template x-if="task.defective_quantity && task.defective_quantity > 0">
+                                                    <span>
+                                                        <span class="mx-1">•</span>
+                                                        <span class="text-red-600">Брак: <span x-text="getDisplayQuantity(task, 'defective')"></span></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                            <div class="text-[11px] text-gray-400 mt-1">
+                                                <span x-text="formatDateShort(task.completed_at || task.created_at)"></span>
+                                            </div>
+                                        </div>
+                                        <div class="text-right ml-3">
+                                            <div class="text-[11px] text-gray-500">Чистый</div>
+                                            <div class="text-sm font-semibold text-gray-900" x-text="formatMoney(task.net_earnings || 0)"></div>
+                                            <div class="text-[11px] text-gray-400 mt-1">
+                                                <span x-text="formatMoney(task.earnings || 0)"></span>
+                                                <span class="text-red-500">-</span>
+                                                <span x-text="formatMoney(task.penalties || 0)"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </template>
+                    </div>
+                </section>
+            </div>
+        </template>
     </main>
-    <!-- Bottom Navigation -->
-    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full">
-        <a href="/employee_tasks/tasks/" class="flex flex-col items-center">
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 nav-bar h-14 flex items-center justify-around text-xs">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center text-gray-500">
             <i data-lucide="home" class="w-5 h-5"></i>
-            <span class="text-xs">Главная</span>
+            <span>Задачи</span>
         </a>
-        <a href="/notifications/" class="flex flex-col items-center">
+        <a href="/notifications/" class="flex flex-col items-center text-gray-500">
             <i data-lucide="bell" class="w-5 h-5"></i>
-            <span class="text-xs">Уведомления</span>
+            <span>Уведомления</span>
         </a>
-        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-gray-900 rounded-full -mt-4 shadow-lg">
             <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
         </a>
         <a href="/employee_tasks/stats/" class="flex flex-col items-center nav-active">
             <i data-lucide="bar-chart" class="w-5 h-5"></i>
-            <span class="text-xs">Статистика</span>
+            <span>Статистика</span>
         </a>
-        <a href="/accounts/profile/" class="flex flex-col items-center">
+        <a href="/accounts/profile/" class="flex flex-col items-center text-gray-500">
             <i data-lucide="user" class="w-5 h-5"></i>
-            <span class="text-xs">Профиль</span>
+            <span>Профиль</span>
         </a>
     </nav>
+
+    <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
+    <script>
+      window.user_id = JSON.parse(document.getElementById('user-id').textContent);
+    </script>
     <script>
     function employeeStatsPage() {
         return {
@@ -207,127 +289,119 @@
             monthly: [],
             tasks: [],
             balance: 0,
+            periodDays: 30,
+            searchTerm: '',
+            todayLabel: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' }),
             async init() {
-                this.userId = JSON.parse(document.getElementById('user-id').textContent) || null;
+                this.userId = window.user_id || null;
                 await Promise.all([this.loadStats(), this.loadTasks()]);
                 this.loading = false;
-                lucide.createIcons();
+                this.$nextTick(() => lucide.createIcons());
             },
             async loadStats() {
                 if (!this.userId) return;
                 const resp = await fetch(`/employee_tasks/api/earnings/employee/${this.userId}/`);
                 const data = await resp.json();
                 this.overview = data.overview || this.overview;
-                this.monthly = (data.monthly_stats || []).map(x => ({
-                    month: x.month,
-                    total_earnings: x.total_earnings,
-                    total_penalties: x.total_penalties,
-                    total_net: x.total_net
+                this.monthly = (data.monthly_stats || []).map(item => ({
+                    month: item.month,
+                    total_earnings: Number(item.total_earnings || 0),
+                    total_penalties: Number(item.total_penalties || 0),
+                    total_net: Number(item.total_net || 0)
                 }));
                 this.balance = Number(data.balance || 0);
-                console.log('Updated overview:', this.overview);
-                console.log('Updated monthly:', this.monthly);
             },
             async loadTasks() {
                 if (!this.userId) return;
                 const resp = await fetch(`/employee_tasks/api/employee-tasks/?employee=${this.userId}`);
                 const data = await resp.json();
-                const items = (data.results || data);
-                this.tasks = items.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+                const items = (data.results || data) || [];
+                this.tasks = items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             },
-            formatMoney(v) {
-                const num = Number(v || 0);
-                return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(num);
+            setPeriod(days) {
+                this.periodDays = days;
             },
-            formatDate(iso) {
+            periodLabel() {
+                if (this.periodDays === null) return 'За все время';
+                return `Последние ${this.periodDays} дней`;
+            },
+            filteredTasks() {
+                const query = this.searchTerm.trim().toLowerCase();
+                const start = this.periodDays ? new Date(Date.now() - this.periodDays * 86400000) : null;
+                return this.tasks.filter(task => {
+                    const dateValue = task.completed_at || task.created_at;
+                    const taskDate = dateValue ? new Date(dateValue) : null;
+                    if (start && taskDate && taskDate < start) return false;
+                    if (!query) return true;
+                    const title = (task.title || '').toLowerCase();
+                    const stageName = (task.stage_name || '').toLowerCase();
+                    return title.includes(query) || stageName.includes(query);
+                });
+            },
+            periodStats() {
+                const tasks = this.filteredTasks();
+                const sums = tasks.reduce((acc, task) => {
+                    acc.plan += Number(task.quantity || 0);
+                    acc.completed += Number(task.completed_quantity || 0);
+                    acc.defective += Number(task.defective_quantity || 0);
+                    acc.earnings += Number(task.earnings || 0);
+                    acc.penalties += Number(task.penalties || 0);
+                    acc.net += Number(task.net_earnings || 0);
+                    return acc;
+                }, { plan: 0, completed: 0, defective: 0, earnings: 0, penalties: 0, net: 0 });
+                const tasksCount = tasks.length;
+                const completedRate = sums.plan ? sums.completed / sums.plan : 0;
+                const defectRate = sums.completed ? sums.defective / sums.completed : 0;
+                const avgEarnings = tasksCount ? sums.earnings / tasksCount : 0;
+                const avgNet = tasksCount ? sums.net / tasksCount : 0;
+                const penaltyShare = sums.earnings ? sums.penalties / sums.earnings : 0;
+                const days = this.periodDays || 0;
+                const dailyAvg = days ? sums.net / days : 0;
+                return {
+                    total_plan: sums.plan,
+                    total_completed: sums.completed,
+                    total_defective: sums.defective,
+                    total_earnings: sums.earnings,
+                    total_penalties: sums.penalties,
+                    total_net: sums.net,
+                    tasks_count: tasksCount,
+                    completed_rate: completedRate,
+                    completed_rate_label: this.formatPercent(completedRate),
+                    defect_rate: defectRate,
+                    defect_rate_label: this.formatPercent(defectRate),
+                    avg_earnings: avgEarnings,
+                    avg_net: avgNet,
+                    penalty_share_label: this.formatPercent(penaltyShare),
+                    daily_avg_label: days ? `~ ${this.formatMoney(dailyAvg)} / день` : 'Среднее за день',
+                    net_vs_earnings_ratio: sums.earnings ? sums.net / sums.earnings : 0,
+                    productivity_label: tasksCount ? `${tasksCount} задач` : 'Нет задач'
+                };
+            },
+            formatMoney(value) {
+                const num = Number(value || 0);
+                return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+            },
+            formatDateShort(iso) {
                 if (!iso) return '';
-                const d = new Date(iso);
-                if (isNaN(d.getTime())) return '';
-                return d.toLocaleString('ru-RU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const date = new Date(iso);
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+            },
+            formatPercent(value) {
+                const percent = Math.round((Number(value || 0)) * 100);
+                return `${percent}%`;
+            },
+            progressStyle(value) {
+                const safe = Math.max(0, Math.min(1, Number(value || 0)));
+                return `width: ${Math.round(safe * 100)}%`;
             },
             getDisplayQuantity(task, type) {
                 if (!task) return '0';
-                
                 let quantity = 0;
-                if (type === 'plan') {
-                    quantity = task.quantity || 0;
-                } else if (type === 'completed') {
-                    quantity = task.completed_quantity || 0;
-                } else if (type === 'defective') {
-                    quantity = task.defective_quantity || 0;
-                }
-                
+                if (type === 'plan') quantity = task.quantity || 0;
+                if (type === 'completed') quantity = task.completed_quantity || 0;
+                if (type === 'defective') quantity = task.defective_quantity || 0;
                 return quantity.toString();
-            },
-            
-            // Функция для получения реального количества работы (для расчетов)
-            getRealQuantity(task, type) {
-                if (!task) return 0;
-                
-                let quantity = 0;
-                if (type === 'plan') {
-                    quantity = task.quantity || 0;
-                } else if (type === 'completed') {
-                    quantity = task.completed_quantity || 0;
-                } else if (type === 'defective') {
-                    quantity = task.defective_quantity || 0;
-                }
-                
-                return quantity;
-            },
-            async recalculateEarnings() {
-                if (!this.userId) {
-                    alert('User ID not available.');
-                    return;
-                }
-                
-                // Функция для получения CSRF токена из cookies
-                function getCookie(name) {
-                    let cookieValue = null;
-                    if (document.cookie && document.cookie !== '') {
-                        const cookies = document.cookie.split(';');
-                        for (let i = 0; i < cookies.length; i++) {
-                            const cookie = cookies[i].trim();
-                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                                break;
-                            }
-                        }
-                    }
-                    return cookieValue;
-                }
-                
-                // Получаем актуальный CSRF токен
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
-                                  getCookie('csrftoken');
-                
-                if (!csrfToken) {
-                    alert('CSRF токен не найден');
-                    return;
-                }
-                
-                try {
-                    const resp = await fetch(`/employee_tasks/api/earnings/recalculate/${this.userId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken
-                        },
-                        credentials: 'same-origin'
-                    });
-                    
-                    if (resp.ok) {
-                        const result = await resp.json();
-                        alert(`Заработок пересчитан успешно! ${result.message}`);
-                        await this.loadStats(); // Reload stats to update earnings
-                    } else {
-                        const error = await resp.json();
-                        alert(`Ошибка при пересчете заработка: ${error.error || error.detail || 'Неизвестная ошибка'}`);
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert(`Произошла ошибка при пересчете заработка: ${error.message}`);
-                }
             }
         }
     }
