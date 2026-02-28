@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru" style="margin:0; padding:0;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zappis — Мобильный дашборд</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html, body { margin: 0 !important; padding: 0 !important; }
+        .menu-card { transition: all 0.3s; }
+        .menu-card:active { transform: scale(0.97); }
+        .mobile-nav { box-shadow: 0 -2px 12px rgba(0,0,0,0.06); }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" style="font-family: system-ui, -apple-system, sans-serif; margin:0; padding:0;">
+<div x-data="ressoCRM()" x-init="init()" class="pb-16">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between h-14 px-4">
+        <div class="flex items-center gap-2">
+            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span class="text-white font-bold text-lg">Z</span>
+            </div>
+            <span class="font-semibold text-lg text-gray-900">Zappis</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/notifications/" class="text-gray-500"><i data-lucide="bell" class="w-5 h-5"></i></a>
+            <a href="/settings/" class="text-gray-500"><i data-lucide="settings" class="w-5 h-5"></i></a>
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm" x-text="(overview.user_name || 'П').charAt(0).toUpperCase()"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16 px-2 max-w-md mx-auto">
+        <!-- Welcome -->
+        <div class="mb-4 mt-2">
+            <h1 class="text-2xl font-bold text-gray-900 mb-1">Аналитика</h1>
+            <p class="text-gray-600 text-sm">Сводка по продажам, браку, доходу и заказам</p>
+        </div>
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Продажи</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.product_sales || '0'"></span>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Брак</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.defective_products || '0'"></span>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Доход</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_income || '0'"></span>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Сотрудники</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_employees || '0'"></span>
+            </div>
+        </div>
+        <!-- Chart -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-base font-semibold text-gray-900">График</h3>
+                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="period" @change="updateChart()">
+                    <option value="week">Неделя</option>
+                    <option value="month">Месяц</option>
+                    <option value="year">Год</option>
+                </select>
+            </div>
+            <div class="relative h-48">
+                <div x-show="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                    <div class="flex items-center space-x-2">
+                        <div class="spinner"></div>
+                        <span class="text-gray-600 text-sm">Загрузка...</span>
+                    </div>
+                </div>
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+        <!-- Popular Services -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Популярные услуги</h3>
+            <template x-for="service in popularServices" :key="service.id">
+                <div class="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900" x-text="service.name"></p>
+                        <p class="text-xs text-gray-500" x-text="service.category"></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900" x-text="`⃀${service.price?.toLocaleString() || 0}`"></p>
+                        <p class="text-xs text-gray-500" x-text="`${service.booking_count || 0} записей`"></p>
+                    </div>
+                </div>
+            </template>
+            <div x-show="popularServices.length === 0" class="text-center py-4 text-gray-500">
+                <p class="text-sm">Нет данных</p>
+            </div>
+        </div>
+        <!-- Top Clients -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Топ клиенты</h3>
+            <template x-for="client in topClients" :key="client.id">
+                <div class="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900" x-text="client.name"></p>
+                        <p class="text-xs text-gray-500" x-text="client.phone"></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900" x-text="`⃀${client.total_spent?.toLocaleString() || 0}`"></p>
+                        <p class="text-xs text-gray-500" x-text="`${client.booking_count || 0} визитов`"></p>
+                    </div>
+                </div>
+            </template>
+            <div x-show="topClients.length === 0" class="text-center py-4 text-gray-500">
+                <p class="text-sm">Нет данных</p>
+            </div>
+        </div>
+        <!-- Main Menu (cards) -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <a href="/employees/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="users" class="w-6 h-6 text-blue-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Сотрудники</span>
+            </a>
+            <a href="/clients/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="user-plus" class="w-6 h-6 text-green-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Клиенты</span>
+            </a>
+            <a href="/schedules/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="calendar" class="w-6 h-6 text-purple-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Записи</span>
+            </a>
+            <a href="/services/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="scissors" class="w-6 h-6 text-yellow-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Услуги</span>
+            </a>
+        </div>
+    </main>
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="/dashboard/" class="flex flex-col items-center text-blue-600">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/clients/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Клиенты</span>
+        </a>
+        <a href="/schedules/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/warehouse/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Склад</span>
+        </a>
+        <button @click="openMoreMenu()" class="flex flex-col items-center text-gray-500 focus:outline-none">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+            <span class="text-xs">Другое</span>
+        </button>
+    </nav>
+
+    <!-- Модальное окно "Другое" -->
+    <div x-show="showMoreMenu" x-transition.opacity class="fixed inset-0 z-50 flex items-end justify-center bg-black bg-opacity-40" @click.self="closeMoreMenu()">
+        <div class="w-full max-w-md bg-white rounded-t-2xl p-6 pb-8 shadow-xl animate-fade-in" @click.stop>
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-lg font-semibold text-gray-900">Меню</span>
+                <button @click="closeMoreMenu()" class="text-gray-400 hover:text-gray-700">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <nav class="grid grid-cols-2 gap-4">
+                <a href="/dashboard/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="home" class="w-6 h-6 text-blue-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Главная</span>
+                </a>
+                <a href="/employees/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="users" class="w-6 h-6 text-blue-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Сотрудники</span>
+                </a>
+                <a href="/clients/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="user-plus" class="w-6 h-6 text-green-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Клиенты</span>
+                </a>
+                <a href="/warehouse/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="archive" class="w-6 h-6 text-gray-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Склад</span>
+                </a>
+                <a href="/services/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="scissors" class="w-6 h-6 text-yellow-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Услуги</span>
+                </a>
+                <a href="/schedules/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="calendar" class="w-6 h-6 text-purple-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Записи</span>
+                </a>
+                <a href="/order-history/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="history" class="w-6 h-6 text-gray-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">История заявок</span>
+                </a>
+                <a href="/finished-products/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="package-check" class="w-6 h-6 text-gray-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Готовые товары</span>
+                </a>
+                <a href="/workshops/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="factory" class="w-6 h-6 text-gray-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Цехи</span>
+                </a>
+                <a href="/settings/" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-50">
+                    <i data-lucide="settings" class="w-6 h-6 text-red-600 mb-1"></i>
+                    <span class="text-xs font-semibold text-gray-900">Настройки</span>
+                </a>
+            </nav>
+        </div>
+    </div>
+</div>
+<script>
+    // Alpine.js Component (тот же, что и в основной версии)
+    function ressoCRM() {
+        return {
+            overview: {},
+            popularServices: [],
+            topClients: [],
+            revenueChart: null,
+            loading: false,
+            period: 'week',
+            chartRequestId: 0,
+            showMoreMenu: false,
+            async init() {
+                await this.loadDashboardData();
+                await this.initChart();
+                lucide.createIcons();
+                // Дополнительная инициализация иконок для модальных окон
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            },
+            openMoreMenu() {
+                this.showMoreMenu = true;
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            },
+            closeMoreMenu() {
+                this.showMoreMenu = false;
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            },
+            async loadDashboardData() {
+                try {
+                    this.loading = true;
+                    const overviewResponse = await fetch('/dashboard/overview/', { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (overviewResponse.ok) this.overview = await overviewResponse.json();
+                    const servicesResponse = await fetch('/dashboard/popular-services/', { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (servicesResponse.ok) this.popularServices = await servicesResponse.json();
+                    const clientsResponse = await fetch('/dashboard/top-clients/', { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (clientsResponse.ok) this.topClients = await clientsResponse.json();
+                } catch (e) { this.overview = {}; } finally { this.loading = false; }
+            },
+            async initChart() {
+                this.loading = true;
+                this.chartRequestId++;
+                const currentRequestId = this.chartRequestId;
+                let chartData = { labels: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'], revenue: [0,0,0,0,0,0,0], bookings: [0,0,0,0,0,0,0], clients: [0,0,0,0,0,0,0] };
+                try {
+                    const chartResponse = await fetch(`/dashboard/revenue-chart/?period=${this.period}`, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (currentRequestId !== this.chartRequestId) return;
+                    if (chartResponse.ok) {
+                        const responseData = await chartResponse.json();
+                        if (responseData.labels && responseData.revenue) {
+                            chartData = { labels: responseData.labels, revenue: responseData.revenue, bookings: responseData.bookings, clients: responseData.clients };
+                        }
+                    }
+                } catch (e) {} finally {
+                    if (currentRequestId === this.chartRequestId) {
+                        if (this.revenueChart) this.revenueChart.destroy();
+                        const ctx = document.getElementById('revenueChart');
+                        if (ctx) {
+                            this.revenueChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: chartData.labels,
+                                    datasets: [
+                                        { label: 'Доход (⃀)', data: chartData.revenue, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2, tension: 0.4, fill: false, yAxisID: 'y', pointBackgroundColor: '#3B82F6', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 },
+                                        { label: 'Записи', data: chartData.bookings, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 2, tension: 0.4, fill: false, yAxisID: 'y1', pointBackgroundColor: '#10B981', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 },
+                                        { label: 'Новые клиенты', data: chartData.clients, borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 2, tension: 0.4, fill: false, yAxisID: 'y1', pointBackgroundColor: '#F59E0B', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        x: { grid: { display: false } },
+                                        y: { type: 'linear', display: true, position: 'left', grid: { display: true, drawBorder: false, color: 'rgba(0,0,0,0.07)' }, ticks: { callback: v => '⃀'+v } },
+                                        y1: { type: 'linear', display: false, position: 'right' }
+                                    }
+                                }
+                            });
+                        }
+                        this.loading = false;
+                    }
+                }
+            },
+            async updateChart() { this.loading = true; await this.initChart(); this.loading = false; }
+        }
+    }
+</script>
+<script>document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
+</body>
+</html> 

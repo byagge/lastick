@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="mobileServices()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Smart Factory — Услуги</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Услуги</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button @click="exportToExcel()" class="text-gray-600 hover:text-blue-600" title="Экспорт в Excel">
+                <i data-lucide="download" class="w-6 h-6"></i>
+            </button>
+            <button @click="openAddForm()" class="text-gray-600 hover:text-blue-600" title="Добавить">
+                <i data-lucide="plus" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Общая оплата</p>
+                        <p class="text-xl font-bold" x-text="stats().totalValue.toLocaleString() + ' ⃀'"></p>
+                    </div>
+                    <i data-lucide="dollar-sign" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Всего услуг</p>
+                        <p class="text-xl font-bold" x-text="stats().totalItems"></p>
+                    </div>
+                    <i data-lucide="scissors" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Активные услуги</p>
+                        <p class="text-xl font-bold" x-text="stats().activeServices"></p>
+                    </div>
+                    <i data-lucide="check-circle" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Средняя оплата</p>
+                        <p class="text-xl font-bold" x-text="stats().avgPrice.toLocaleString() + ' ⃀'"></p>
+                    </div>
+                    <i data-lucide="trending-up" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative mb-6">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text" placeholder="Поиск услуг..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- Loading State -->
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+            </div>
+        </template>
+
+        <!-- Services List -->
+        <template x-if="!loading">
+            <div>
+                <template x-if="filteredServices().length === 0">
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="scissors" class="w-10 h-10 text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2" x-text="searchTerm ? 'Услуги не найдены' : 'Нет услуг'"></h3>
+                        <p class="text-gray-600" x-text="searchTerm ? 'Попробуйте изменить поиск' : 'Добавьте первую услугу'"></p>
+                    </div>
+                </template>
+                <template x-for="service in filteredServices()" :key="service.id">
+                    <div class="card bg-white rounded-xl p-4 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <h3 class="font-semibold text-gray-900 text-base" x-text="service.name"></h3>
+                                <p class="text-xs text-gray-500" x-text="service.workshop_name"></p>
+                            </div>
+                            <div class="flex space-x-1">
+                                <button @click="openEditForm(service)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
+                                    <i data-lucide="edit-3" class="w-5 h-5"></i>
+                                </button>
+                                <button @click="deleteService(service.id)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                                <button @click="duplicateService(service)" class="p-1 text-green-600 hover:text-green-800" title="Дублировать">
+                                    <i data-lucide="copy" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+                            <div>
+                                <span class="text-gray-400">Ед. изм.:</span>
+                                <span class="font-medium text-gray-700" x-text="service.unit"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400">Статус:</span>
+                                <span :class="service.is_active ? 'text-green-600' : 'text-red-600'" x-text="service.is_active ? 'Активна' : 'Неактивна'"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400">Оплата:</span>
+                                <span class="font-medium text-green-600" x-text="service.service_price.toLocaleString() + ' ⃀'"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400">Штраф:</span>
+                                <span class="font-medium text-red-600" x-text="service.defect_penalty.toLocaleString() + ' ⃀'"></span>
+                            </div>
+                            <div class="col-span-2">
+                                <span class="text-gray-400">Материалы:</span>
+                                <span class="font-medium text-gray-700" x-text="service.materials_info.map(m => m.name).join(', ')"></span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1" x-text="service.description"></div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </main>
+
+    <!-- Bottom Navigation -->
+    {% include 'partials/bottom_nav_mobile.html' %}
+
+    <!-- Модальное окно редактирования услуги -->
+    <template x-if="showForm">
+        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="closeForm()">
+            <div class="bg-white rounded-t-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+                <!-- Hero-блок -->
+                <div class="flex items-center justify-between px-4 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-600 to-blue-500">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i data-lucide="scissors" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-white" x-text="editingService ? 'Редактировать услугу' : 'Добавить услугу'"></h2>
+                            <p class="text-blue-100 text-xs" x-text="editingService ? 'Обновите информацию' : 'Заполните информацию'"></p>
+                        </div>
+                    </div>
+                    <button @click="closeForm()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20">
+                        <i data-lucide="x" class="w-5 h-5 text-white"></i>
+                    </button>
+                </div>
+                
+                <!-- Tabs и форма -->
+                <div class="flex-1 overflow-y-auto">
+                    <div x-data="{ tab: 'main' }" class="flex-1 flex flex-col">
+                        <!-- Tabs -->
+                        <div class="flex space-x-1 overflow-x-auto px-4 pt-4 pb-2 bg-white sticky top-0 z-10">
+                            <button type="button" @click="tab = 'main'" :class="tab === 'main' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded-lg font-semibold text-sm focus:outline-none transition-colors whitespace-nowrap">Основное</button>
+                            <button type="button" @click="tab = 'finance'" :class="tab === 'finance' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded-lg font-semibold text-sm focus:outline-none transition-colors whitespace-nowrap">Финансы</button>
+                            <button type="button" @click="tab = 'materials'" :class="tab === 'materials' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded-lg font-semibold text-sm focus:outline-none transition-colors whitespace-nowrap">Материалы</button>
+                            <button type="button" @click="tab = 'desc'" :class="tab === 'desc' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded-lg font-semibold text-sm focus:outline-none transition-colors whitespace-nowrap">Описание</button>
+                        </div>
+                        
+                        <form @submit.prevent="saveService()" class="flex-1 flex flex-col justify-between">
+                            <div class="flex-1 flex flex-col gap-4 px-4 py-4 min-h-[400px]">
+                                <!-- Основная информация -->
+                                <div x-show="tab === 'main'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-base font-bold text-blue-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+                                        <span>Основная информация</span>
+                                    </h3>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Название услуги <span class="text-red-500">*</span></label>
+                                        <input type="text" x-model="formData.name" placeholder="Например: Резка металла" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Цех <span class="text-red-500">*</span></label>
+                                        <select x-model="formData.workshop" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                            <option value="">Выберите цех</option>
+                                            <template x-for="workshop in workshops" :key="workshop.id">
+                                                <option :value="workshop.id" x-text="workshop.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Единица измерения <span class="text-red-500">*</span></label>
+                                        <select x-model="formData.unit" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                            <option value="услуга">услуга</option>
+                                            <option value="шт">шт</option>
+                                            <option value="кг">кг</option>
+                                            <option value="м">м</option>
+                                            <option value="л">л</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                                        <select x-model="formData.is_active" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option :value="true">Активна</option>
+                                            <option :value="false">Неактивна</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Финансовые характеристики -->
+                                <div x-show="tab === 'finance'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-base font-bold text-green-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="calculator" class="w-4 h-4 text-green-600"></i>
+                                        <span>Финансовые характеристики</span>
+                                    </h3>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Оплата за услугу (⃀) <span class="text-red-500">*</span></label>
+                                        <input type="number" x-model="formData.service_price" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Штраф за брак (⃀)</label>
+                                        <input type="number" x-model="formData.defect_penalty" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                </div>
+                                
+                                <!-- Материалы -->
+                                <div x-show="tab === 'materials'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-base font-bold text-yellow-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="package" class="w-4 h-4 text-yellow-600"></i>
+                                        <span>Материалы</span>
+                                    </h3>
+                                    <div x-data="{
+                                        get materialsList() { return formData.materials || []; },
+                                        set materialsList(val) { formData.materials = val; },
+                                        addMaterial() {
+                                            this.materialsList = [...this.materialsList, {id: '', amount: 1}];
+                                        },
+                                        removeMaterial(idx) {
+                                            this.materialsList = this.materialsList.filter((_, i) => i !== idx);
+                                        }
+                                    }">
+                                        <template x-for="(mat, idx) in materialsList" :key="idx">
+                                            <div class="flex gap-2 mb-2 items-center">
+                                                <select x-model="mat.id" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm">
+                                                    <option value="">Выберите материал</option>
+                                                    <template x-for="material in materials" :key="material.id">
+                                                        <option :value="Number(material.id)" x-text="material.name"></option>
+                                                    </template>
+                                                </select>
+                                                <input type="number" min="0.001" step="0.001" x-model="mat.amount" class="w-20 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm" placeholder="Кол-во">
+                                                <button type="button" @click="removeMaterial(idx)" class="text-red-600 hover:text-red-800 text-lg px-2">&times;</button>
+                                            </div>
+                                        </template>
+                                        <button type="button" @click="addMaterial()" class="mt-2 px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg font-semibold flex items-center gap-2 text-sm">
+                                            <i data-lucide="plus" class="w-4 h-4"></i>
+                                            <span>Добавить материал</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Описание -->
+                                <div x-show="tab === 'desc'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-base font-bold text-gray-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="file-text" class="w-4 h-4 text-gray-500"></i>
+                                        <span>Описание</span>
+                                    </h3>
+                                    <textarea x-model="formData.description" rows="3" placeholder="Дополнительная информация об услуге..." class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                                </div>
+                            </div>
+                            
+                            <!-- Кнопки -->
+                            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 bg-white rounded-b-xl px-4 pb-4">
+                                <button type="button" @click="closeForm()" class="px-4 py-3 border border-gray-300 rounded-lg text-gray-700 text-sm">Отмена</button>
+                                <button type="submit" class="px-4 py-3 bg-blue-600 text-white rounded-lg text-sm" x-text="editingService ? 'Обновить' : 'Добавить'"></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </template>
+
+    <!-- Success Modal -->
+    <template x-if="showSuccessModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm text-center">
+                <div class="flex flex-col items-center mb-4">
+                    <i data-lucide="check-circle" class="w-12 h-12 text-green-500 mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Успешно!</h3>
+                    <p class="text-gray-700" x-text="successModalText"></p>
+                </div>
+                <button @click="showSuccessModal = false" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Ок</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Delete Confirmation Modal -->
+    <template x-if="showDeleteModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Удалить услугу?</h3>
+                    <p class="text-gray-600">Это действие нельзя отменить</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="showDeleteModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                    <button @click="confirmDeleteService()" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+    function mobileServices() {
+        return {
+            loading: true,
+            services: [],
+            materials: [],
+            workshops: [],
+            searchTerm: '',
+            sortField: 'name',
+            sortDirection: 'asc',
+            selectedRows: [],
+            editingCell: null,
+            editValue: null,
+            showForm: false,
+            editingService: null,
+            formData: {},
+            viewMode: 'cards',
+            showSuccessModal: false,
+            showDeleteModal: false,
+            successModalText: '',
+            serviceToDelete: null,
+            columnLabels: {
+                name: 'Название услуги',
+                workshop_name: 'Цех',
+                unit: 'Ед. изм.',
+                materials: 'Материалы',
+                service_price: 'Оплата за услугу',
+                defect_penalty: 'Штраф за брак',
+                is_active: 'Статус'
+            },
+
+            async init() {
+                await Promise.all([
+                    this.fetchServices(),
+                    this.fetchStats(),
+                    this.fetchWorkshops(),
+                    this.fetchMaterials()
+                ]);
+                this.loading = false;
+                lucide.createIcons();
+            },
+
+            // Загрузка услуг с API
+            async fetchServices() {
+                try {
+                    const resp = await fetch('/services/api/services/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.services = data.data;
+                    }
+                } catch (error) {
+                    console.error('Error fetching services:', error);
+                    this.services = [];
+                }
+            },
+
+            // Загрузка статистики с API
+            async fetchStats() {
+                try {
+                    const resp = await fetch('/services/api/services/stats/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this._stats = data.data;
+                    }
+                } catch (error) {
+                    console.error('Error fetching stats:', error);
+                    this._stats = null;
+                }
+            },
+
+            // Загрузка цехов с API
+            async fetchWorkshops() {
+                try {
+                    const resp = await fetch('/services/api/workshops/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.workshops = data.data;
+                    }
+                } catch (error) {
+                    console.error('Error fetching workshops:', error);
+                    this.workshops = [];
+                }
+            },
+
+            // Загрузка материалов с API
+            async fetchMaterials() {
+                try {
+                    const resp = await fetch('/services/api/materials/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.materials = data.data;
+                    }
+                } catch (error) {
+                    console.error('Error fetching materials:', error);
+                    this.materials = [];
+                }
+            },
+
+            _stats: null,
+            stats() {
+                return this._stats || { totalValue: 0, totalItems: 0, activeServices: 0, avgPrice: 0 };
+            },
+
+            // Фильтрация и сортировка услуг
+            filteredServices() {
+                let filtered = this.services.filter(service => {
+                    const matchesSearch = service.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+                        service.workshop_name.toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return matchesSearch;
+                });
+                return filtered.sort((a, b) => {
+                    const aValue = a[this.sortField];
+                    const bValue = b[this.sortField];
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                        return this.sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                    }
+                    if (typeof aValue === 'number' && typeof bValue === 'number') {
+                        return this.sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+                    }
+                    return 0;
+                });
+            },
+
+            // CRUD операции
+            async saveService() {
+                try {
+                    if (this.editingService) {
+                        // update
+                        const resp = await fetch(`/services/api/services/${this.formData.id}/update/`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formData)
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            await this.fetchServices();
+                            await this.fetchStats();
+                            this.closeForm();
+                            this.successModalText = 'Услуга успешно обновлена!';
+                            this.showSuccessModal = true;
+                        } else {
+                            this.successModalText = 'Ошибка: ' + (data.message || 'Ошибка обновления');
+                            this.showSuccessModal = true;
+                        }
+                    } else {
+                        // create
+                        const resp = await fetch('/services/api/services/create/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formData)
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            await this.fetchServices();
+                            await this.fetchStats();
+                            this.closeForm();
+                            this.successModalText = 'Услуга успешно добавлена!';
+                            this.showSuccessModal = true;
+                        } else {
+                            this.successModalText = 'Ошибка: ' + (data.message || 'Ошибка создания');
+                            this.showSuccessModal = true;
+                        }
+                    }
+                } catch (error) {
+                    this.successModalText = 'Ошибка сохранения услуги';
+                    this.showSuccessModal = true;
+                }
+            },
+
+            async deleteService(id) {
+                this.serviceToDelete = id;
+                this.showDeleteModal = true;
+            },
+
+            async confirmDeleteService() {
+                if (!this.serviceToDelete) return;
+
+                try {
+                    const resp = await fetch(`/services/api/services/${this.serviceToDelete}/delete/`, { method: 'DELETE' });
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        await this.fetchServices();
+                        await this.fetchStats();
+                        this.showDeleteModal = false;
+                        this.serviceToDelete = null;
+                        this.successModalText = 'Услуга успешно удалена!';
+                        this.showSuccessModal = true;
+                    } else {
+                        this.successModalText = 'Ошибка: ' + (data.message || 'Ошибка удаления');
+                        this.showSuccessModal = true;
+                    }
+                } catch (error) {
+                    this.successModalText = 'Ошибка удаления услуги';
+                    this.showSuccessModal = true;
+                }
+            },
+
+            // Сортировка
+            handleSort(field) {
+                if (this.sortField === field) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortField = field;
+                    this.sortDirection = 'asc';
+                }
+            },
+
+            // Открытие формы добавления
+            openAddForm() {
+                this.formData = {
+                    name: '',
+                    workshop: '',
+                    unit: 'шт',
+                    service_price: 0,
+                    defect_penalty: 0,
+                    description: '',
+                    materials: []
+                };
+                this.editingService = null;
+                this.showForm = true;
+                this.$nextTick(() => lucide.createIcons());
+            },
+
+            // Открытие формы редактирования
+            openEditForm(service) {
+                this.formData = { ...service };
+                // Исправляем маппинг: приводим id к числовому типу
+                this.formData.materials = (service.materials_info || []).map(m => ({ 
+                    id: Number(m.id), 
+                    amount: m.amount 
+                }));
+                this.editingService = service;
+                this.showForm = true;
+                this.$nextTick(() => lucide.createIcons());
+            },
+
+            // Закрытие формы
+            closeForm() {
+                this.showForm = false;
+                this.formData = {};
+                this.editingService = null;
+                this.$nextTick(() => lucide.createIcons());
+            },
+
+            // Экспорт в Excel
+            async exportToExcel() {
+                try {
+                    // Загружаем библиотеку SheetJS
+                    if (typeof XLSX === 'undefined') {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                        script.onload = () => this.performExcelExport();
+                        document.head.appendChild(script);
+                    } else {
+                        this.performExcelExport();
+                    }
+                } catch (error) {
+                    console.error('Ошибка экспорта:', error);
+                    this.successModalText = 'Ошибка при экспорте в Excel';
+                    this.showSuccessModal = true;
+                }
+            },
+
+            performExcelExport() {
+                // Подготавливаем данные для экспорта
+                const data = this.filteredServices().map(service => ({
+                    'Название услуги': service.name,
+                    'Цех': service.workshop_name || 'Не указан',
+                    'Единица измерения': service.unit || 'услуга',
+                    'Материалы': (service.materials_info || []).map(mat => `${mat.name} (${mat.amount} ${mat.unit || 'шт'})`).join('; '),
+                    'Оплата за услугу (⃀)': service.service_price || 0,
+                    'Штраф за брак (⃀)': service.defect_penalty || 0,
+                    'Статус': service.is_active ? 'Активна' : 'Неактивна',
+                    'Дата создания': service.created_at ? new Date(service.created_at).toLocaleDateString('ru-RU') : 'Не указана',
+                    'Последнее изменение': service.updated_at ? new Date(service.updated_at).toLocaleDateString('ru-RU') : 'Не указана'
+                }));
+
+                // Создаем рабочую книгу
+                const wb = XLSX.utils.book_new();
+                
+                // Создаем лист с данными
+                const ws = XLSX.utils.json_to_sheet(data);
+
+                // Настраиваем ширину столбцов
+                const colWidths = [
+                    { wch: 30 }, // Название услуги
+                    { wch: 20 }, // Цех
+                    { wch: 15 }, // Единица измерения
+                    { wch: 40 }, // Материалы
+                    { wch: 18 }, // Оплата за услугу
+                    { wch: 18 }, // Штраф за брак
+                    { wch: 12 }, // Статус
+                    { wch: 15 }, // Дата создания
+                    { wch: 15 }  // Последнее изменение
+                ];
+                ws['!cols'] = colWidths;
+
+                // Добавляем стили для заголовков
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                    if (!ws[cellAddress]) continue;
+                    
+                    ws[cellAddress].s = {
+                        font: { bold: true, color: { rgb: "FFFFFF" } },
+                        fill: { fgColor: { rgb: "2563EB" } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { rgb: "FFFFFF" } },
+                            bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                            left: { style: "thin", color: { rgb: "FFFFFF" } },
+                            right: { style: "thin", color: { rgb: "FFFFFF" } }
+                        }
+                    };
+                }
+
+                // Добавляем стили для данных
+                for (let row = 1; row <= range.e.r; row++) {
+                    for (let col = range.s.c; col <= range.e.c; col++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                        if (!ws[cellAddress]) continue;
+                        
+                        ws[cellAddress].s = {
+                            font: { color: { rgb: "000000" } },
+                            fill: { fgColor: { rgb: row % 2 === 0 ? "F8FAFC" : "FFFFFF" } },
+                            alignment: { vertical: "center" },
+                            border: {
+                                top: { style: "thin", color: { rgb: "E2E8F0" } },
+                                bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                                left: { style: "thin", color: { rgb: "E2E8F0" } },
+                                right: { style: "thin", color: { rgb: "E2E8F0" } }
+                            }
+                        };
+                    }
+                }
+
+                // Добавляем лист в книгу
+                XLSX.utils.book_append_sheet(wb, ws, 'Услуги');
+
+                // Создаем лист со статистикой
+                const statsData = [
+                    { 'Показатель': 'Общая оплата (⃀)', 'Значение': this.stats().totalValue.toLocaleString() },
+                    { 'Показатель': 'Всего услуг', 'Значение': this.stats().totalItems },
+                    { 'Показатель': 'Активные услуги', 'Значение': this.stats().activeServices },
+                    { 'Показатель': 'Средняя оплата (⃀)', 'Значение': this.stats().avgPrice.toLocaleString() }
+                ];
+                
+                const statsWs = XLSX.utils.json_to_sheet(statsData);
+                statsWs['!cols'] = [{ wch: 25 }, { wch: 20 }];
+                
+                // Стили для статистики
+                const statsRange = XLSX.utils.decode_range(statsWs['!ref']);
+                for (let col = statsRange.s.c; col <= statsRange.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                    if (!statsWs[cellAddress]) continue;
+                    
+                    statsWs[cellAddress].s = {
+                        font: { bold: true, color: { rgb: "FFFFFF" } },
+                        fill: { fgColor: { rgb: "10B981" } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { rgb: "FFFFFF" } },
+                            bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                            left: { style: "thin", color: { rgb: "FFFFFF" } },
+                            right: { style: "thin", color: { rgb: "FFFFFF" } }
+                        }
+                    };
+                }
+
+                XLSX.utils.book_append_sheet(wb, statsWs, 'Статистика');
+
+                // Экспортируем файл
+                const fileName = `Услуги_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            },
+
+            async duplicateService(service) {
+                try {
+                    const newService = { ...service };
+                    delete newService.id;
+                    newService.name = service.name + ' (копия)';
+                    
+                    const resp = await fetch('/services/api/services/create/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newService)
+                    });
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        await this.fetchServices();
+                        await this.fetchStats();
+                        this.successModalText = 'Услуга успешно дублирована!';
+                        this.showSuccessModal = true;
+                    } else {
+                        this.successModalText = 'Ошибка: ' + (data.message || 'Ошибка дублирования');
+                        this.showSuccessModal = true;
+                    }
+                } catch (error) {
+                    this.successModalText = 'Ошибка дублирования услуги';
+                    this.showSuccessModal = true;
+                }
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html> 

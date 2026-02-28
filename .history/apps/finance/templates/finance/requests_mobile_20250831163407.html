@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Smart Factory — Заявки</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(.4,0,.2,1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes success-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-success-pop {
+            animation: success-pop 0.5s cubic-bezier(.4,0,.2,1);
+        }
+        .card-hover { transition: all 0.2s ease-in-out; }
+        .card-hover:active { transform: scale(0.98); }
+        .step-indicator { transition: all 0.3s ease-in-out; }
+        .step-indicator.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;" x-data="mobileData()" x-init="init()">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Заявки</span>
+        </div>
+        <button @click="toggleView()" class="text-blue-600 bg-blue-100 rounded-full p-2 ml-2">
+            <i data-lucide="plus" x-show="viewMode === 'list'" class="w-6 h-6"></i>
+            <i data-lucide="list" x-show="viewMode === 'create'" class="w-6 h-6"></i>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <!-- Search Bar -->
+        <div class="relative mb-6" x-show="viewMode === 'list'">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text" 
+                   x-model="searchTerm" 
+                   @input="filterRequests()"
+                   placeholder="Поиск заявок..." 
+                   class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- Create Request View -->
+        <div x-show="viewMode === 'create'" class="space-y-6">
+            <!-- Step Indicator -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <template x-for="step in 3" :key="step">
+                        <button @click="createStep = step" 
+                                :class="createStep === step ? 'step-indicator active' : 'bg-gray-100 text-gray-600'"
+                                class="flex-1 mx-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200">
+                            <span x-text="step === 1 ? 'Основное' : step === 2 ? 'Клиент' : 'Товары'"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Step 1: Basic Info -->
+            <div x-show="createStep === 1" class="space-y-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Основная информация</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Название заявки <span class="text-red-500">*</span></label>
+                            <input type="text" x-model="newRequest.name" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Client Selection -->
+            <div x-show="createStep === 2" class="space-y-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Выбор клиента</h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2 mb-4">
+                            <button @click="clientMode = 'existing'; clearClientForm()" 
+                                    :class="clientMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                                    class="flex-1 py-3 rounded-xl font-medium transition-colors">Существующий</button>
+                            <button @click="clientMode = 'new'; clearClientForm()" 
+                                    :class="clientMode === 'new' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                                    class="flex-1 py-3 rounded-xl font-medium transition-colors">Новый</button>
+                        </div>
+                        
+                        <template x-if="clientMode === 'existing'">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Выберите клиента</label>
+                                <div class="relative">
+                                    <input type="text" 
+                                           x-model="clientSearchTerm" 
+                                           @input="filterClients()"
+                                           placeholder="Начните вводить имя..." 
+                                           class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                                </div>
+                                
+                                <!-- Client Dropdown -->
+                                <div x-show="filteredClients.length > 0 && clientSearchTerm.length > 0" 
+                                     x-transition 
+                                     class="mt-2 border border-gray-200 rounded-lg bg-white shadow-lg max-h-48 overflow-y-auto">
+                                    <template x-for="client in filteredClients" :key="client.id">
+                                        <div @click="selectClient(client)" 
+                                             class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                                            <div class="font-medium text-gray-900" x-text="client.name"></div>
+                                            <div x-show="client.company" class="text-sm text-gray-600" x-text="client.company"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                                
+                                <!-- Предложение создать нового клиента -->
+                                <div x-show="clientSearchTerm.length > 2 && filteredClients.length === 0" 
+                                     x-transition 
+                                     class="mt-2 border border-blue-200 rounded-lg bg-blue-50 p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <p class="text-sm text-blue-800 font-medium">Клиент не найден</p>
+                                            <p class="text-xs text-blue-600 mt-1">Создать "<span x-text="clientSearchTerm"></span>"?</p>
+                                        </div>
+                                        <button @click="createNewClientFromSearch()" 
+                                                class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
+                                            Создать
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Selected Client -->
+                                <div x-show="newRequest.client_id" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="font-medium text-blue-900" x-text="getSelectedClientName()"></div>
+                                            <div class="text-sm text-blue-700" x-text="getSelectedClientCompany()"></div>
+                                        </div>
+                                        <button @click="clearSelectedClient()" class="text-blue-600 hover:text-blue-800">
+                                            <i data-lucide="x" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <template x-if="clientMode === 'new'">
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Имя *</label>
+                                        <input type="text" x-model="clientForm.name" required 
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
+                                        <input type="tel" x-model="clientForm.phone" 
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                    <input type="email" x-model="clientForm.email" 
+                                           class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Компания</label>
+                                    <input type="text" x-model="clientForm.company" 
+                                           class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Products -->
+            <div x-show="createStep === 3" class="space-y-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Товары</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">Добавленные товары</span>
+                            <button @click="addItem()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
+                                + Добавить
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <template x-for="(item, idx) in newRequest.items" :key="idx">
+                                <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Товар</label>
+                                            <select x-model="item.product_id" @change="onProductChange(idx)" required 
+                                                    class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <option value="">— Товар —</option>
+                                                <template x-for="product in products" :key="product.id">
+                                                    <option :value="product.id" x-text="product.name"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Кол-во</label>
+                                                <input type="number" min="1" x-model.number="item.quantity" required 
+                                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Размер</label>
+                                                <input type="text" x-model="item.size" placeholder="S/M/40x60" 
+                                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
+                                                <input type="text" x-model="item.color" placeholder="Белый" 
+                                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Цена</label>
+                                                <input type="number" step="0.01" min="0" x-model.number="item.price" required 
+                                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex justify-end">
+                                            <button @click="removeItem(idx)" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">
+                                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-2"></i>
+                                                Удалить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex justify-between pt-4">
+                <button @click="prevStep" :disabled="createStep === 1" 
+                        :class="createStep === 1 ? 'opacity-50 cursor-not-allowed' : ''" 
+                        class="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white font-medium">
+                    Назад
+                </button>
+                <button @click="nextStep" x-show="createStep < 3" 
+                        class="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium">
+                    Далее
+                </button>
+                <button @click="submitRequest()" x-show="createStep === 3" 
+                        class="px-6 py-3 bg-green-600 text-white rounded-xl font-medium">
+                    Создать заявку
+                </button>
+            </div>
+        </div>
+
+        <!-- List View -->
+        <div x-show="viewMode === 'list'" class="space-y-3">
+            <template x-if="filteredRequests.length > 0">
+                <template x-for="request in filteredRequests" :key="request.id">
+                    <div class="card bg-white rounded-xl border border-gray-200 p-4 shadow-sm card-hover" @click="openRequestModal(request)">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900 text-sm leading-tight" x-text="request.name"></h3>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    <span x-text="request.client && request.client.name ? request.client.name : 'Клиент: —'"></span>
+                                    • <span x-text="formatDate(request.created_at)"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded-full" x-text="request.status_display"></span>
+                                <div class="text-sm text-gray-900 font-semibold" x-text="(request.total_amount || 0).toLocaleString() + ' ⃀'"></div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <span x-text="(request.items && request.items.length ? request.items.length : 0) + ' позиций'"></span>
+                        </div>
+                    </div>
+                </template>
+            </template>
+            
+            <template x-if="filteredRequests.length === 0">
+                <div class="text-center py-16">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="file-text" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Нет заявок</h3>
+                    <p class="text-gray-500 text-sm">Создайте первую заявку</p>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <!-- Request Details Modal -->
+    <div x-show="showRequestModal" x-transition class="fixed inset-0 z-50 overflow-y-auto modal-bg" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-gray-900" x-text="selectedRequest ? 'Заявка: ' + selectedRequest.name : 'Заявка'"></h3>
+                        <button @click="closeRequestModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                    
+                    <template x-if="selectedRequest">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Клиент</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="selectedRequest.client ? selectedRequest.client.name : 'Не указан'"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Дата создания</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="formatDate(selectedRequest.created_at)"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                                    <p class="text-sm text-blue-600 font-medium" x-text="selectedRequest.status_display"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Общая сумма</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="(selectedRequest.total_amount || 0).toLocaleString() + ' ⃀'"></p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Товары</label>
+                                <div class="space-y-2">
+                                    <template x-for="item in selectedRequest.items" :key="item.id">
+                                        <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                            <div class="text-sm">
+                                                <div class="font-medium text-gray-900 mb-1" x-text="item.product ? item.product.name : 'Товар'"></div>
+                                                <div class="text-gray-600">
+                                                    Количество: <span x-text="item.quantity"></span> | 
+                                                    Размер: <span x-text="item.size || 'Не указан'"></span> |
+                                                    Цвет: <span x-text="item.color || 'Не указан'"></span> |
+                                                    Цена: <span x-text="(item.price || 0).toLocaleString() + ' ⃀'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="bg-gray-50 px-6 py-4 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="closeRequestModal()" class="w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 sm:ml-3 sm:w-auto sm:text-sm">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="{% url 'finance:dashboard' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/clients/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Клиенты</span>
+        </a>
+        <button @click="viewMode = 'create'" 
+                :class="viewMode === 'create' ? 'text-blue-600' : 'text-gray-600'"
+                class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </button>
+        <a href="/inventory/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Склад</span>
+        </a>
+        <a href="/reports/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+            <span class="text-xs">Отчеты</span>
+        </a>
+    </nav>
+
+    <script>
+    function mobileData() {
+        return {
+            viewMode: 'list',
+            searchTerm: '',
+            filteredRequests: [],
+            createStep: 1,
+            clientMode: 'existing',
+            clientSearchTerm: '',
+            filteredClients: [],
+            clients: [],
+            products: [],
+            clientForm: { name: '', phone: '', email: '', company: '' },
+            newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '', price: 0 }] },
+            showRequestModal: false,
+            selectedRequest: null,
+            
+            init() {
+                this.fetchRequests();
+                this.fetchClients();
+                this.fetchProducts();
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            toggleView() {
+                this.viewMode = this.viewMode === 'list' ? 'create' : 'list';
+                if (this.viewMode === 'create') {
+                    this.createStep = 1;
+                }
+            },
+            
+            openRequestModal(request) {
+                this.selectedRequest = request;
+                this.showRequestModal = true;
+            },
+            
+            closeRequestModal() {
+                this.showRequestModal = false;
+                this.selectedRequest = null;
+            },
+            
+            filterRequests() {
+                if (!this.searchTerm) {
+                    this.filteredRequests = this.requests || [];
+                    return;
+                }
+                
+                const term = this.searchTerm.toLowerCase();
+                this.filteredRequests = (this.requests || []).filter(r =>
+                    (r.name || '').toLowerCase().includes(term) ||
+                    (r.client && r.client.name ? r.client.name : '').toLowerCase().includes(term)
+                );
+            },
+            
+            filterClients() {
+                if (!this.clientSearchTerm || this.clientSearchTerm.length < 2) {
+                    this.filteredClients = [];
+                    return;
+                }
+                
+                const term = this.clientSearchTerm.toLowerCase();
+                this.filteredClients = this.clients.filter(client => 
+                    client.name.toLowerCase().includes(term) ||
+                    (client.company && client.company.toLowerCase().includes(term))
+                ).slice(0, 5);
+            },
+            
+            selectClient(client) {
+                this.newRequest.client_id = client.id;
+                this.clientSearchTerm = client.name;
+                this.filteredClients = [];
+            },
+            
+            clearSelectedClient() {
+                this.newRequest.client_id = '';
+                this.clientSearchTerm = '';
+                this.filteredClients = [];
+            },
+            
+            getSelectedClientName() {
+                const client = this.clients.find(c => c.id === this.newRequest.client_id);
+                return client ? client.name : '';
+            },
+            
+            getSelectedClientCompany() {
+                const client = this.clients.find(c => c.id === this.newRequest.client_id);
+                return client && client.company ? client.company : '';
+            },
+            
+            nextStep() {
+                if (this.createStep === 1 && !this.newRequest.name) return;
+                if (this.createStep === 2) {
+                    if (this.clientMode === 'existing' && !this.newRequest.client_id) {
+                        alert('Выберите клиента!');
+                        return;
+                    }
+                    if (this.clientMode === 'new' && !this.clientForm.name) {
+                        alert('Введите имя клиента!');
+                        return;
+                    }
+                }
+                if (this.createStep === 3) {
+                    const validItems = this.newRequest.items.filter(it => it.product_id && it.quantity > 0);
+                    if (!validItems.length) {
+                        alert('Добавьте хотя бы один товар!');
+                        return;
+                    }
+                }
+                this.createStep++;
+            },
+            
+            prevStep() {
+                if (this.createStep > 1) this.createStep--;
+            },
+            
+            addItem() {
+                this.newRequest.items.push({ 
+                    product_id: '', 
+                    quantity: 1, 
+                    size: '', 
+                    color: '',
+                    price: 0
+                });
+            },
+            
+            removeItem(idx) {
+                this.newRequest.items.splice(idx, 1);
+                if (this.newRequest.items.length === 0) {
+                    this.addItem();
+                }
+            },
+            
+            onProductChange(idx) {
+                const item = this.newRequest.items[idx];
+                if (item.product_id) {
+                    const product = this.products.find(p => p.id === item.product_id);
+                    if (product && product.price) {
+                        item.price = product.price;
+                    }
+                }
+            },
+            
+            async fetchRequests() {
+                try {
+                    const resp = await fetch('/finance/api/requests/');
+                    const data = await resp.json();
+                    this.requests = data;
+                    this.filteredRequests = data;
+                } catch (error) {
+                    console.error('Error fetching requests:', error);
+                }
+            },
+            
+            async fetchClients() {
+                try {
+                    const resp = await fetch('/clients/api/clients/');
+                    const data = await resp.json();
+                    this.clients = Array.isArray(data) ? data : (data.results || []);
+                } catch (error) {
+                    console.error('Error fetching clients:', error);
+                }
+            },
+            
+            async fetchProducts() {
+                try {
+                    const resp = await fetch('/products/api/products/');
+                    const data = await resp.json();
+                    this.products = Array.isArray(data) ? data : (data.results || []);
+                } catch (error) {
+                    console.error('Error fetching products:', error);
+                }
+            },
+            
+            async submitRequest() {
+                let clientId = this.newRequest.client_id;
+                
+                if (this.clientMode === 'new') {
+                    try {
+                        const resp = await fetch('/clients/api/clients/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            body: JSON.stringify(this.clientForm)
+                        });
+                        
+                        if (resp.ok) {
+                            const client = await resp.json();
+                            clientId = client.id;
+                        } else {
+                            alert('Ошибка создания клиента');
+                            return;
+                        }
+                    } catch (error) {
+                        alert('Ошибка создания клиента');
+                        return;
+                    }
+                }
+                
+                if (!clientId) {
+                    alert('Клиент не выбран или не создан!');
+                    return;
+                }
+                
+                const payload = {
+                    name: this.newRequest.name,
+                    client_id: clientId,
+                    items_data: this.newRequest.items.filter(it => it.product_id && it.quantity > 0),
+                    comment: ''
+                };
+                
+                try {
+                    const resp = await fetch('/finance/api/requests/create/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (resp.ok) {
+                        alert('Заявка успешно создана!');
+                        this.viewMode = 'list';
+                        this.createStep = 1;
+                        this.newRequest = { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '', price: 0 }] };
+                        this.clientForm = { name: '', phone: '', email: '', company: '' };
+                        this.fetchRequests();
+                    } else {
+                        alert('Ошибка создания заявки');
+                    }
+                } catch (error) {
+                    alert('Ошибка создания заявки');
+                }
+            },
+            
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                return d.toLocaleString('ru-RU');
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            },
+            
+            createNewClientFromSearch() {
+                // Переключаемся на режим создания нового клиента
+                this.clientMode = 'new';
+                // Заполняем форму данными из поиска
+                this.clientForm.name = this.clientSearchTerm;
+                this.clientForm.phone = '';
+                this.clientForm.email = '';
+                this.clientForm.company = '';
+                // Очищаем поиск
+                this.clientSearchTerm = '';
+                this.filteredClients = [];
+                // Сбрасываем выбранного клиента
+                this.newRequest.client_id = '';
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            // Очистка формы при смене режима
+            clearClientForm() {
+                this.clientForm = { name: '', phone: '', email: '', company: '' };
+                this.newRequest.client_id = '';
+                this.clientSearchTerm = '';
+                this.filteredClients = [];
+            }
+        }
+    }
+    
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('mobileData', mobileData);
+    });
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zappis - Главное меню</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .menu-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+        }
+        .menu-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+        }
+        .ai-insight {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+        }
+        .trend-up {
+            color: #059669;
+        }
+        .trend-down {
+            color: #DC2626;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3B82F6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin 1.2s linear infinite;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s cubic-bezier(.4,2,.6,1);
+        }
+        .dot-flashing {
+            position: relative;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #6366f1;
+            color: #6366f1;
+            animation: dotFlashing 1s infinite linear alternate;
+            margin-right: 6px;
+        }
+        @keyframes dotFlashing {
+            0% { background-color: #6366f1; }
+            50%, 100% { background-color: #e0e7ff; }
+        }
+        .typing-dots {
+            display: inline-block;
+            width: 32px;
+            height: 12px;
+            background: none;
+            position: relative;
+        }
+        .typing-dots:before, .typing-dots:after, .typing-dots span {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #a5b4fc;
+            position: absolute;
+            top: 2px;
+            animation: typing-bounce 1.2s infinite;
+        }
+        .typing-dots:before { left: 0; animation-delay: 0s; }
+        .typing-dots span { left: 12px; animation-delay: 0.2s; }
+        .typing-dots:after { left: 24px; animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.7; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #e0e7ef;
+            border-radius: 4px;
+        }
+        aside::-webkit-scrollbar { display: none; }
+        .tib-solid-bg {
+            background: #e0edff !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" style="font-family: system-ui, -apple-system, sans-serif;">
+    {% csrf_token %}
+    <!-- Удалены модальные окна для тарифа и демо-предложения -->
+    <div x-data="ressoCRM()">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 py-4 fixed top-10 left-0 right-0 z-30">
+            <div class="flex items-center justify-between px-4 sm:px-6">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">Z</span>
+                    </div>
+                    <span class="text-xl font-semibold text-gray-900">Zappis</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/notifications/" class="text-gray-600 hover:text-gray-900 relative">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                    </a>
+                    <a href="/settings/" class="text-gray-600 hover:text-gray-900">
+                        <i data-lucide="settings" class="w-5 h-5"></i>
+                    </a>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                            <span class="text-white text-sm" x-text="(overview.user_name || 'П').charAt(0).toUpperCase()"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-gray-200 p-4 space-y-6 fixed left-0 top-28 bottom-0 overflow-y-auto scrollbar-none z-20" style="scrollbar-width: none; -ms-overflow-style: none;">
+            <!-- Навигация -->
+            <div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Навигация</h3>
+                <nav class="space-y-1">
+                    <a href="/dashboard/" class="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-600">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                        <span>Главная</span>
+                    </a>
+                    <a href="/employees/" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        <span>Сотрудники</span>
+                    </a>
+                    <a href="/clients/" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        <span>Клиенты</span>
+                    </a>
+                    <a href="/schedules/" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                        <span>Записи</span>
+                    </a>
+                    <a href="/services/" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="scissors" class="w-5 h-5"></i>
+                        <span>Услуги</span>
+                    </a>
+                    <a href="/settings/" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="settings" class="w-5 h-5"></i>
+                        <span>Настройки</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Статистика -->
+            <div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Статистика</h3>
+                <div class="space-y-3">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm text-gray-600">Записей сегодня</span>
+                            <span class="text-sm font-medium text-gray-900" x-text="overview.appointments_today || '0'"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-blue-600 h-1.5 rounded-full" :style="`width: ${Math.min((overview.appointments_today || 0) / 40 * 100, 100)}%`"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm text-gray-600">Всего клиентов</span>
+                            <span class="text-sm font-medium text-gray-900" x-text="overview.total_clients || '0'"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-green-600 h-1.5 rounded-full" :style="`width: ${Math.min((overview.total_clients || 0) / 200 * 100, 100)}%`"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm text-gray-600">Сотрудников</span>
+                            <span class="text-sm font-medium text-gray-900" x-text="overview.total_employees || '0'"></span>
+                        </div>
+                        <div class="w-full bg-purple-600 h-1.5 rounded-full" :style="`width: ${Math.min((overview.total_employees || 0) / 20 * 100, 100)}%`"></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm text-gray-600">Услуг</span>
+                            <span class="text-sm font-medium text-gray-900" x-text="overview.total_services || '0'"></span>
+                        </div>
+                        <div class="w-full bg-yellow-600 h-1.5 rounded-full" :style="`width: ${Math.min((overview.total_services || 0) / 50 * 100, 100)}%`"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Фильтры</h3>
+                <div class="space-y-2">
+                    <a href="/schedules/" class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="filter" class="w-4 h-4"></i>
+                        <span>Все записи</span>
+                    </a>
+                    <button class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                        <span>Сегодня</span>
+                    </button>
+                    <button class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                        <i data-lucide="calendar" class="w-4 h-4"></i>
+                        <span>На неделю</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto ml-64 p-6 pt-36">
+            <!-- Welcome Section -->
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Аналитика производства</h1>
+                    <p class="text-gray-600">Краткая сводка по продажам, браку, доходу, сотрудникам и заказам</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="/schedules/" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Новая запись</span>
+                    </a>
+                    <!-- <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Отчет</span>
+                    </button> -->
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Продажи товаров</p>
+                            <p class="text-2xl font-semibold text-gray-900" x-text="overview.product_sales || '0'"></p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i data-lucide="package" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Брак продукции</p>
+                            <p class="text-2xl font-semibold text-gray-900" x-text="overview.defective_products || '0'"></p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Сумма дохода</p>
+                            <p class="text-2xl font-semibold text-gray-900" x-text="overview.total_income || '0'"></p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                            <i data-lucide="dollar-sign" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Сотрудники</p>
+                            <p class="text-2xl font-semibold text-gray-900" x-text="overview.total_employees || '0'"></p>
+                        </div>
+                        <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <i data-lucide="users" class="w-6 h-6 text-yellow-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-10 gap-6 mb-8">
+                <div class="bg-white rounded-xl p-6 border border-gray-200 lg:col-span-7">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">График продаж и брака</h3>
+                        <div class="flex space-x-2">
+                            <button 
+                                @click="updateChart()" 
+                                class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                            >
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                <span>Обновить</span>
+                            </button>
+                            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm" x-model="period" @change="updateChart()">
+                                <option value="week">За неделю</option>
+                                <option value="month">За месяц</option>
+                                <option value="year">За год</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div x-show="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                            <div class="flex items-center space-x-2">
+                                <div class="spinner"></div>
+                                <span class="text-gray-600">Загрузка данных...</span>
+                            </div>
+                        </div>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Популярные услуги и топ клиенты -->
+                <div class="flex flex-col gap-6 lg:col-span-3">
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Последние отправки клиенту</h3>
+                        <div class="space-y-3">
+                            <template x-for="service in popularServices" :key="service.id">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i data-lucide="scissors" class="w-4 h-4 text-blue-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" x-text="service.name"></p>
+                                            <p class="text-xs text-gray-500" x-text="service.category"></p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium text-gray-900" x-text="`⃀${service.price?.toLocaleString() || 0}`"></p>
+                                        <p class="text-xs text-gray-500" x-text="`${service.booking_count || 0} записей`"></p>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="popularServices.length === 0" class="text-center py-4 text-gray-500">
+                                <p class="text-sm">Нет данных о популярных услугах</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Последние планы (заказы)</h3>
+                        <div class="space-y-3">
+                            <template x-for="client in topClients" :key="client.id">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <i data-lucide="user" class="w-4 h-4 text-green-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" x-text="client.name"></p>
+                                            <p class="text-xs text-gray-500" x-text="client.phone"></p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium text-gray-900" x-text="`⃀${client.total_spent?.toLocaleString() || 0}`"></p>
+                                        <p class="text-xs text-gray-500" x-text="`${client.booking_count || 0} визитов`"></p>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="topClients.length === 0" class="text-center py-4 text-gray-500">
+                                <p class="text-sm">Нет данных о клиентах</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Сотрудники -->
+                <a href="/employees/" class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Сотрудники</h3>
+                            <p class="text-gray-600">Управление персоналом и графиками</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i data-lucide="user-check" class="w-4 h-4 mr-1"></i>
+                        <span x-text="`${overview.total_employees || 0} активных сотрудников`"></span>
+                    </div>
+                </a>
+
+                <!-- Клиенты -->
+                <a href="/clients/" class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="user-plus" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Клиенты</h3>
+                            <p class="text-gray-600">База клиентов и история посещений</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                        <span x-text="`${overview.total_clients || 0} клиентов в базе`"></span>
+                    </div>
+                </a>
+
+                <!-- Записи -->
+                <a href="/schedules/" class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="calendar" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Записи</h3>
+                            <p class="text-gray-600">Расписание и управление записями</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i data-lucide="clock" class="w-4 h-4 mr-1"></i>
+                        <span x-text="`${overview.appointments_today || 0} записей на сегодня`"></span>
+                    </div>
+                </a>
+
+                <!-- Услуги -->
+                <a href="/services/" class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="scissors" class="w-6 h-6 text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Услуги</h3>
+                            <p class="text-gray-600">Каталог услуг и прайс-лист</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i data-lucide="star" class="w-4 h-4 mr-1"></i>
+                        <span x-text="`${overview.total_services || 0} активных услуг`"></span>
+                    </div>
+                </a>
+
+                <!-- Настройки -->
+                <a href="/settings/" class="menu-card bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-500">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="settings" class="w-6 h-6 text-red-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Настройки</h3>
+                            <p class="text-gray-600">Настройки системы и профиля</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                        <span x-text="`Доход: ⃀ ${(overview.monthly_revenue || 0).toLocaleString()} за месяц`"></span>
+                    </div>
+                </a>
+            </div>
+        </main>
+    </div>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        // Alpine.js Component
+        function ressoCRM() {
+            return {
+                overview: {},
+                aiInsights: [],
+                aiInsightsError: false,
+                aiInsightsLoading: true,
+                aiInsightsPolling: null,
+                recentActivities: [],
+                popularServices: [],
+                topClients: [],
+                revenueChart: null,
+                loading: false,
+                updatingInsights: false,
+                period: 'week',
+                chartRequestId: 0,
+                chat: [],
+                input: '',
+                typing: false,
+                placeholderReplies: [
+                    'Эта функция находится в разработке.',
+                    'Скоро я смогу ответить на ваш вопрос!',
+                    'AI Ассистент скоро будет доступен.',
+                    'Спасибо за вопрос! Я скоро научусь отвечать.',
+                    'Функция в процессе разработки.'
+                ],
+
+                async init() {
+                    await this.loadDashboardData();
+                    await this.initChart();
+                    lucide.createIcons();
+                },
+
+                async loadDashboardData() {
+                    try {
+                        this.loading = true;
+                        
+                        // Загружаем общую статистику
+                        const overviewResponse = await fetch('/dashboard/overview/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (overviewResponse.ok) {
+                            this.overview = await overviewResponse.json();
+                            console.log('DEBUG: Данные overview получены:', this.overview);
+                            console.log('DEBUG: Имя пользователя:', this.overview.user_name);
+                        } else {
+                            console.error('Ошибка загрузки overview:', overviewResponse.status);
+                        }
+
+                        // Загружаем ИИ-советы через новую функцию
+                        this.loadAIInsights();
+
+                        // Загружаем последние действия
+                        const activityResponse = await fetch('/dashboard/recent-activity/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (activityResponse.ok) {
+                            const activityData = await activityResponse.json();
+                            this.recentActivities = activityData.activities || [];
+                        }
+
+                        // Загружаем популярные услуги
+                        const servicesResponse = await fetch('/dashboard/popular-services/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (servicesResponse.ok) {
+                            this.popularServices = await servicesResponse.json();
+                        }
+
+                        // Загружаем топ клиентов
+                        const clientsResponse = await fetch('/dashboard/top-clients/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (clientsResponse.ok) {
+                            this.topClients = await clientsResponse.json();
+                        }
+
+                    } catch (error) {
+                        console.error('Ошибка загрузки данных:', error);
+                        // Устанавливаем значения по умолчанию
+                        this.overview = {
+                            total_clients: 0,
+                            appointments_today: 0,
+                            monthly_revenue: 0,
+                            avg_ticket: 0,
+                            clients_growth: 0,
+                            revenue_growth: 0,
+                            appointments_growth: 0,
+                            avg_ticket_change: 0,
+                            total_employees: 0,
+                            total_services: 0,
+                            active_businesses: 0
+                        };
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async initChart() {
+                    this.loading = true;
+                    this.chartRequestId++;
+                    const currentRequestId = this.chartRequestId;
+                    let chartData = {
+                        labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                        revenue: [0, 0, 0, 0, 0, 0, 0],
+                        bookings: [0, 0, 0, 0, 0, 0, 0],
+                        clients: [0, 0, 0, 0, 0, 0, 0]
+                    };
+                    try {
+                        const chartResponse = await fetch(`/dashboard/revenue-chart/?period=${this.period}`, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (currentRequestId !== this.chartRequestId) return;
+                        if (chartResponse.ok) {
+                            const responseData = await chartResponse.json();
+                            if (responseData.labels && responseData.revenue) {
+                                chartData = {
+                                    labels: responseData.labels,
+                                    revenue: responseData.revenue,
+                                    bookings: responseData.bookings,
+                                    clients: responseData.clients
+                                };
+                            }
+                        } else {
+                            // Ошибка, но всё равно создаём пустой график
+                            console.error('Ошибка загрузки данных графика:', chartResponse.status);
+                        }
+                    } catch (error) {
+                        if (currentRequestId !== this.chartRequestId) return;
+                        console.error('Ошибка создания графика:', error);
+                        // Даже при ошибке создаём пустой график
+                    } finally {
+                        if (currentRequestId === this.chartRequestId) {
+                            // Уничтожаем только если график существует
+                            if (this.revenueChart) {
+                                this.revenueChart.destroy();
+                            }
+                            const ctx = document.getElementById('revenueChart');
+                            if (ctx) {
+                                this.revenueChart = new Chart(ctx, {
+                                    type: 'line',
+                                    data: {
+                                        labels: chartData.labels,
+                                        datasets: [
+                                            {
+                                                label: 'Доход (⃀)',
+                                                data: chartData.revenue,
+                                                borderColor: '#3B82F6',
+                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                borderWidth: 2,
+                                                tension: 0.4,
+                                                fill: false,
+                                                yAxisID: 'y',
+                                                pointBackgroundColor: '#3B82F6',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 6
+                                            },
+                                            {
+                                                label: 'Записи',
+                                                data: chartData.bookings,
+                                                borderColor: '#10B981',
+                                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                borderWidth: 2,
+                                                tension: 0.4,
+                                                fill: false,
+                                                yAxisID: 'y1',
+                                                pointBackgroundColor: '#10B981',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 6
+                                            },
+                                            {
+                                                label: 'Новые клиенты',
+                                                data: chartData.clients,
+                                                borderColor: '#F59E0B',
+                                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                                borderWidth: 2,
+                                                tension: 0.4,
+                                                fill: false,
+                                                yAxisID: 'y1',
+                                                pointBackgroundColor: '#F59E0B',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 6
+                                            }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        interaction: {
+                                            mode: 'index',
+                                            intersect: false,
+                                        },
+                                        plugins: {
+                                            legend: {
+                                                display: true,
+                                                position: 'top',
+                                                labels: {
+                                                    usePointStyle: true,
+                                                    padding: 20
+                                                }
+                                            },
+                                            tooltip: {
+                                                callbacks: {
+                                                    label: function(context) {
+                                                        if (context.dataset.label === 'Доход (⃀)') {
+                                                            return 'Доход: ⃀' + context.parsed.y.toLocaleString('ru-RU');
+                                                        } else if (context.dataset.label === 'Записи') {
+                                                            return 'Записи: ' + context.parsed.y + ' шт.';
+                                                        } else {
+                                                            return 'Новые клиенты: ' + context.parsed.y + ' чел.';
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        scales: {
+                                            x: {
+                                                grid: {
+                                                    display: false
+                                                }
+                                            },
+                                            y: {
+                                                type: 'linear',
+                                                display: true,
+                                                position: 'left',
+                                                title: {
+                                                    display: true,
+                                                    text: 'Доход (⃀)'
+                                                },
+                                                grid: {
+                                                    display: true,
+                                                    drawBorder: false,
+                                                    color: 'rgba(0, 0, 0, 0.1)'
+                                                },
+                                                ticks: {
+                                                    callback: function(value) {
+                                                        return '⃀' + value.toLocaleString('ru-RU');
+                                                    }
+                                                }
+                                            },
+                                            y1: {
+                                                type: 'linear',
+                                                display: true,
+                                                position: 'right',
+                                                title: {
+                                                    display: true,
+                                                    text: 'Количество'
+                                                },
+                                                grid: {
+                                                    drawOnChartArea: false,
+                                                },
+                                                ticks: {
+                                                    callback: function(value) {
+                                                        return value + ' шт.';
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            this.loading = false;
+                        }
+                    }
+                },
+
+                formatCurrency(amount) {
+                    return new Intl.NumberFormat('ru-RU', {
+                        style: 'currency',
+                        currency: 'RUB'
+                    }).format(amount);
+                },
+
+                async loadAIInsights() {
+                    try {
+                        this.aiInsightsLoading = true;
+                        this.aiInsightsError = false;
+                        const response = await fetch('/dashboard/ai-insights/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (!response.ok) throw new Error('Network error');
+                        const data = await response.json();
+                        if (data.pending) {
+                            this.aiInsights = [];
+                            this.aiInsightsLoading = true;
+                            if (!this.aiInsightsPolling) {
+                                this.aiInsightsPolling = setInterval(() => {
+                                    this.loadAIInsights();
+                                }, 3000);
+                            }
+                        } else {
+                            this.aiInsights = data.advices;
+                            this.aiInsightsLoading = false;
+                            this.aiInsightsError = false;
+                            if (this.aiInsightsPolling) {
+                                clearInterval(this.aiInsightsPolling);
+                                this.aiInsightsPolling = null;
+                            }
+                            this.$nextTick(() => lucide.createIcons());
+                        }
+                    } catch (error) {
+                        this.aiInsightsError = true;
+                        this.aiInsightsLoading = false;
+                        if (this.aiInsightsPolling) {
+                            clearInterval(this.aiInsightsPolling);
+                            this.aiInsightsPolling = null;
+                        }
+                    }
+                },
+
+                async updateAIInsights() {
+                    this.updatingInsights = true;
+                    this.aiInsightsError = false;
+                    this.aiInsightsLoading = true;
+                    if (this.aiInsightsPolling) {
+                        clearInterval(this.aiInsightsPolling);
+                        this.aiInsightsPolling = null;
+                    }
+                    try {
+                        const insightsResponse = await fetch('/dashboard/ai-insights/?force_update=true', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        if (insightsResponse.ok) {
+                            const data = await insightsResponse.json();
+                            this.aiInsights = data.advices;
+                            this.aiInsightsError = false;
+                            this.aiInsightsLoading = false;
+                            this.$nextTick(() => lucide.createIcons());
+                        } else {
+                            this.aiInsightsError = true;
+                            this.aiInsightsLoading = false;
+                        }
+                    } catch (error) {
+                        this.aiInsightsError = true;
+                        this.aiInsightsLoading = false;
+                    } finally {
+                        this.updatingInsights = false;
+                    }
+                },
+
+                async updateChart() {
+                    try {
+                        console.log('Обновление графика...');
+                        this.loading = true;
+                        await this.initChart();
+                        console.log('График успешно обновлен');
+                    } catch (error) {
+                        console.error('Ошибка обновления графика:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async refreshAllData() {
+                    try {
+                        this.loading = true;
+                        await this.loadDashboardData();
+                        await this.updateChart();
+                        console.log('Все данные успешно обновлены');
+                    } catch (error) {
+                        console.error('Ошибка обновления данных:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                send() {
+                    if (this.input.trim() === '') return;
+                    this.chat.push({role: 'user', text: this.input});
+                    this.input = '';
+                    this.typing = true;
+                    setTimeout(() => {
+                        const reply = this.placeholderReplies[Math.floor(Math.random() * this.placeholderReplies.length)];
+                        this.chat.push({role: 'assistant', text: reply});
+                        this.typing = false;
+                        this.$nextTick(() => {
+                            const el = this.$refs.scroll;
+                            if (el) el.scrollTop = el.scrollHeight;
+                            if (window.lucide && window.lucide.createIcons) {
+                                window.lucide.createIcons();
+                            }
+                        });
+                    }, 700);
+                }
+            }
+        }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+        
+        function skipDemo() {
+            // Отправляем POST запрос для установки флага
+            fetch('/dashboard/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            }).then(() => {
+                // Скрываем модальное окно
+                document.getElementById('demo-offer-modal').style.display = 'none';
+                // Перезагружаем страницу для обновления состояния
+                window.location.reload();
+            }).catch(error => {
+                console.error('Ошибка:', error);
+                // В случае ошибки просто скрываем модальное окно
+                document.getElementById('demo-offer-modal').style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Smart Factory — Заявки клиента</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .workshop-tab { transition: all 0.2s ease-in-out; }
+        .workshop-tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;" x-data="mobileData()" x-init="init()">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Заявки клиента</span>
+        </div>
+        <button @click="refreshData()" class="text-blue-600 bg-blue-100 rounded-full p-2 ml-2">
+            <i data-lucide="refresh-cw" class="w-6 h-6"></i>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <!-- Back Button -->
+        <div class="mb-4">
+            <a href="{% url 'admin-requests' %}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 shadow-sm">
+                <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+                К списку клиентов
+            </a>
+        </div>
+
+        <!-- Client Info -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-6">
+            <div class="flex items-center mb-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="user" class="w-5 h-5 text-white"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="font-semibold text-gray-900">{{ client.name }}</h3>
+                    {% if client.company %}
+                        <p class="text-sm text-gray-600">{{ client.company }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                {% if client.phone %}
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="phone" class="w-4 h-4 mr-2 text-blue-500"></i>
+                        {{ client.phone }}
+                    </div>
+                {% endif %}
+                {% if client.email %}
+                    <div class="flex items-center text-gray-600">
+                        <i data-lucide="mail" class="w-4 h-4 mr-2 text-blue-500"></i>
+                        {{ client.email }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+                <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <i data-lucide="file-text" class="w-4 h-4 text-gray-600"></i>
+                </div>
+                <p class="text-xs text-gray-600 mb-1">Всего</p>
+                <p class="text-lg font-bold text-gray-900">{{ requests.count }}</p>
+            </div>
+            
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+                <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <i data-lucide="clock" class="w-4 h-4 text-yellow-600"></i>
+                </div>
+                <p class="text-xs text-gray-600 mb-1">Ожидают</p>
+                <p class="text-lg font-bold text-yellow-600">{{ pending_requests.count }}</p>
+            </div>
+            
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <i data-lucide="factory" class="w-4 h-4 text-blue-600"></i>
+                </div>
+                <p class="text-xs text-gray-600 mb-1">В работе</p>
+                <p class="text-lg font-bold text-blue-600">{{ in_production_requests.count }}</p>
+            </div>
+        </div>
+
+        <!-- Workshop Tabs -->
+        <div class="bg-white rounded-xl p-2 shadow-sm border border-gray-100 mb-6">
+            <div class="flex space-x-1 overflow-x-auto">
+                <button @click="activeTab = 'requests'" 
+                        :class="activeTab === 'requests' ? 'workshop-tab active' : 'bg-gray-100 text-gray-700'"
+                        class="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200">
+                    <i data-lucide="file-text" class="w-4 h-4 inline mr-2"></i>
+                    Заявки
+                </button>
+                {% for workshop in workshops %}
+                    <button @click="activeTab = 'workshop_{{ workshop.id }}'" 
+                            :class="activeTab === 'workshop_{{ workshop.id }}' ? 'workshop-tab active' : 'bg-gray-100 text-gray-700'"
+                            class="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200">
+                        {% if workshop.id == 1 %}
+                            <i data-lucide="factory" class="w-4 h-4 inline mr-2"></i>
+                        {% elif workshop.id == 2 %}
+                            <i data-lucide="glass" class="w-4 h-4 inline mr-2"></i>
+                        {% else %}
+                            <i data-lucide="settings" class="w-4 h-4 inline mr-2"></i>
+                        {% endif %}
+                        {{ workshop.name }}
+                    </button>
+                {% endfor %}
+                <button @click="activeTab = 'packaging'" 
+                        :class="activeTab === 'packaging' ? 'workshop-tab active' : 'bg-gray-100 text-gray-700'"
+                        class="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200">
+                    <i data-lucide="package" class="w-4 h-4 inline mr-2"></i>
+                    Упаковка
+                </button>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div>
+            <!-- Requests Tab -->
+            <div x-show="activeTab === 'requests'">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Заявки ожидают рассмотрения</h3>
+                <div class="space-y-3">
+                    {% for request in pending_requests %}
+                        <div class="card bg-white rounded-xl border border-gray-200 p-4 shadow-sm card-hover" 
+                             @click="openRequestModal({{ request.id }})">
+                            <div class="flex items-start justify-between mb-3">
+                                <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                <span class="text-xs text-yellow-600 bg-yellow-100 px-3 py-1 rounded-full font-medium">Ожидает</span>
+                            </div>
+                            <p class="text-xs text-gray-600 mb-3">{{ request.created_at|date:"d.m.Y H:i" }}</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <span class="flex items-center font-medium">
+                                    <i data-lucide="package" class="w-3 h-3 mr-2"></i>
+                                    {{ request.items.count }} позиций
+                                </span>
+                                <span class="font-bold text-sm">{{ request.total_amount|floatformat:0 }} ⃀</span>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="text-center py-12 text-gray-500">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="file-text" class="w-8 h-8 text-gray-300"></i>
+                            </div>
+                            <p class="text-sm font-medium">Нет заявок</p>
+                            <p class="text-xs text-gray-400 mt-1">Все заявки обработаны</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Workshop Tabs -->
+            {% for workshop in workshops %}
+                <div x-show="activeTab === 'workshop_{{ workshop.id }}'">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ workshop.name }}</h3>
+                    <div class="space-y-3">
+                        {% for request in in_production_requests %}
+                            {% if request.order and request.order.stages %}
+                                {% for stage in request.order.stages.all %}
+                                    {% if stage.workshop.id == workshop.id %}
+                                        <div class="card bg-white rounded-xl border border-blue-200 p-4 shadow-sm card-hover">
+                                            <div class="flex items-start justify-between mb-3">
+                                                <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                                <span class="text-xs text-blue-600 bg-blue-100 px-3 py-1 rounded-full font-medium">В работе</span>
+                                            </div>
+                                            <p class="text-xs text-gray-600 mb-3">{{ stage.operation }}</p>
+                                            <div class="space-y-2">
+                                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                                    <span class="flex items-center font-medium">
+                                                        <i data-lucide="target" class="w-3 h-3 mr-2"></i>
+                                                        План: {{ stage.plan_quantity }} шт.
+                                                    </span>
+                                                    <span class="font-bold text-sm">{{ stage.completed_quantity }}/{{ stage.plan_quantity }}</span>
+                                                </div>
+                                                {% if stage.deadline %}
+                                                    <div class="flex items-center text-xs text-gray-500">
+                                                        <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
+                                                        Срок: {{ stage.deadline|date:"d.m.Y" }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        {% empty %}
+                            <div class="text-center py-12 text-gray-500">
+                                {% if workshop.id == 1 %}
+                                    <i data-lucide="factory" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                {% elif workshop.id == 2 %}
+                                    <i data-lucide="glass" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                {% else %}
+                                    <i data-lucide="settings" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                {% endif %}
+                                <p class="text-sm font-medium">Нет заказов</p>
+                                <p class="text-xs text-gray-400 mt-1">В цехе {{ workshop.name }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <!-- Packaging Tab -->
+            <div x-show="activeTab === 'packaging'">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Упаковка</h3>
+                <div class="space-y-3">
+                    {% for request in in_production_requests %}
+                        {% if request.order and request.order.stages %}
+                            {% for stage in request.order.stages.all %}
+                                {% if 'упаковк' in stage.operation|lower %}
+                                    <div class="card bg-white rounded-xl border border-green-200 p-4 shadow-sm card-hover">
+                                        <div class="flex items-start justify-between mb-3">
+                                            <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                            <span class="text-xs text-green-600 bg-green-100 px-3 py-1 rounded-full font-medium">Упаковка</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mb-3">{{ stage.operation }}</p>
+                                        <div class="flex items-center justify-between text-xs text-gray-500">
+                                            <span class="flex items-center font-medium">
+                                                <i data-lucide="package" class="w-3 h-3 mr-2"></i>
+                                                {{ stage.plan_quantity }} шт.
+                                            </span>
+                                            <span class="font-bold text-sm">{{ stage.completed_quantity }}/{{ stage.plan_quantity }}</span>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="text-center py-12 text-gray-500">
+                            <i data-lucide="package" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                            <p class="text-sm font-medium">Нет заказов</p>
+                            <p class="text-xs text-gray-400 mt-1">В упаковке</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Request Modal -->
+    <div x-show="showModal" x-transition class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-gray-900" x-text="selectedRequest ? 'Заявка: ' + selectedRequest.name : 'Заявка'"></h3>
+                        <button @click="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                    
+                    <template x-if="selectedRequest">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Клиент</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="selectedRequest.client ? selectedRequest.client.name : 'Не указан'"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Дата создания</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="formatDate(selectedRequest.created_at)"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Общая сумма</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="(selectedRequest.total_amount || 0).toLocaleString() + ' ⃀'"></p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Товары</label>
+                                <div class="space-y-2">
+                                    <template x-for="item in selectedRequest.items" :key="item.id">
+                                        <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                            <div class="text-sm">
+                                                <div class="font-medium text-gray-900 mb-1" x-text="item.product ? item.product.name : 'Товар'"></div>
+                                                <div class="text-gray-600">
+                                                    Количество: <span x-text="item.quantity"></span> | 
+                                                    Размер: <span x-text="item.size || 'Не указан'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="bg-gray-50 px-6 py-4 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="approveRequest()" x-show="selectedRequest && selectedRequest.status === 'pending'" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-6 py-3 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 sm:ml-3 sm:w-auto sm:text-sm">
+                        <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i>
+                        Отправить на работу
+                    </button>
+                    <button @click="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="/dashboard/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/clients/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Клиенты</span>
+        </a>
+        <a href="{% url 'finance:requests' %}" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/inventory/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Склад</span>
+        </a>
+        <a href="/menu/" class="flex flex-col items-center text-gray-500 focus:outline-none">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+            <span class="text-xs">Другое</span>
+        </a>
+    </nav>
+
+    <script>
+    function mobileData() {
+        return {
+            activeTab: 'requests',
+            showModal: false,
+            selectedRequest: null,
+            requests: [],
+            
+            async init() {
+                await this.fetchRequests();
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            async fetchRequests() {
+                try {
+                    const resp = await fetch('/finance/api/requests/');
+                    const data = await resp.json();
+                    this.requests = data;
+                } catch (error) {
+                    console.error('Error fetching requests:', error);
+                }
+            },
+            
+            openRequestModal(requestId) {
+                this.selectedRequest = this.requests.find(r => r.id === requestId);
+                this.showModal = true;
+            },
+            
+            closeModal() {
+                this.showModal = false;
+                this.selectedRequest = null;
+            },
+            
+            async approveRequest() {
+                if (!this.selectedRequest) return;
+                
+                try {
+                    const resp = await fetch(`/orders/api/requests/approve/${this.selectedRequest.id}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        }
+                    });
+                    
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        alert('Заявка одобрена! Заказ создан.');
+                        this.closeModal();
+                        await this.fetchRequests();
+                        window.location.reload();
+                    } else {
+                        const error = await resp.json();
+                        alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                    }
+                } catch (error) {
+                    console.error('Error approving request:', error);
+                    alert('Ошибка при одобрении заявки');
+                }
+            },
+            
+            async refreshData() {
+                await this.fetchRequests();
+                window.location.reload();
+            },
+            
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                return d.toLocaleString('ru-RU');
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            }
+        }
+    }
+    
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('mobileData', mobileData);
+    });
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html> 

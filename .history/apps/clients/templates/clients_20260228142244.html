@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Factory — Клиенты</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .client-card {
+            transition: all 0.3s ease;
+        }
+        .client-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        /* Add styles for modal overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .text-blue-500 { color: #0e121a !important; }
+    </style>
+</head>
+<body class="min-h-screen" x-data="clientsPage()">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
+
+    <!-- Mobile Menu -->
+    <div x-show="showMobileMenu" class="md:hidden fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
+        <div class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Меню</h3>
+                <button @click="showMobileMenu = false" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <!-- Навигация -->
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Навигация</h4>
+                    <nav class="space-y-1">
+                        <a href="index.html" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                            <i data-lucide="home" class="w-5 h-5"></i>
+                            <span>Главная</span>
+                        </a>
+                        <a href="emploee.html" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                            <i data-lucide="users" class="w-5 h-5"></i>
+                            <span>Сотрудники</span>
+                        </a>
+                        <a href="clients.html" class="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-600">
+                            <i data-lucide="user-plus" class="w-5 h-5"></i>
+                            <span>Клиенты</span>
+                        </a>
+                        <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                            <span>Записи</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Фильтры -->
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Фильтры</h4>
+                    <div class="space-y-2">
+                        <button @click="applySidebarFilter('all'); showMobileMenu = false" 
+                                :class="{'bg-blue-50 text-blue-600': sidebarFilter === 'all', 'text-gray-700 hover:bg-gray-50': sidebarFilter !== 'all'}"
+                                class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors">
+                            <i data-lucide="filter" class="w-4 h-4"></i>
+                            <span>Все клиенты</span>
+                        </button>
+                        <button @click="applySidebarFilter('vip'); showMobileMenu = false" 
+                                :class="{'bg-blue-50 text-blue-600': sidebarFilter === 'vip', 'text-gray-700 hover:bg-gray-50': sidebarFilter !== 'vip'}"
+                                class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors">
+                            <i data-lucide="star" class="w-4 h-4"></i>
+                            <span>VIP клиенты</span>
+                        </button>
+                        <button @click="applySidebarFilter('active'); showMobileMenu = false" 
+                                :class="{'bg-blue-50 text-blue-600': sidebarFilter === 'active', 'text-gray-700 hover:bg-gray-50': sidebarFilter !== 'active'}"
+                                class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Активные</span>
+                        </button>
+                        <button @click="applySidebarFilter('new'); showMobileMenu = false" 
+                                :class="{'bg-blue-50 text-blue-600': sidebarFilter === 'new', 'text-gray-700 hover:bg-gray-50': sidebarFilter !== 'new'}"
+                                class="w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            <span>Новые</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto md:ml-64 p-4 sm:p-6 mt-16">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Клиенты</h1>
+                <p class="text-sm sm:text-base text-gray-600">Управление клиентской базой</p>
+            </div>
+            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                <button @click="openAddClient()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    <span>Добавить клиента</span>
+                </button>
+                <button @click="showExportModal = true" class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Экспорт</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="flex-1">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @input.debounce.300ms="filterClients()"
+                       placeholder="Поиск по имени, телефону или email..." 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <div class="w-full sm:w-48">
+                <select x-model="statusFilter" 
+                        @change="filterClients()"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="all">Все статусы</option>
+                    <option value="active">Активные</option>
+                    <option value="inactive">Неактивные</option>
+                </select>
+            </div>
+            <div class="w-full sm:w-auto flex items-center space-x-2">
+                <button @click="viewMode = 'cards'" 
+                        :class="viewMode === 'cards' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                        class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Карточки</span>
+                </button>
+                <button @click="viewMode = 'list'" 
+                        :class="viewMode === 'list' ? 'bg-gray-900 text-white border-gray-900' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'"
+                        class="px-3 py-2 rounded-lg text-sm flex items-center space-x-1">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Список</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="flex justify-center items-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+
+                <!-- Clients Grid -->
+        <div x-show="!loading && viewMode === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <template x-for="client in filteredClients" :key="client.id">
+                <div @click="openDetails(client)" class="client-card bg-white/90 backdrop-blur rounded-xl p-4 sm:p-6 border border-gray-200/70 shadow-sm hover:shadow-xl transition cursor-pointer relative overflow-hidden">
+                    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500"></div>
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div :class="getClientAvatarBg(client)" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center">
+                                <span :class="getClientAvatarText(client)" class="font-semibold text-sm sm:text-base" x-text="getClientInitials(client.name)"></span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="font-semibold text-gray-900 text-sm sm:text-base truncate" x-text="client.name"></h3>
+                                <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="client.phone"></p>
+                            </div>
+                        </div>
+                        <div class="relative flex items-center" @click.away="closeClientMenu()">
+                            <button @click.stop="toggleClientMenu(client)" class="text-gray-400 hover:text-gray-600 p-1">
+                                <i data-lucide="more-vertical" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                            </button>
+                            <div x-show="menuClientId === client.id" x-transition class="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                <button @click="editClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                    <span>Редактировать</span>
+                                </button>
+                                <button @click="deleteClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    <span>Удалить</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 sm:space-y-3">
+                        <template x-if="client.email">
+                            <div class="flex items-center text-xs sm:text-sm">
+                                <span class="text-gray-500 mr-2">Email:</span>
+                                <span class="text-gray-900" x-text="client.email"></span>
+                            </div>
+                        </template>
+                        <template x-if="client.company">
+                            <div class="flex items-center text-xs sm:text-sm">
+                                <span class="text-gray-500 mr-2">Компания:</span>
+                                <span class="text-gray-900" x-text="client.company"></span>
+                            </div>
+                        </template>
+                        <template x-if="client.address">
+                            <div class="flex items-center text-xs sm:text-sm">
+                                <span class="text-gray-500 mr-2">Адрес:</span>
+                                <span class="text-gray-900" x-text="client.address"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <div class="flex items-center space-x-2">
+                            <button @click.stop="quickCall(client)" class="flex-1 px-3 py-2 text-xs sm:text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <i data-lucide="phone" class="w-3 h-3 sm:w-4 sm:h-4 inline-block mr-1"></i>
+                                Позвонить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Clients List -->
+        <div x-show="!loading && viewMode === 'list'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="text-left px-4 py-3 font-medium">Клиент</th>
+                            <th class="text-left px-4 py-3 font-medium">Телефон</th>
+                            <th class="text-left px-4 py-3 font-medium">Статус</th>
+                            <th class="text-left px-4 py-3 font-medium">Компания</th>
+                            <th class="text-right px-4 py-3 font-medium">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <template x-for="client in filteredClients" :key="client.id">
+                            <tr class="hover:bg-gray-50 cursor-pointer" @click="openDetails(client)">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div :class="getClientAvatarBg(client)" class="w-8 h-8 rounded-full flex items-center justify-center">
+                                            <span :class="getClientAvatarText(client)" class="text-xs font-semibold" x-text="getClientInitials(client.name)"></span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-gray-900 truncate" x-text="client.name"></div>
+                                            <div class="text-xs text-gray-500 truncate" x-text="client.email || ''"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700" x-text="client.phone || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <span :class="getStatusClass(client.status)" class="px-2 py-1 rounded-full text-xs" x-text="getStatusText(client.status)"></span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700" x-text="client.company || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end space-x-2">
+                                        <button @click.stop="quickCall(client)" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md">
+                                            <i data-lucide="phone" class="w-4 h-4"></i>
+                                        </button>
+                                        <div class="relative flex items-center" @click.away="closeClientMenu()">
+                                            <button @click.stop="toggleClientMenu(client)" class="text-gray-400 hover:text-gray-600 p-1">
+                                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                            </button>
+                                            <div x-show="menuClientId === client.id" x-transition class="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                                <button @click="editClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                                    <span>Редактировать</span>
+                                                </button>
+                                                <button @click="deleteClient(client)" class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    <span>Удалить</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+
+        <div x-show="!loading && filteredClients.length === 0" class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="users" class="w-8 h-8 text-gray-400"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Клиенты не найдены</h3>
+            <p class="text-gray-500 mb-4">Добавьте первого клиента или измените фильтры поиска</p>
+            <button @click="openAddClient()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                Добавить клиента
+            </button>
+        </div>
+
+        <!-- Pagination -->
+        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+            <div class="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
+                Показано <span x-text="((currentPage - 1) * pageSize) + 1"></span>-<span x-text="Math.min(currentPage * pageSize, totalClients)"></span> из <span x-text="totalClients"></span> клиентов
+            </div>
+            <div class="flex items-center space-x-1 sm:space-x-2">
+                <button @click="loadPage(currentPage - 1)" 
+                        :disabled="currentPage <= 1"
+                        :class="{'opacity-50 cursor-not-allowed': currentPage <= 1, 'hover:bg-gray-50': currentPage > 1}"
+                        class="px-2 sm:px-3 py-1 border border-gray-300 rounded-lg text-gray-600 text-xs sm:text-sm">
+                    Предыдущая
+                </button>
+                
+                <template x-for="page in getPageNumbers()" :key="page">
+                    <button @click="loadPage(page)"
+                            :class="{'bg-blue-600 text-white': page === currentPage, 'border border-gray-300 text-gray-600 hover:bg-gray-50': page !== currentPage}"
+                            class="px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm"
+                            x-text="page"></button>
+                </template>
+                
+                <button @click="loadPage(currentPage + 1)"
+                        :disabled="currentPage >= totalPages"
+                        :class="{'opacity-50 cursor-not-allowed': currentPage >= totalPages, 'hover:bg-gray-50': currentPage < totalPages}"
+                        class="px-2 sm:px-3 py-1 border border-gray-300 rounded-lg text-gray-600 text-xs sm:text-sm">
+                    Следующая
+                </button>
+            </div>
+        </div>
+    </main>
+    <!-- Add/Edit Client Drawer -->
+    <div x-show="showAddClientModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closeAddClient()"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900" x-text="selectedClient ? 'Редактировать клиента' : 'Добавить клиента'"></h3>
+                <button @click="closeAddClient()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form @submit.prevent="selectedClient ? updateClient() : addClient()" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                    <input type="text" 
+                           x-model="clientForm.name"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Введите имя клиента"
+                           required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                    <input type="tel" 
+                           x-model="clientForm.phone"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="+996 500 000 000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" 
+                           x-model="clientForm.email"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="client@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Отмена??/Позвонить??</label>
+                    <input type="text" 
+                           x-model="clientForm.company"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Название компании">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                    <input type="text" 
+                           x-model="clientForm.address"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="г. Бишкек, ул. ...">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" 
+                            @click="closeAddClient()" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Отмена
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <span x-text="selectedClient ? 'Сохранить' : 'Добавить'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Client Details Drawer -->
+    <div x-show="showDetailsDrawer" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closeDetails()"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">Профиль клиента</h3>
+                <button @click="closeDetails()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="flex items-center space-x-3 mb-6">
+                <div :class="getClientAvatarBg(detailsClient)" class="w-12 h-12 rounded-full flex items-center justify-center">
+                    <span :class="getClientAvatarText(detailsClient)" class="font-semibold" x-text="getClientInitials(detailsClient.name || '')"></span>
+                </div>
+                <div>
+                    <div class="text-lg font-semibold text-gray-900" x-text="detailsClient.name || ''"></div>
+                    <div class="text-sm text-gray-500" x-text="detailsClient.phone || ''"></div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Email</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.email || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Компания</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.company || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Адрес</div>
+                    <div class="text-sm text-gray-900" x-text="detailsClient.address || '-'"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase text-gray-400">Статус</div>
+                    <span :class="getStatusClass(detailsClient.status)" class="inline-flex px-2 py-1 rounded-full text-xs" x-text="getStatusText(detailsClient.status)"></span>
+                </div>
+            </div>
+            <div class="mt-6 flex space-x-2">
+                <button @click="editClient(detailsClient)" class="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg">Редактировать</button>
+                <button @click="callClient(detailsClient)" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg">Позвонить</button>
+            </div>
+        </div>
+    </div>
+    <!-- Call Client Drawer -->
+    <div x-show="showCallModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showCallModal = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">Звонок клиенту</h3>
+                <button @click="showCallModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="phone" class="w-8 h-8 text-blue-600"></i>
+                </div>
+                <p class="text-lg font-medium text-gray-900 mb-2" x-text="callForm.clientName"></p>
+                <p class="text-gray-600 mb-6" x-text="callForm.phone"></p>
+                <div class="flex justify-center space-x-4">
+                    <button @click="startCall" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2">
+                        <i data-lucide="phone" class="w-5 h-5"></i>
+                        <span>Позвонить</span>
+                    </button>
+                    <button @click="showCallModal = false" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Export Drawer -->
+    <div x-show="showExportModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showExportModal = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">Экспорт клиентов</h3>
+                <button @click="showExportModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form @submit.prevent="exportClients" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Формат</label>
+                    <select x-model="exportFormat" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="xlsx">Excel (XLSX)</option>
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                    <select x-model="exportStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="all">Все</option>
+                        <option value="active">Активные</option>
+                        <option value="inactive">Позвонить?</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Период</label>
+                    <div class="flex space-x-2">
+                        <input type="date" x-model="exportDateFrom" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg">
+                        <input type="date" x-model="exportDateTo" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" @click="showExportModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Отмена</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Экспортировать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        // Дополнительная инициализация иконок после загрузки Alpine.js
+        document.addEventListener('alpine:init', () => {
+            lucide.createIcons();
+        });
+
+        // Alpine.js Component
+        function clientsPage() {
+            return {
+                showAddClientModal: false,
+                showCallModal: false,
+                showExportModal: false,
+                showMobileMenu: false,
+                showDetailsDrawer: false,
+                detailsClient: {},
+                viewMode: 'cards',
+                menuClientId: null,
+                selectedClient: null,
+                clients: [],
+                filteredClients: [],
+                searchQuery: '',
+                statusFilter: 'all',
+                sidebarFilter: 'all',
+                loading: false,
+                toast: null,
+                // Пагинация
+                currentPage: 1,
+                totalPages: 1,
+                totalClients: 0,
+                pageSize: 12,
+                clientForm: {
+                    name: '',
+                    phone: '',
+                    email: '',
+                    company: '',
+                    address: ''
+                },
+                callForm: {
+                    clientName: '',
+                    phone: ''
+                },
+                exportFormat: 'json',
+                exportStatus: 'all',
+                exportDateFrom: '',
+                exportDateTo: '',
+                init() {
+                    this.loadClients();
+                    this.$nextTick(() => {
+                        lucide.createIcons();
+                    });
+                },
+                async loadClients(page = 1) {
+                    this.loading = true;
+                    try {
+                        // Загружаем всех клиентов без фильтра по бизнесу
+                        const response = await fetch(`/clients/api/clients/?page=${page}&page_size=${this.pageSize}`);
+                        if (!response.ok) throw new Error('Ошибка загрузки клиентов');
+                        const data = await response.json();
+                        this.clients = data.results || [];
+                        this.filteredClients = [...this.clients];
+                        this.currentPage = page;
+                        this.totalClients = data.count || 0;
+                        this.totalPages = Math.ceil(this.totalClients / this.pageSize);
+                        this.updateStatistics();
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                        });
+                    } catch (error) {
+                        console.error('Ошибка загрузки клиентов:', error);
+                        this.showToast('Ошибка загрузки клиентов', 'error');
+                        this.clients = [];
+                        this.filteredClients = [];
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async loadPage(page) {
+                    await this.loadClients(page);
+                },
+                updateStatistics() {
+                    const totalClients = this.totalClients;
+                    const newClients = this.clients.filter(client => {
+                        const createdDate = new Date(client.created_at);
+                        const weekAgo = new Date();
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return createdDate > weekAgo;
+                    }).length;
+                    
+                    // Обновляем статистику в sidebar
+                    const totalElement = document.querySelector('[data-stat="total"]');
+                    const newElement = document.querySelector('[data-stat="new"]');
+                    if (totalElement) totalElement.textContent = totalClients;
+                    if (newElement) newElement.textContent = newClients;
+                },
+                async filterClients() {
+                    this.currentPage = 1;
+                    let url = `/clients/api/clients/?page=1&page_size=${this.pageSize}`;
+                    if (this.searchQuery) {
+                        url += `&search=${encodeURIComponent(this.searchQuery)}`;
+                    }
+                    // Фильтрация по статусу (если нужно)
+                    if (this.sidebarFilter !== 'all') {
+                        if (this.sidebarFilter === 'active') {
+                            url += `&status=active`;
+                        } else if (this.sidebarFilter === 'inactive') {
+                            url += `&status=inactive`;
+                        }
+                    } else {
+                        if (this.statusFilter === 'active' || this.statusFilter === 'inactive') {
+                            url += `&status=${this.statusFilter}`;
+                        }
+                    }
+                    this.loading = true;
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error('Ошибка фильтрации');
+                        const data = await response.json();
+                        this.clients = data.results || [];
+                        this.filteredClients = [...this.clients];
+                        this.totalClients = data.count || 0;
+                        this.totalPages = Math.ceil(this.totalClients / this.pageSize);
+                        this.updateStatistics();
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                        });
+                    } catch (error) {
+                        console.error('Ошибка фильтрации:', error);
+                        this.showToast('Ошибка фильтрации', 'error');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async refreshClients() {
+                    const hasFilters = Boolean(this.searchQuery) ||
+                        this.statusFilter !== 'all' ||
+                        this.sidebarFilter !== 'all';
+                    if (hasFilters) {
+                        await this.filterClients();
+                    } else {
+                        await this.loadClients(this.currentPage);
+                    }
+                },
+                async addClient() {
+                    if (!this.clientForm.name || !this.clientForm.phone) {
+                        this.showToast('Заполните обязательные поля', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/clients/api/clients/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                ...this.clientForm
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const message = await this.getErrorMessage(response, 'Ошибка создания клиента');
+                            throw new Error(message);
+                        }
+                        
+                        this.showToast('Клиент успешно добавлен', 'success');
+                        this.showAddClientModal = false;
+                        this.resetClientForm();
+                        
+                        // Перезагружаем текущую страницу
+                        await this.refreshClients();
+                    } catch (error) {
+                        console.error('Ошибка создания клиента:', error);
+                        this.showToast(error.message || 'Ошибка создания клиента', 'error');
+                    }
+                },
+                async updateClient() {
+                    if (!this.selectedClient) return;
+                    
+                    try {
+                        const response = await fetch(`/clients/api/clients/${this.selectedClient.id}/`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify(this.clientForm)
+                        });
+                        
+                        if (!response.ok) {
+                            const message = await this.getErrorMessage(response, 'Ошибка обновления клиента');
+                            throw new Error(message);
+                        }
+                        
+                        this.showToast('Клиент успешно обновлен', 'success');
+                        this.closeAddClient();
+                        
+                        // Перезагружаем текущую страницу
+                        await this.refreshClients();
+                    } catch (error) {
+                        console.error('Ошибка обновления клиента:', error);
+                        this.showToast(error.message || 'Ошибка обновления клиента', 'error');
+                    }
+                },
+                async deleteClient(client) {
+                    if (!confirm(`Удалить клиента "${client.name}"?`)) return;
+                    
+                    try {
+                        const response = await fetch(`/clients/api/clients/${client.id}/`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            credentials: 'same-origin'
+                        });
+                        
+                        if (!response.ok) {
+                            const message = await this.getErrorMessage(response, 'Ошибка удаления клиента');
+                            throw new Error(message);
+                        }
+                        
+                        this.showToast('Клиент успешно удален', 'success');
+                        this.closeClientMenu();
+                        if (this.detailsClient && this.detailsClient.id === client.id) {
+                            this.closeDetails();
+                        }
+                        this.selectedClient = null;
+                        
+                        // Перезагружаем текущую страницу
+                        await this.refreshClients();
+                    } catch (error) {
+                        console.error('Ошибка удаления клиента:', error);
+                        this.showToast('Ошибка удаления клиента', 'error');
+                    }
+                },
+                editClient(client) {
+                    this.selectedClient = client;
+                    this.clientForm = {
+                        name: client.name,
+                        phone: client.phone,
+                        email: client.email || '',
+                        company: client.company || '',
+                        address: client.address || ''
+                    };
+                    this.closeClientMenu();
+                    this.showDetailsDrawer = false;
+                    this.showAddClientModal = true;
+                },
+                
+                openAddClient() {
+                    this.resetClientForm();
+                    this.closeDetails();
+                    this.showAddClientModal = true;
+                },
+                closeAddClient() {
+                    this.showAddClientModal = false;
+                    this.resetClientForm();
+                },
+                openDetails(client) {
+                    this.detailsClient = client || {};
+                    this.showDetailsDrawer = true;
+                    this.closeClientMenu();
+                },
+                closeDetails() {
+                    this.showDetailsDrawer = false;
+                    this.detailsClient = {};
+                },
+                toggleClientMenu(client) {
+                    this.selectedClient = client;
+                    this.menuClientId = this.menuClientId === client.id ? null : client.id;
+                },
+                closeClientMenu() {
+                    this.menuClientId = null;
+                },
+                getClientInitials(name) {
+                    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                },
+                getClientAvatarBg(client) {
+                    const colors = ['bg-blue-100', 'bg-purple-100', 'bg-green-100', 'bg-pink-100', 'bg-indigo-100', 'bg-orange-100'];
+                    return colors[client.id % colors.length];
+                },
+                getClientAvatarText(client) {
+                    const colors = ['text-blue-600', 'text-purple-600', 'text-green-600', 'text-pink-600', 'text-indigo-600', 'text-orange-600'];
+                    return colors[client.id % colors.length];
+                },
+                getStatusClass(status) {
+                    const classes = {
+                        'active': 'bg-blue-100 text-blue-800',
+                        'inactive': 'bg-gray-100 text-gray-800'
+                    };
+                    return classes[status] || classes['active'];
+                },
+                getStatusText(status) {
+                    const texts = {
+                        'active': 'Активный',
+                        'inactive': 'Неактивный'
+                    };
+                    return texts[status] || 'Активный';
+                },
+                formatDate(dateString) {
+                    if (!dateString) return 'Не указано';
+                    const date = new Date(dateString);
+                    const now = new Date();
+
+                    // Сравниваем только даты, без времени
+                    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                    const diffTime = dateOnly - nowOnly;
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                    // Для будущих дат
+                    if (diffDays > 0) {
+                        if (diffDays === 1) return 'Завтра';
+                        if (diffDays <= 7) return `Через ${diffDays} дней`;
+                        if (diffDays <= 30) return `Через ${Math.floor(diffDays / 7)} недель`;
+                        return date.toLocaleDateString('ru-RU');
+                    }
+
+                    // Для прошлых дат
+                    const absDiffDays = Math.abs(diffDays);
+                    if (absDiffDays === 0) return 'Сегодня';
+                    if (absDiffDays === 1) return 'Вчера';
+                    if (absDiffDays <= 7) return `${absDiffDays} дней назад`;
+                    if (absDiffDays <= 30) return `${Math.floor(absDiffDays / 7)} недель назад`;
+                    return date.toLocaleDateString('ru-RU');
+                },
+                formatPrice(price) {
+                    if (!price) return '⃀ 0';
+                    return `⃀ ${parseInt(price).toLocaleString('ru-RU')}`;
+                },
+                getCsrfToken() {
+                    const name = 'csrftoken';
+                    const cookies = document.cookie.split(';');
+                    for (let cookie of cookies) {
+                        cookie = cookie.trim();
+                        if (cookie.startsWith(name + '=')) {
+                            return decodeURIComponent(cookie.substring(name.length + 1));
+                        }
+                    }
+                    return '';
+                },
+                async getErrorMessage(response, fallback) {
+                    const raw = await response.text();
+                    if (!raw) return fallback;
+                    try {
+                        const data = JSON.parse(raw);
+                        if (data.detail) return data.detail;
+                        if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+                            return data.non_field_errors[0];
+                        }
+                        const firstKey = Object.keys(data)[0];
+                        if (firstKey && Array.isArray(data[firstKey]) && data[firstKey].length > 0) {
+                            return data[firstKey][0];
+                        }
+                        return fallback;
+                    } catch {
+                        return raw;
+                    }
+                },
+                showToast(message, type = 'success') {
+                    this.toast = { message, type };
+                    setTimeout(() => this.toast = null, 3000);
+                },
+                viewHistory(client) {
+                    this.closeClientMenu();
+                    // Показываем уведомление о будущей функции
+                    this.showToast('Эта функция будет доступна в следующих обновлениях', 'info');
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                addNote(client) {
+                    this.selectedClient = client;
+                    this.clientForm = {
+                        name: client.name,
+                        phone: client.phone,
+                        email: client.email || '',
+                        notes: client.notes || '',
+                        status: client.status
+                    };
+                    this.closeClientMenu();
+                    this.showDetailsDrawer = false;
+                    this.showAddClientModal = true;
+                },
+                scheduleAppointment(client) {
+                    // Редирект на страницу записи с данными клиента
+                    const params = new URLSearchParams({
+                        client_id: client.id,
+                        client_name: client.name,
+                        client_phone: client.phone
+                    });
+                    window.location.href = `/schedules/?${params.toString()}`;
+                },
+                callClient(client) {
+                    // Проверяем, поддерживает ли браузер звонки
+                    if ('navigator' in window && 'share' in navigator) {
+                        // Для мобильных устройств с поддержкой Web Share API
+                        navigator.share({
+                            title: `Звонок клиенту ${client.name}`,
+                            text: `Позвонить клиенту ${client.name}`,
+                            url: `tel:${client.phone}`
+                        }).catch(() => {
+                            // Fallback - открываем модальное окно
+                            this.selectedClient = client;
+                            this.callForm.clientName = client.name;
+                            this.callForm.phone = client.phone;
+                            this.showCallModal = true;
+                        });
+                    } else {
+                        // Для десктопных браузеров - открываем модальное окно
+                        this.selectedClient = client;
+                        this.callForm.clientName = client.name;
+                        this.callForm.phone = client.phone;
+                        this.showCallModal = true;
+                    }
+                },
+                startCall() {
+                    const phoneNumber = this.callForm.phone;
+                    
+                    // Пытаемся сделать звонок
+                    if ('navigator' in window && 'share' in navigator) {
+                        // Для мобильных устройств
+                        navigator.share({
+                            title: `Звонок клиенту ${this.callForm.clientName}`,
+                            text: `Позвонить клиенту ${this.callForm.clientName}`,
+                            url: `tel:${phoneNumber}`
+                        }).catch(() => {
+                            // Fallback - открываем tel: ссылку
+                            window.open(`tel:${phoneNumber}`, '_blank');
+                        });
+                    } else {
+                        // Для десктопных браузеров - копируем номер в буфер обмена
+                        navigator.clipboard.writeText(phoneNumber).then(() => {
+                            this.showToast('Номер скопирован в буфер обмена', 'success');
+                        }).catch(() => {
+                            // Fallback - показываем номер
+                            this.showToast(`Номер для звонка: ${phoneNumber}`, 'info');
+                        });
+                    }
+                    
+                    this.showCallModal = false;
+                },
+                getActivityStatusClass(status) {
+                    const classes = {
+                        'Активный': 'bg-green-100 text-green-800',
+                        'Неактивный': 'bg-gray-100 text-gray-800'
+                    };
+                    return classes[status] || classes['Неактивный'];
+                },
+                getPageNumbers() {
+                    const pages = [];
+                    const maxVisiblePages = 5;
+                    
+                    if (this.totalPages <= maxVisiblePages) {
+                        // Если страниц мало, показываем все
+                        for (let i = 1; i <= this.totalPages; i++) {
+                            pages.push(i);
+                        }
+                    } else {
+                        // Если страниц много, показываем только часть
+                        let start = Math.max(1, this.currentPage - 2);
+                        let end = Math.min(this.totalPages, start + maxVisiblePages - 1);
+                        
+                        // Корректируем start если end слишком близко к концу
+                        if (end - start < maxVisiblePages - 1) {
+                            start = Math.max(1, end - maxVisiblePages + 1);
+                        }
+                        
+                        for (let i = start; i <= end; i++) {
+                            pages.push(i);
+                        }
+                    }
+                    
+                    return pages;
+                },
+                applySidebarFilter(filter) {
+                    this.sidebarFilter = filter;
+                    // Синхронизируем с основным фильтром
+                    if (filter === 'all') {
+                        this.statusFilter = 'all';
+                    } else if (filter === 'active' || filter === 'inactive') {
+                        this.statusFilter = filter;
+                    }
+                    // Сбрасываем поиск при применении фильтра
+                    this.searchQuery = '';
+                    this.filterClients();
+                },
+                async exportClients() {
+                    if (this.exportFormat === 'xlsx') {
+                        await this.exportToExcel();
+                        return;
+                    }
+                    
+                    const params = new URLSearchParams();
+                    params.append('format', this.exportFormat);
+                    if (this.exportStatus && this.exportStatus !== 'all') {
+                        if (['active', 'inactive'].includes(this.exportStatus)) {
+                            params.append('status', this.exportStatus);
+                        } else {
+                            params.append('status', this.exportStatus);
+                        }
+                    }
+                    if (this.exportDateFrom) params.append('date_from', this.exportDateFrom);
+                    if (this.exportDateTo) params.append('date_to', this.exportDateTo);
+                    const url = `/clients/api/export/?${params.toString()}`;
+                    this.showExportModal = false;
+                    try {
+                        const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                        if (!response.ok) throw new Error('Ошибка экспорта');
+                        const blob = await response.blob();
+                        let filename = '';
+                        const disposition = response.headers.get('Content-Disposition');
+                        if (disposition) {
+                            const match = disposition.match(/filename\*=UTF-8''(.+)/);
+                            if (match) filename = decodeURIComponent(match[1]);
+                            else {
+                                const match2 = disposition.match(/filename="(.+)"/);
+                                if (match2) filename = match2[1];
+                            }
+                        }
+                        if (!filename) filename = `clients_export.${this.exportFormat}`;
+                        const link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        this.showToast('Экспорт успешно выполнен', 'success');
+                    } catch (error) {
+                        this.showToast('Ошибка экспорта', 'error');
+                    }
+                },
+
+                async exportToExcel() {
+                    try {
+                        // Загружаем библиотеку SheetJS
+                        if (typeof XLSX === 'undefined') {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                            script.onload = () => this.performExcelExport();
+                            document.head.appendChild(script);
+                        } else {
+                            this.performExcelExport();
+                        }
+                    } catch (error) {
+                        console.error('Ошибка экспорта:', error);
+                        this.showToast('Ошибка при экспорте в Excel', 'error');
+                    }
+                },
+
+                performExcelExport() {
+                    // Фильтруем клиентов согласно выбранным параметрам
+                    let clientsToExport = this.clients;
+                    
+                    if (this.exportStatus && this.exportStatus !== 'all') {
+                        clientsToExport = clientsToExport.filter(client => client.status === this.exportStatus);
+                    }
+                    
+                    if (this.exportDateFrom) {
+                        const fromDate = new Date(this.exportDateFrom);
+                        clientsToExport = clientsToExport.filter(client => new Date(client.created_at) >= fromDate);
+                    }
+                    
+                    if (this.exportDateTo) {
+                        const toDate = new Date(this.exportDateTo);
+                        toDate.setHours(23, 59, 59, 999); // Включаем весь день
+                        clientsToExport = clientsToExport.filter(client => new Date(client.created_at) <= toDate);
+                    }
+
+                    // Подготавливаем данные для экспорта
+                    const data = clientsToExport.map(client => ({
+                        'Имя клиента': client.name,
+                        'Телефон': client.phone || 'Не указан',
+                        'Email': client.email || 'Не указан',
+                        'Компания/Организация': client.company || 'Не указана',
+                        'Адрес': client.address || 'Не указан',
+                        'Статус': this.getStatusLabel(client.status),
+                        'Дата добавления': client.created_at ? new Date(client.created_at).toLocaleDateString('ru-RU') : 'Не указана',
+                        'Последнее изменение': client.updated_at ? new Date(client.updated_at).toLocaleDateString('ru-RU') : 'Не указана'
+                    }));
+
+                    // Создаем рабочую книгу
+                    const wb = XLSX.utils.book_new();
+                    
+                    // Создаем лист с данными
+                    const ws = XLSX.utils.json_to_sheet(data);
+
+                    // Настраиваем ширину столбцов
+                    const colWidths = [
+                        { wch: 25 }, // Имя клиента
+                        { wch: 18 }, // Телефон
+                        { wch: 30 }, // Email
+                        { wch: 25 }, // Компания
+                        { wch: 35 }, // Адрес
+                        { wch: 15 }, // Статус
+                        { wch: 18 }, // Дата добавления
+                        { wch: 18 }  // Последнее изменение
+                    ];
+                    ws['!cols'] = colWidths;
+
+                    // Добавляем стили для заголовков
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    for (let col = range.s.c; col <= range.e.c; col++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                        if (!ws[cellAddress]) continue;
+                        
+                        ws[cellAddress].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "2563EB" } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                top: { style: "thin", color: { rgb: "FFFFFF" } },
+                                bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                                left: { style: "thin", color: { rgb: "FFFFFF" } },
+                                right: { style: "thin", color: { rgb: "FFFFFF" } }
+                            }
+                        };
+                    }
+
+                    // Добавляем стили для данных
+                    for (let row = 1; row <= range.e.r; row++) {
+                        for (let col = range.s.c; col <= range.e.c; col++) {
+                            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                            if (!ws[cellAddress]) continue;
+                            
+                            ws[cellAddress].s = {
+                                font: { color: { rgb: "000000" } },
+                                fill: { fgColor: { rgb: row % 2 === 0 ? "F8FAFC" : "FFFFFF" } },
+                                alignment: { vertical: "center" },
+                                border: {
+                                    top: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    left: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    right: { style: "thin", color: { rgb: "E2E8F0" } }
+                                }
+                            };
+                        }
+                    }
+
+                    // Добавляем лист в книгу
+                    XLSX.utils.book_append_sheet(wb, ws, 'Клиенты');
+
+                    // Создаем лист со статистикой
+                    const statsData = [
+                        { 'Показатель': 'Всего клиентов', 'Значение': clientsToExport.length },
+                        { 'Показатель': 'Активные клиенты', 'Значение': clientsToExport.filter(c => c.status === 'active').length },
+                        { 'Показатель': 'Неактивные клиенты', 'Значение': clientsToExport.filter(c => c.status === 'inactive').length },
+                        { 'Показатель': 'Потенциальные клиенты', 'Значение': clientsToExport.filter(c => c.status === 'potential').length },
+                        { 'Показатель': 'Заблокированные клиенты', 'Значение': clientsToExport.filter(c => c.status === 'blocked').length }
+                    ];
+                    
+                    const statsWs = XLSX.utils.json_to_sheet(statsData);
+                    statsWs['!cols'] = [{ wch: 25 }, { wch: 20 }];
+                    
+                    // Стили для статистики
+                    const statsRange = XLSX.utils.decode_range(statsWs['!ref']);
+                    for (let col = statsRange.s.c; col <= statsRange.e.c; col++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                        if (!statsWs[cellAddress]) continue;
+                        
+                        statsWs[cellAddress].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "10B981" } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                top: { style: "thin", color: { rgb: "FFFFFF" } },
+                                bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                                left: { style: "thin", color: { rgb: "FFFFFF" } },
+                                right: { style: "thin", color: { rgb: "FFFFFF" } }
+                            }
+                        };
+                    }
+
+                    XLSX.utils.book_append_sheet(wb, statsWs, 'Статистика');
+
+                    // Экспортируем файл
+                    const fileName = `Клиенты_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+                    XLSX.writeFile(wb, fileName);
+                    
+                    this.showExportModal = false;
+                    this.showToast('Экспорт в Excel успешно выполнен', 'success');
+                },
+
+                getStatusLabel(status) {
+                    const statusLabels = {
+                        'active': 'Активный',
+                        'inactive': 'Неактивный',
+                        'potential': 'Потенциальный',
+                        'blocked': 'Заблокирован'
+                    };
+                    return statusLabels[status] || 'Неизвестно';
+                },
+                quickCall(client) {
+                    const phoneNumber = client.phone;
+                    
+                    // Пытаемся сделать звонок напрямую
+                    if ('navigator' in window && 'share' in navigator) {
+                        // Для мобильных устройств с поддержкой Web Share API
+                        navigator.share({
+                            title: `Звонок клиенту ${client.name}`,
+                            text: `Позвонить клиенту ${client.name}`,
+                            url: `tel:${phoneNumber}`
+                        }).catch(() => {
+                            // Fallback - открываем tel: ссылку
+                            window.open(`tel:${phoneNumber}`, '_blank');
+                        });
+                    } else {
+                        // Для десктопных браузеров - копируем номер
+                        navigator.clipboard.writeText(phoneNumber).then(() => {
+                            this.showToast(`Номер ${client.name} скопирован в буфер обмена`, 'success');
+                        }).catch(() => {
+                            // Fallback - показываем номер
+                            this.showToast(`Номер ${client.name}: ${phoneNumber}`, 'info');
+                        });
+                    }
+                },
+            };
+        }
+    </script>
+</body>
+</html>

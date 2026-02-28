@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки — Список заказов</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
+        aside::-webkit-scrollbar { display: none; }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(.4,0,.2,1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes success-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-success-pop {
+            animation: success-pop 0.5s cubic-bezier(.4,0,.2,1);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
+    
+    <!-- Main Content (Desktop split view) -->
+    <main class="flex-1 overflow-hidden ml-64 p-6 pt-28" x-data="ordersData()" x-init="init()" @keydown.window="handleKeydown($event)">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-semibold text-gray-900">Заявки (заказы)</h1>
+                <p class="text-gray-600 text-sm">Список всех заявок и заказов</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <input x-ref="searchInput" type="text" placeholder="Поиск..." x-model="searchTerm"
+                        class="pl-10 pr-4 py-2 w-72 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                </div>
+                <button @click="openCreate()" class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <span>Создать</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Loading State -->
+        <template x-if="loading">
+            <div class="space-y-3 animate-pulse">
+                <div class="h-16 rounded-xl bg-gray-200"></div>
+                <div class="h-16 rounded-xl bg-gray-200"></div>
+                <div class="h-16 rounded-xl bg-gray-200"></div>
+            </div>
+        </template>
+
+        <!-- Split View -->
+        <template x-if="!loading">
+            <div class="grid gap-2" x-ref="split" :style="'grid-template-columns:' + listPaneWidth + 'px 1fr'">
+                <!-- Orders List Pane -->
+                <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                        <div class="text-xs text-gray-500">Всего: <span x-text="orders.length"></span></div>
+                        <div class="flex items-center gap-1">
+                            <button @click="sortBy('created_at')" class="px-2 py-1 text-gray-600 hover:text-gray-900 rounded">
+                                <i data-lucide="clock" class="w-4 h-4"></i>
+                            </button>
+                            <button @click="sortBy('name')" class="px-2 py-1 text-gray-600 hover:text-gray-900 rounded">
+                                <i data-lucide="arrow-up-narrow-wide" class="w-4 h-4"></i>
+                            </button>
+                            <button @click="toggleDensity()" class="px-2 py-1 text-gray-600 hover:text-gray-900 rounded">
+                                <i data-lucide="list" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-100 overflow-auto" :class="density === 'compact' ? 'max-h-[calc(100vh-220px)]' : 'max-h-[calc(100vh-240px)]'">
+                        <template x-if="sortedFilteredOrders().length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <i data-lucide="file-text" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <div class="text-gray-600">Нет заявок</div>
+                    </div>
+                </template>
+                        <template x-for="(order, idx) in sortedFilteredOrders()" :key="order.id">
+                            <div @click="selectOrder(order, idx)" :class="selectedOrder && selectedOrder.id === order.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'" class="px-4 cursor-default" :style="density === 'compact' ? 'padding-top:6px;padding-bottom:6px' : 'padding-top:10px;padding-bottom:10px'">
+                                <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="font-medium text-gray-900 truncate" x-text="order.name"></h3>
+                                            <span class="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full" x-text="order.status"></span>
+                                    </div>
+                                        <div class="text-xs text-gray-600 mt-1 truncate">
+                                            <span x-text="order.client && order.client.name ? order.client.name : 'Клиент: —'"></span>
+                                            • <span x-text="formatDate(order.created_at)"></span>
+                                            • <span x-text="(order.items && order.items.length ? order.items.length : 0) + ' поз.'"></span>
+                                    </div>
+                                    </div>
+                                    <div class="text-sm text-gray-900 font-semibold whitespace-nowrap" x-text="(order.expenses || 0).toLocaleString() + ' ⃀'"></div>
+                                    </div>
+                                </div>
+                        </template>
+                            </div>
+                </section>
+
+                <!-- Details/Create Pane with Resizer -->
+                <div class="relative">
+                    <div class="absolute left-[-4px] top-0 bottom-0 w-2 cursor-col-resize z-10" @mousedown.prevent="startResize"></div>
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-200 h-[calc(100vh-210px)] overflow-auto">
+                        <template x-if="showCreatePane">
+                            <div class="p-6">
+                                <h2 class="text-lg font-semibold text-gray-900 mb-4">Создать заказ</h2>
+                                <form @submit.prevent="submitOrder" class="space-y-6">
+                                    <!-- Step navigation -->
+                                    <div class="flex space-x-1 mb-2">
+                                        <template x-for="step in 3" :key="step">
+                                            <button type="button" @click="createStep = step" :class="createStep === step ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                                                <span x-text="step === 1 ? 'Основное' : step === 2 ? 'Клиент' : 'Товары'"></span>
+                                            </button>
+                            </template>
+                        </div>
+                        
+                                    <template x-if="createStep === 1">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Название заказа <span class="text-red-500">*</span></label>
+                                            <input type="text" x-model="newOrder.name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                                    </template>
+
+                                    <template x-if="createStep === 2">
+                                        <div class="space-y-4">
+                                            <div class="flex gap-2 mb-2">
+                                                <button type="button" @click="clientMode = 'existing'" :class="clientMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-2 rounded-lg font-semibold transition-colors">Клиент уже покупал</button>
+                                                <button type="button" @click="clientMode = 'new'" :class="clientMode === 'new' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-2 rounded-lg font-semibold transition-colors">Новый клиент</button>
+                                            </div>
+                                            <template x-if="clientMode === 'existing'">
+                            <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-2">Выберите клиента</label>
+                                                    <select x-model="newOrder.client_id" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                        <option value="">— Выберите —</option>
+                                                        <template x-for="client in clients" :key="client.id">
+                                                            <option :value="client.id" x-text="client.name + (client.company ? ' ('+client.company+')' : '')"></option>
+                                                        </template>
+                                                    </select>
+                            </div>
+                                            </template>
+                                            <template x-if="clientMode === 'new'">
+                                                <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Имя *</label>
+                                                        <input type="text" x-model="clientForm.name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
+                                                        <input type="tel" x-model="clientForm.phone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                                        <input type="email" x-model="clientForm.email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Компания</label>
+                                                        <input type="text" x-model="clientForm.company" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    </div>
+                                                    <div class="col-span-2">
+                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Адрес</label>
+                                                        <input type="text" x-model="clientForm.address" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+                                    <template x-if="createStep === 3">
+                                        <div class="space-y-4">
+                                            <div class="flex items-center justify-between">
+                                                <label class="block text-sm font-medium text-gray-700">Товары <span class="text-red-500">*</span></label>
+                                                <button type="button" @click="addItem()" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">+ Добавить товар</button>
+                                            </div>
+                                            <div class="space-y-3">
+                                                <template x-for="(item, idx) in newOrder.items" :key="idx">
+                                                    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                                        <div class="grid grid-cols-12 gap-4 items-end">
+                                                            <div class="col-span-4">
+                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Товар</label>
+                                                                <select x-model="item.product_id" @change="onProductChange(idx)" required class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                                    <option value="">— Товар —</option>
+                                                                    <template x-for="product in products" :key="product.id">
+                                                                        <option :value="product.id" x-text="product.name"></option>
+                                                                    </template>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-span-2">
+                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Кол-во</label>
+                                                                <input type="number" min="1" x-model.number="item.quantity" required class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                            </div>
+                                                            <div class="col-span-2">
+                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Размер</label>
+                                                                <input type="text" x-model="item.size" placeholder="S/M/40x60" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                            </div>
+                                                            <div class="col-span-2">
+                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
+                                                                <input type="text" x-model="item.color" placeholder="Белый" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                            </div>
+                                                            <div class="col-span-12 flex justify-end pt-2">
+                                                                <button type="button" @click="removeItem(idx)" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 transition-colors">
+                                                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                                                    <span>Удалить</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Дополнительные поля для стеклянных изделий -->
+                                                        <template x-if="getProductById(item.product_id) && getProductById(item.product_id).is_glass">
+                                                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                                                <div class="grid grid-cols-12 gap-4">
+                                                                    <div class="col-span-4">
+                                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Тип стекла</label>
+                                                                        <select x-model="item.glass_type" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                                            <option value="sandblasted">Пескоструйный</option>
+                                                                            <option value="uv">УФ</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-span-4">
+                                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Тип краски</label>
+                                                                        <input type="text" x-model="item.paint_type" placeholder="Акрил, эмаль" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                                    </div>
+                                                                    <div class="col-span-4">
+                                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Цвет краски</label>
+                                                                        <input type="text" x-model="item.paint_color" placeholder="Белый" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                        
+                                                        <!-- Дополнительные поля для всех изделий -->
+                                                        <div class="mt-4 pt-4 border-t border-gray-200">
+                                                            <div class="grid grid-cols-12 gap-4">
+                                                                <div class="col-span-6">
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-2">Спецификации для ЧПУ</label>
+                                                                    <textarea x-model="item.cnc_specs" placeholder="Детали для обработки на станках" rows="2" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                                                </div>
+                                                                <div class="col-span-6">
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-2">Спецификации для распила</label>
+                                                                    <textarea x-model="item.cutting_specs" placeholder="Детали для распила" rows="2" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                                                </div>
+                                                                <div class="col-span-12">
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-2">Заметки для упаковки</label>
+                                                                    <textarea x-model="item.packaging_notes" placeholder="Особенности упаковки, маркировки" rows="2" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <div class="flex justify-between pt-2">
+                                        <button type="button" @click="prevStep" :disabled="createStep === 1" :class="createStep === 1 ? 'opacity-50 cursor-not-allowed' : ''" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">Назад</button>
+                                        <button type="button" @click="nextStep" x-show="createStep < 3" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Далее</button>
+                                        <button type="submit" x-show="createStep === 3" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Создать заказ</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </template>
+
+                        <template x-if="!showCreatePane && selectedOrder && Object.keys(selectedOrder).length">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h2 class="text-lg font-bold text-gray-900">Заявка: <span x-text="selectedOrder.name"></span></h2>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-1 rounded-full" x-text="selectedOrder.status"></span>
+                                        <button @click="clearSelection()" class="text-gray-400 hover:text-gray-600">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                                    </div>
+                    </div>
+                    
+                                <!-- Tabs -->
+                                <div class="flex space-x-1 mb-4">
+                            <template x-for="step in 4" :key="step">
+                                        <button @click="orderStep = step" :class="orderStep === step ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                                    <span x-text="step === 1 ? 'Основное' : step === 2 ? 'Клиент' : step === 3 ? 'Этапы' : 'Браки'"></span>
+                                </button>
+                            </template>
+                        </div>
+                        
+                                <!-- Step 1 -->
+                        <template x-if="orderStep === 1">
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">ID заказа</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedOrder.id"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                                        <p class="text-sm text-blue-600 font-semibold" x-text="selectedOrder.status"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Дата создания</label>
+                                        <p class="text-sm text-gray-900" x-text="formatDate(selectedOrder.created_at)"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Расходы</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedOrder.expenses.toLocaleString() + ' ⃀'"></p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+                                    <p class="text-sm text-gray-900" x-text="selectedOrder.comment || 'Нет комментария'"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Итого шт.</label>
+                                    <p class="text-sm text-gray-900" x-text="selectedOrder.total_quantity || selectedOrder.quantity || 0"></p>
+                                </div>
+                            </div>
+                        </template>
+                        
+                                <!-- Step 2 -->
+                        <template x-if="orderStep === 2">
+                            <div class="space-y-6">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Клиент</h3>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Имя</label>
+                                            <p class="text-sm text-gray-900" x-text="selectedOrder.client && selectedOrder.client.name"></p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Компания</label>
+                                            <p class="text-sm text-gray-900" x-text="selectedOrder.client && selectedOrder.client.company"></p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                                            <p class="text-sm text-gray-900" x-text="selectedOrder.client && selectedOrder.client.phone"></p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                            <p class="text-sm text-gray-900" x-text="selectedOrder.client && selectedOrder.client.email"></p>
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                                            <p class="text-sm text-gray-900" x-text="selectedOrder.client && selectedOrder.client.address"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Товары</h3>
+                                    <template x-if="selectedOrder.items && selectedOrder.items.length">
+                                        <div class="space-y-3">
+                                            <template x-for="it in selectedOrder.items" :key="it.id">
+                                                <div class="border border-gray-200 rounded-lg p-3">
+                                                    <div class="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 mb-1">Название</label>
+                                                            <p class="text-gray-900" x-text="it.product && it.product.name ? it.product.name : 'Товар'"></p>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 mb-1">Количество</label>
+                                                            <p class="text-gray-900" x-text="it.quantity"></p>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 mb-1">Размер</label>
+                                                            <p class="text-gray-900" x-text="it.size || 'Не указан'"></p>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 mb-1">Цвет</label>
+                                                            <p class="text-gray-900" x-text="it.color || 'Не указан'"></p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Информация о стеклянных изделиях -->
+                                                    <template x-if="it.product && it.product.is_glass">
+                                                        <div class="mt-3 pt-3 border-t border-gray-200">
+                                                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                                                <div>
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Тип стекла</label>
+                                                                    <p class="text-gray-900" x-text="it.glass_type || 'Не указан'"></p>
+                                                </div>
+                                                                <div>
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Тип краски</label>
+                                                                    <p class="text-gray-900" x-text="it.paint_type || 'Не указан'"></p>
+                                        </div>
+                                                <div>
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Цвет краски</label>
+                                                                    <p class="text-gray-900" x-text="it.paint_color || 'Не указан'"></p>
+                                                </div>
+                                                <div>
+                                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Резка стекла</label>
+                                                                    <p class="text-gray-900" x-text="it.glass_cutting_completed ? 'Завершена' : 'В процессе'"></p>
+                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    
+                                                    <!-- Дополнительные характеристики -->
+                                                    <div class="mt-3 pt-3 border-t border-gray-200">
+                                                        <div class="grid grid-cols-1 gap-2 text-sm">
+                                                <div>
+                                                                <label class="block text-sm font-medium text-gray-700 mb-1">Спецификации для ЧПУ</label>
+                                                                <p class="text-gray-900" x-text="it.cnc_specs || 'Не указаны'"></p>
+                                                </div>
+                                                <div>
+                                                                <label class="block text-sm font-medium text-gray-700 mb-1">Спецификации для распила</label>
+                                                                <p class="text-gray-900" x-text="it.cutting_specs || 'Не указаны'"></p>
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-sm font-medium text-gray-700 mb-1">Заметки для упаковки</label>
+                                                                <p class="text-gray-900" x-text="it.packaging_notes || 'Не указаны'"></p>
+                                                            </div>
+                                                </div>
+                                            </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="!selectedOrder.items || !selectedOrder.items.length">
+                                        <div class="text-gray-500 text-center py-8">
+                                            <i data-lucide="package" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                                            <p>Товары не добавлены</p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        
+                                <!-- Step 3 -->
+                        <template x-if="orderStep === 3">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-3">Этапы заказа</h3>
+                                <template x-if="selectedOrder.stages && selectedOrder.stages.length">
+                                    <div class="space-y-3">
+                                        <template x-for="stage in selectedOrder.stages" :key="stage.id">
+                                            <div class="border border-gray-200 rounded-lg p-3">
+                                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Цех</label>
+                                                        <p class="text-gray-900 font-semibold" x-text="stage.workshop && stage.workshop.name"></p>
+                                                        <template x-if="stage.products">
+                                                            <p class="text-sm text-gray-700 mt-1" x-text="stage.products"></p>
+                                                        </template>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">В работе</label>
+                                                        <p class="text-gray-900" x-text="stage.in_progress"></p>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Передано</label>
+                                                        <p class="text-gray-900" x-text="stage.completed"></p>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                                                        <p class="text-gray-900" x-text="formatDate(stage.date)"></p>
+                                                    </div>
+                                                    <div class="col-span-2">
+                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+                                                        <p class="text-gray-900" x-text="stage.comment || 'Нет комментария'"></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!selectedOrder.stages || !selectedOrder.stages.length">
+                                    <p class="text-gray-500 text-center py-8">Этапы не указаны</p>
+                                </template>
+                            </div>
+                        </template>
+                        
+                                <!-- Step 4 -->
+                        <template x-if="orderStep === 4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-3">Браки по заказу</h3>
+                                <template x-if="selectedOrder.defects && selectedOrder.defects.length">
+                                    <div class="space-y-3">
+                                        <template x-for="defect in selectedOrder.defects" :key="defect.id">
+                                            <div class="border border-red-200 rounded-lg p-3 bg-red-50">
+                                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-red-700 mb-1">Цех</label>
+                                                        <p class="text-red-900 font-semibold" x-text="defect.workshop && defect.workshop.name"></p>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-red-700 mb-1">Количество</label>
+                                                        <p class="text-red-900" x-text="defect.quantity"></p>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-red-700 mb-1">Дата</label>
+                                                        <p class="text-red-900" x-text="formatDate(defect.date)"></p>
+                                                    </div>
+                                                    <div class="col-span-2 md:col-span-3">
+                                                        <label class="block text-sm font-medium text-red-700 mb-1">Комментарий</label>
+                                                        <p class="text-red-900" x-text="defect.comment || 'Нет комментария'"></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!selectedOrder.defects || !selectedOrder.defects.length">
+                                    <p class="text-gray-500 text-center py-8">Браки не зарегистрированы</p>
+                                </template>
+                            </div>
+                        </template>
+            </div>
+        </template>
+
+                        <template x-if="!showCreatePane && (!selectedOrder || !Object.keys(selectedOrder).length)">
+                            <div class="h-full flex items-center justify-center text-gray-400">
+                                Выберите заявку слева или нажмите “Создать”.
+                    </div>
+                            </template>
+                    </section>
+                        </div>
+                                </div>
+                            </template>
+                            
+        <!-- Success Toast -->
+        <div x-show="showSuccess" x-transition class="fixed top-24 right-6 bg-white rounded-xl shadow-lg p-4 border border-green-200 z-40">
+            <div class="flex items-center gap-3">
+                <svg class="w-8 h-8 text-green-500 animate-success-pop" fill="none" viewBox="0 0 48 48" stroke="currentColor" stroke-width="3">
+                            <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-opacity="0.15" fill="#fff"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 25l6 6 10-13"/>
+                        </svg>
+                <div class="text-sm font-medium text-gray-900">Заявка успешно создана!</div>
+                <button @click="showSuccess = false" class="text-gray-400 hover:text-gray-600 ml-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+
+        <!-- Status Bar -->
+        <div class="fixed bottom-0 right-0 bg-white border-t border-gray-200 px-4 py-2 text-xs text-gray-600 flex items-center justify-between" style="left: 16rem;">
+            <div>Заказы: <span x-text="orders.length"></span> • Выбрано: <span x-text="selectedOrder && selectedOrder.id ? selectedOrder.id : '—'"></span></div>
+            <div>Горячие клавиши: F — поиск, N — новый, ↑/↓ — навигация, Enter — открыть, Esc — очистить</div>
+            </div>
+    </main>
+
+    <script>
+    function ordersData() {
+        return {
+            loading: true,
+            orders: [],
+            searchTerm: '',
+            selectedOrder: {},
+            selectedIndex: -1,
+            orderStep: 1,
+            // Desktop layout state
+            showCreatePane: false,
+            listPaneWidth: 420,
+            isResizing: false,
+            density: 'comfortable', // or 'compact'
+            sortKey: 'created_at',
+            sortAsc: false,
+
+            // Create form state
+            createStep: 1,
+            clientMode: 'existing',
+            clients: [],
+            products: [],
+            clientForm: { name: '', phone: '', email: '', company: '', address: '' },
+            newOrder: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '' }] },
+            showSuccess: false,
+            
+            openCreate() {
+                this.showCreatePane = true;
+                this.selectedOrder = {};
+                this.selectedIndex = -1;
+                this.createStep = 1;
+                this.clientMode = 'existing';
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            clearSelection() {
+                this.selectedOrder = {};
+                this.selectedIndex = -1;
+                this.orderStep = 1;
+            },
+            
+            selectOrder(order, idx) {
+                this.selectedOrder = order;
+                this.selectedIndex = idx;
+                this.showCreatePane = false;
+                this.orderStep = 1;
+                this.$nextTick(() => lucide.createIcons());
+            },
+
+            startResize(e) {
+                this.isResizing = true;
+                this._onMouseMove = (ev) => this.onMouseMove(ev);
+                this._onMouseUp = () => this.onMouseUp();
+                window.addEventListener('mousemove', this._onMouseMove);
+                window.addEventListener('mouseup', this._onMouseUp);
+            },
+            onMouseMove(e) {
+                if (!this.isResizing) return;
+                const min = 280, max = 700;
+                const newW = Math.min(max, Math.max(min, e.clientX - 16 * 4)); // minus sidebar width (16rem)
+                this.listPaneWidth = newW;
+            },
+            onMouseUp() {
+                if (!this.isResizing) return;
+                this.isResizing = false;
+                window.removeEventListener('mousemove', this._onMouseMove);
+                window.removeEventListener('mouseup', this._onMouseUp);
+                try { localStorage.setItem('orders_list_pane_w', String(this.listPaneWidth)); } catch {}
+            },
+
+            handleKeydown(e) {
+                if (e.key === 'f' || (e.ctrlKey && e.key.toLowerCase() === 'f')) {
+                    e.preventDefault();
+                    this.$refs.searchInput && this.$refs.searchInput.focus();
+                } else if (e.key.toLowerCase() === 'n') {
+                    e.preventDefault();
+                    this.openCreate();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    if (this.showCreatePane) this.showCreatePane = false; else this.clearSelection();
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const list = this.sortedFilteredOrders();
+                    if (!list.length) return;
+                    this.selectedIndex = Math.min(list.length - 1, this.selectedIndex + 1);
+                    this.selectedOrder = list[this.selectedIndex] || {};
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const list = this.sortedFilteredOrders();
+                    if (!list.length) return;
+                    this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+                    this.selectedOrder = list[this.selectedIndex] || {};
+                } else if (e.key === 'Enter') {
+                    if (this.selectedOrder && this.selectedOrder.id) {
+                        e.preventDefault();
+                        // ensure details pane is visible (no-op in split view)
+                    }
+                }
+            },
+
+            toggleDensity() {
+                this.density = this.density === 'comfortable' ? 'compact' : 'comfortable';
+            },
+
+            sortBy(key) {
+                if (this.sortKey === key) {
+                    this.sortAsc = !this.sortAsc;
+                } else {
+                    this.sortKey = key;
+                    this.sortAsc = key === 'name';
+                }
+            },
+            
+            async fetchOrders() {
+                const resp = await fetch('/orders/api/orders/');
+                const data = await resp.json();
+                this.orders = (data.results || data).map(order => {
+                    order.stages = order.stages || [];
+                    order.defects = order.defects || [];
+                    order.items = order.items || [];
+                    return order;
+                });
+            },
+            
+            async fetchClients() {
+                const resp = await fetch('/clients/api/clients/');
+                const data = await resp.json();
+                this.clients = Array.isArray(data) ? data : (data.results || []);
+            },
+            
+            async fetchProducts() {
+                const resp = await fetch('/products/api/products/');
+                const data = await resp.json();
+                this.products = Array.isArray(data) ? data : (data.results || []);
+            },
+            
+            filteredOrders() {
+                const term = this.searchTerm.toLowerCase();
+                return this.orders.filter(o =>
+                    (o.name || '').toLowerCase().includes(term) ||
+                    (o.client && o.client.name ? o.client.name : '').toLowerCase().includes(term) ||
+                    (o.product && o.product.name ? o.product.name : '').toLowerCase().includes(term) ||
+                    ((o.items || []).some(it => (it.product && it.product.name ? it.product.name : '').toLowerCase().includes(term))) ||
+                    (o.status || '').toLowerCase().includes(term)
+                );
+            },
+
+            sortedFilteredOrders() {
+                const list = this.filteredOrders().slice();
+                const key = this.sortKey;
+                const asc = this.sortAsc ? 1 : -1;
+                list.sort((a, b) => {
+                    const av = (a[key] ?? '').toString().toLowerCase();
+                    const bv = (b[key] ?? '').toString().toLowerCase();
+                    if (key === 'created_at') {
+                        const at = new Date(a[key] || 0).getTime();
+                        const bt = new Date(b[key] || 0).getTime();
+                        return (at - bt) * asc;
+                    }
+                    if (av < bv) return -1 * asc;
+                    if (av > bv) return 1 * asc;
+                    return 0;
+                });
+                return list;
+            },
+            
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                return d.toLocaleString('ru-RU');
+            },
+            
+            nextStep() {
+                if (this.createStep === 1 && !this.newOrder.name) return;
+                if (this.createStep === 2) {
+                    if (this.clientMode === 'existing' && !this.newOrder.client_id) {
+                        alert('Выберите клиента!');
+                        return;
+                    }
+                    if (this.clientMode === 'new' && !this.clientForm.name) {
+                        alert('Введите имя клиента!');
+                        return;
+                    }
+                }
+                if (this.createStep === 3) {
+                    const validItems = this.newOrder.items.filter(it => it.product_id && it.quantity > 0);
+                    if (!validItems.length) {
+                        alert('Добавьте хотя бы один товар!');
+                        return;
+                    }
+                }
+                this.createStep++;
+            },
+            
+            prevStep() {
+                if (this.createStep > 1) this.createStep--;
+            },
+            
+            addItem() {
+                this.newOrder.items.push({ 
+                    product_id: '', 
+                    quantity: 1, 
+                    size: '', 
+                    color: '',
+                    glass_type: 'sandblasted',
+                    paint_type: '',
+                    paint_color: '',
+                    cnc_specs: '',
+                    cutting_specs: '',
+                    packaging_notes: ''
+                });
+            },
+            
+            removeItem(idx) {
+                this.newOrder.items.splice(idx, 1);
+                if (this.newOrder.items.length === 0) {
+                    this.addItem();
+                }
+            },
+            
+            onProductChange(idx) {
+                const item = this.newOrder.items[idx];
+                if (item.product_id) {
+                    const product = this.products.find(p => p.id === item.product_id);
+                    if (product) {
+                        // Автоматически заполняем тип стекла для стеклянных изделий
+                        if (product.is_glass && !item.glass_type) {
+                            item.glass_type = 'sandblasted';
+                        }
+                    }
+                }
+            },
+            
+            getProductById(id) {
+                return this.products.find(p => p.id === id);
+            },
+            
+            async submitOrder() {
+                let clientId = this.newOrder.client_id;
+                
+                if (this.clientMode === 'new') {
+                    if (this.clientForm.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.clientForm.email)) {
+                        alert('Введите корректный email!');
+                        return;
+                    }
+                    
+                    const resp = await fetch('/clients/api/clients/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(this.clientForm)
+                    });
+                    
+                    if (resp.ok) {
+                        const client = await resp.json();
+                        clientId = client.id;
+                    } else {
+                        alert('Ошибка создания клиента');
+                        return;
+                    }
+                }
+                
+                if (!clientId) {
+                    alert('Клиент не выбран или не создан!');
+                    return;
+                }
+                
+                const payload = {
+                    name: this.newOrder.name,
+                    client_id: clientId,
+                    items_data: this.newOrder.items.filter(it => it.product_id && it.quantity > 0)
+                };
+                
+                const resp = await fetch('/orders/api/create/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (resp.ok) {
+                    const created = await resp.json();
+                    this.orders.unshift(created);
+                    this.showSuccess = true;
+                    this.showCreatePane = false;
+                    this.selectOrder(created, 0);
+                    this.$nextTick(() => lucide.createIcons());
+                } else {
+                    alert('Ошибка создания заказа');
+                }
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            },
+            
+            async init() {
+                try {
+                    const saved = localStorage.getItem('orders_list_pane_w');
+                    if (saved) this.listPaneWidth = parseInt(saved, 10) || this.listPaneWidth;
+                } catch {}
+
+                await this.fetchOrders();
+                await this.fetchClients();
+                await this.fetchProducts();
+                this.loading = false;
+                
+                // URL param to open create view
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('create') === 'true' || params.get('create') === '1') {
+                    this.showCreatePane = true;
+                }
+                
+                this.$nextTick(() => lucide.createIcons());
+            }
+        }
+    }
+    
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('ordersData', ordersData);
+    });
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

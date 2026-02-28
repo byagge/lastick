@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ru" style="margin:0; padding:0;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-192x192.png">
+    <link rel="shortcut icon" href="/static/icons/icon-192x192.png">
+    <title>Smart Factory — Мобильный дашборд</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" media="all">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <style>
+        html, body { margin: 0 !important; padding: 0 !important; }
+        .menu-card { transition: all 0.3s; }
+        .menu-card:active { transform: scale(0.97); }
+        .mobile-nav { box-shadow: 0 -2px 12px rgba(0,0,0,0.06); }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .stat-card { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" style="font-family: system-ui, -apple-system, sans-serif; margin:0; padding:0;">
+<div x-data="smartFactoryDashboard()" x-init="init()" class="pb-16">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between h-14 px-4">
+        <div class="flex items-center gap-2">
+            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span class="text-white font-bold text-lg">S</span>
+            </div>
+            <span class="font-semibold text-lg text-gray-900">Smart Factory</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/services/master/" class="relative inline-flex items-center justify-center" title="Услуги">
+                <i data-lucide="settings" class="w-5 h-5 text-gray-700"></i>
+            </a>
+            <a href="/defects/" class="relative inline-flex items-center justify-center" title="Браки">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-700"></i>
+            </a>
+            <a href="/notifications/" class="relative inline-flex items-center justify-center">
+                <i data-lucide="bell" class="w-5 h-5 text-gray-700"></i>
+                <span x-show="unreadNotifications > 0" x-text="unreadNotifications" class="absolute -top-2 -right-3 text-[10px] leading-4 px-1.5 min-w-[16px] text-center rounded-full bg-red-600 text-white"></span>
+            </a>
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm" x-text="(overview.user_name || 'П').charAt(0).toUpperCase()"></span>
+            </div>
+        </div>
+    </header>
+{% if request.session.impersonator_id %}
+<div class="bg-yellow-200 text-yellow-900 text-xs text-center py-1">
+    Режим имперсонации. <a href="{% url 'release_impersonation' %}" class="underline font-semibold">Вернуться</a>
+</div>
+{% endif %}
+
+    <!-- Main Content -->
+    <main class="pt-16 px-2 max-w-md mx-auto">
+        <!-- Welcome -->
+        <div class="mb-4 mt-2">
+            <h1 class="text-2xl font-bold text-gray-900 mb-1">Аналитика производства</h1>
+            <p class="text-gray-600 text-sm">Сводка по всем показателям системы</p>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Продажи</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.product_sales || '0'"></span>
+                <span class="text-xs text-gray-400">шт.</span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Брак</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.defective_products || '0'"></span>
+                <span class="text-xs text-gray-400">шт.</span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Активные заказы</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.active_orders || '0'"></span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Сотрудники</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_employees || '0'"></span>
+            </div>
+        </div>
+
+        <!-- Additional Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Клиенты</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_clients || '0'"></span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Услуги</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_services || '0'"></span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Материалы</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_materials || '0'"></span>
+            </div>
+            <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Заказы</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_orders || '0'"></span>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-base font-semibold text-gray-900">График показателей</h3>
+                <div class="flex gap-2">
+                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="period" @change="updateChart()">
+                    <option value="week">Неделя</option>
+                    <option value="month">Месяц</option>
+                    <option value="year">Год</option>
+                </select>
+                    <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="chartMetric" @change="updateChart()">
+                        <option value="revenue">Доход</option>
+                        <option value="sales">Продажи</option>
+                        <option value="defects">Брак</option>
+                        <option value="orders_count">Заказы</option>
+                    </select>
+                </div>
+            </div>
+            <div class="relative h-48">
+                <div x-show="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                    <div class="flex items-center space-x-2">
+                        <div class="spinner"></div>
+                        <span class="text-gray-600 text-sm">Загрузка...</span>
+                    </div>
+                </div>
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Employees -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Топ сотрудники</h3>
+            <template x-for="emp in topEmployees" :key="emp.id">
+                <div class="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900" x-text="emp.full_name || emp.name"></p>
+                        <p class="text-xs text-gray-500">Выполнено: <span x-text="emp.completed_works || 0"></span>, Брак: <span x-text="emp.defects || 0"></span></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-green-700">Эфф: <span x-text="emp.efficiency || 0"></span>%</p>
+                    </div>
+                </div>
+            </template>
+            <div x-show="topEmployees.length === 0" class="text-center py-4 text-gray-500">
+                <p class="text-sm">Нет данных</p>
+            </div>
+        </div>
+
+        <!-- Recent Orders -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Последние заказы</h3>
+            <template x-for="order in recentOrders" :key="order.id">
+                <div class="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900" x-text="order.name"></p>
+                        <p class="text-xs text-gray-500" x-text="order.client && order.client.name"></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-700" x-text="order.status_display"></p>
+                        <p class="text-xs text-blue-700" x-text="formatDate(order.created_at)"></p>
+                    </div>
+                </div>
+            </template>
+            <div x-show="recentOrders.length === 0" class="text-center py-4 text-gray-500">
+                <p class="text-sm">Нет данных</p>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Статус системы</h3>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Низкий запас материалов</span>
+                    <span class="text-sm font-medium" :class="overview.low_stock_count > 0 ? 'text-red-600' : 'text-green-600'" x-text="overview.low_stock_count || 0"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Активные заказы</span>
+                    <span class="text-sm font-medium text-blue-600" x-text="overview.active_orders || 0"></span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Средняя эффективность</span>
+                    <span class="text-sm font-medium text-green-600" x-text="(overview.avg_efficiency || 0) + '%'"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Menu (cards) -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <a href="/employees/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="users" class="w-6 h-6 text-blue-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Сотрудники</span>
+            </a>
+            <a href="/clients/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="user-plus" class="w-6 h-6 text-green-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Клиенты</span>
+            </a>
+            <a href="/products/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="package" class="w-6 h-6 text-purple-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Товары</span>
+            </a>
+            <a href="/services/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="scissors" class="w-6 h-6 text-yellow-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Услуги</span>
+            </a>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="/dashboard/" class="flex flex-col items-center text-blue-600">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/clients/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Клиенты</span>
+        </a>
+        <a href="/orders/?create=1/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/inventory/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Склад</span>
+        </a>
+        <a href="/menu/" class="flex flex-col items-center text-gray-500 focus:outline-none">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+            <span class="text-xs">Другое</span>
+        </a>
+    </nav>
+
+</div>
+
+<script>
+    function smartFactoryDashboard() {
+        return {
+            overview: {},
+            topEmployees: [],
+            recentOrders: [],
+            revenueChart: null,
+            loading: false,
+            period: 'week',
+            chartRequestId: 0,
+            chartMetric: 'revenue',
+            unreadNotifications: 0,
+            // removed showMoreMenu/openMoreMenu/closeMoreMenu
+            async init() {
+                await this.loadDashboardData();
+                await this.initChart();
+                await this.loadUnreadNotifications();
+                lucide.createIcons();
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            },
+
+            // Removed openMoreMenu()
+            // Removed closeMoreMenu()
+
+            async loadUnreadNotifications() {
+                try {
+                    const resp = await fetch('/notifications/unread-count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        this.unreadNotifications = data.unread_count || 0;
+                    }
+                } catch (e) {
+                    this.unreadNotifications = 0;
+                }
+            },
+
+            async loadDashboardData() {
+                try {
+                    this.loading = true;
+                    
+                    // Загружаем основную статистику
+                    const overviewResponse = await fetch('/orders/dashboard/overview/', { 
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
+                    });
+                    if (overviewResponse.ok) {
+                        this.overview = await overviewResponse.json();
+                    }
+
+                    // Загружаем дополнительные данные по всем приложениям
+                    await Promise.all([
+                        this.loadClientsData(),
+                        this.loadServicesData(),
+                        this.loadInventoryData(),
+                        this.loadOrdersData(),
+                        this.loadEmployeesData()
+                    ]);
+
+                } catch (e) { 
+                    console.error('Ошибка загрузки данных:', e);
+                    this.overview = {}; 
+                    this.topEmployees = []; 
+                    this.recentOrders = []; 
+                } finally { 
+                    this.loading = false; 
+                }
+            },
+
+            async loadClientsData() {
+                try {
+                    const response = await fetch('/clients/api/clients/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.overview.total_clients = data.results ? data.results.length : data.length;
+                    }
+                } catch (e) {
+                    this.overview.total_clients = 0;
+                }
+            },
+
+            async loadServicesData() {
+                try {
+                    const response = await fetch('/services/api/services/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.overview.total_services = data.data.length;
+                        }
+                    }
+                } catch (e) {
+                    this.overview.total_services = 0;
+                }
+            },
+
+            async loadInventoryData() {
+                try {
+                    const response = await fetch('/inventory/api/materials/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.overview.total_materials = data.data.length;
+                            // Подсчитываем материалы с низким запасом
+                            this.overview.low_stock_count = data.data.filter(m => 
+                                m.quantity <= m.min_quantity
+                            ).length;
+                        }
+                    }
+                } catch (e) {
+                    this.overview.total_materials = 0;
+                    this.overview.low_stock_count = 0;
+                }
+            },
+
+            async loadOrdersData() {
+                try {
+                    const response = await fetch('/orders/api/orders/?ordering=-created_at&limit=5');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.recentOrders = data.results || data;
+                        this.overview.total_orders = data.count || data.length;
+                        
+                        // Подсчитываем активные заказы
+                        this.overview.active_orders = (data.results || data).filter(order => 
+                            order.status === 'production' || order.status === 'new'
+                        ).length;
+                    }
+                } catch (e) {
+                    this.recentOrders = [];
+                    this.overview.total_orders = 0;
+                    this.overview.active_orders = 0;
+                }
+            },
+
+            async loadEmployeesData() {
+                try {
+                    const response = await fetch('/employees/api/employees/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const employees = data.results || data;
+                        
+                        // Загружаем статистику для каждого сотрудника
+                        const employeesWithStats = await Promise.all(
+                            employees.map(async (emp) => {
+                                try {
+                                    const statsResponse = await fetch(`/employees/api/employees/${emp.id}/stats/`);
+                                    if (statsResponse.ok) {
+                                        const stats = await statsResponse.json();
+                                        return {
+                                            ...emp,
+                                            full_name: emp.first_name && emp.last_name ? 
+                                                `${emp.first_name} ${emp.last_name}` : emp.username,
+                                            completed_works: stats.completed_tasks || 0,
+                                            defects: stats.defective_quantity || 0,
+                                            efficiency: stats.efficiency || 0
+                                        };
+                                    }
+                                } catch (e) {}
+                                return {
+                                    ...emp,
+                                    full_name: emp.first_name && emp.last_name ? 
+                                        `${emp.first_name} ${emp.last_name}` : emp.username,
+                                    completed_works: 0,
+                                    defects: 0,
+                                    efficiency: 0
+                                };
+                            })
+                        );
+
+                        this.topEmployees = employeesWithStats
+                            .sort((a, b) => (b.completed_works || 0) - (a.completed_works || 0))
+                            .slice(0, 5);
+
+                        // Вычисляем среднюю эффективность
+                        const totalEfficiency = employeesWithStats.reduce((sum, emp) => sum + (emp.efficiency || 0), 0);
+                        this.overview.avg_efficiency = employeesWithStats.length > 0 ? 
+                            Math.round(totalEfficiency / employeesWithStats.length) : 0;
+
+                    } else {
+                        this.topEmployees = [];
+                        this.overview.avg_efficiency = 0;
+                    }
+                } catch (e) {
+                    this.topEmployees = [];
+                    this.overview.avg_efficiency = 0;
+                }
+            },
+
+            async initChart() {
+                this.loading = true;
+                this.chartRequestId++;
+                const currentRequestId = this.chartRequestId;
+                let chartData = { 
+                    labels: [], 
+                    revenue: [], 
+                    defects: [], 
+                    orders_count: [], 
+                    sales: [] 
+                };
+                
+                try {
+                    const chartResponse = await fetch(`/orders/dashboard/revenue-chart/?period=${this.period}`, { 
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
+                    });
+                    
+                    if (currentRequestId !== this.chartRequestId) return;
+                    
+                    if (chartResponse.ok) {
+                        const responseData = await chartResponse.json();
+                        chartData = { ...chartData, ...responseData };
+                    }
+                } catch (e) {
+                    console.error('Ошибка загрузки графика:', e);
+                } finally {
+                    if (currentRequestId === this.chartRequestId) {
+                        if (this.revenueChart) this.revenueChart.destroy();
+                        
+                        const ctxEl = document.getElementById('revenueChart');
+                        const ctx = ctxEl && ctxEl.getContext ? ctxEl.getContext('2d') : ctxEl;
+                        if (ctx) {
+                            // Ensure labels and datasets always present
+                            if (!chartData.labels || chartData.labels.length === 0) {
+                                const days = this.period === 'month' ? 30 : this.period === 'year' ? 365 : 7;
+                                const labels = [];
+                                for (let i = days - 1; i >= 0; i--) {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() - i);
+                                    labels.push(('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2));
+                                }
+                                chartData.labels = labels;
+                                chartData.revenue = new Array(days).fill(0);
+                                chartData.defects = new Array(days).fill(0);
+                                chartData.orders_count = new Array(days).fill(0);
+                                chartData.sales = new Array(days).fill(0);
+                            } else {
+                                ['revenue','sales','defects','orders_count'].forEach(key => {
+                                    if (!Array.isArray(chartData[key]) || chartData[key].length !== chartData.labels.length) {
+                                        chartData[key] = new Array(chartData.labels.length).fill(0);
+                                    }
+                                });
+                            }
+                            let label = '';
+                            let color = '#3B82F6';
+                            let data = chartData[this.chartMetric] || [];
+                            
+                            if (this.chartMetric === 'revenue') { 
+                                label = 'Доход (⃀)'; 
+                                color = '#3B82F6'; 
+                            } else if (this.chartMetric === 'sales') { 
+                                label = 'Продажи (шт)'; 
+                                color = '#10B981'; 
+                            } else if (this.chartMetric === 'defects') { 
+                                label = 'Брак (шт)'; 
+                                color = '#EF4444'; 
+                            } else if (this.chartMetric === 'orders_count') { 
+                                label = 'Заказы (шт)'; 
+                                color = '#6366F1'; 
+                            }
+
+                            if (!window.Chart) {
+                                for (let i = 0; i < 60; i++) { 
+                                    await new Promise(r => setTimeout(r, 50));
+                                    if (window.Chart) break;
+                                }
+                            }
+
+                            this.revenueChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: chartData.labels,
+                                    datasets: [{
+                                        label: label,
+                                        data: data,
+                                        borderColor: color,
+                                        backgroundColor: color + '22',
+                                        borderWidth: 2,
+                                        tension: 0.4,
+                                        fill: false,
+                                        yAxisID: 'y',
+                                        pointBackgroundColor: color,
+                                        pointBorderColor: '#fff',
+                                        pointBorderWidth: 2,
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        x: { grid: { display: false } },
+                                        y: { 
+                                            type: 'linear', 
+                                            display: true, 
+                                            position: 'left', 
+                                            grid: { display: true, drawBorder: false, color: 'rgba(0,0,0,0.07)' }, 
+                                            ticks: { callback: v => v } 
+                                        },
+                                    }
+                                }
+                            });
+                        }
+                        this.loading = false;
+                    }
+                }
+            },
+
+            async updateChart() { 
+                this.loading = true; 
+                await this.initChart(); 
+                this.loading = false; 
+            },
+
+            formatCurrency(amount) {
+                return new Intl.NumberFormat('ru-RU', {
+                    style: 'currency',
+                    currency: 'RUB',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(amount);
+            },
+
+            formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit'
+                });
+            }
+        }
+    }
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() { 
+        lucide.createIcons(); 
+    });
+</script>
+</body>
+</html> 

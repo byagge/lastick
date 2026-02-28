@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="masterServicesPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Smart Factory">
+    <title>Услуги (Мастер)</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); animation: fadeInBg 0.2s; }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+        @media (max-width: 640px) {
+            .responsive-btn-row { flex-direction: column; gap: 0.5rem; }
+            .modal-content { width: 95vw; max-width: 95vw; border-radius: 1.25rem; }
+            .mobile-touch-target { min-height: 44px; min-width: 44px; }
+            .mobile-button { padding: 0.75rem; font-size: 0.875rem; }
+        }
+        @media (min-width: 641px) {
+            .responsive-btn-row { flex-direction: row; gap: 0.5rem; }
+            .modal-content { width: 100%; max-width: 24rem; border-radius: 0.75rem; }
+        }
+        .modal-content { animation: scaleIn 0.2s; }
+        @keyframes fadeInBg {
+            from { background: rgba(0,0,0,0); }
+            to   { background: rgba(0,0,0,0.35); }
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to   { transform: scale(1); opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to   { transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.25s cubic-bezier(.4,0,.2,1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;" x-data="masterServicesPage()" x-init="init()">
+    <!-- Offline Banner -->
+    <div x-show="!isOnline" x-transition class="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white text-center py-2 font-semibold shadow-lg" style="letter-spacing:0.02em;">Нет соединения с интернетом. Данные могут быть неактуальны.</div>
+    
+    <!-- Toast Notification -->
+    <div x-show="toast.show"
+         x-transition:enter="transition ease-out duration-400"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-6"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-6"
+         class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-gray-200 shadow-lg rounded-xl px-6 py-4 flex items-center space-x-3 text-base font-semibold text-gray-800"
+         style="min-width: 220px; max-width: 90vw;" x-cloak>
+        <template x-if="toast.type === 'success'">
+            <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
+        </template>
+        <template x-if="toast.type === 'error'">
+            <i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>
+        </template>
+        <span x-text="toast.message"></span>
+    </div>
+    
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Услуги</span>
+        </div>
+    </header>
+
+    {% if request.session.impersonator_id %}
+    <div class="bg-yellow-200 text-yellow-900 text-xs text-center py-1">
+        Режим имперсонации. <a href="{% url 'release_impersonation' %}" class="underline font-semibold">Вернуться</a>
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-2 max-w-2xl mx-auto w-full">
+        <!-- Tabs for workshops -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            <template x-for="(workshop, idx) in workshops" :key="workshop.id">
+                <button @click="tabChanged(idx)"
+                        class="relative w-full rounded-xl overflow-hidden shadow card border"
+                        :class="selectedWorkshopIdx === idx ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-800 border-gray-200'"
+                        style="padding-top: 50%;">
+                    <div class="absolute inset-0 flex flex-col items-center justify-center p-2">
+                        <div class="text-sm font-bold" x-text="workshop.name"></div>
+                    </div>
+                </button>
+            </template>
+        </div>
+
+        <!-- Debug information -->
+        <!-- <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-xs">
+            <div class="font-medium text-yellow-800 mb-2">Debug информация:</div>
+            <div>Пользователь: <span x-text="'{{ request.user.username }}'"></span></div>
+            <div>Роль: <span x-text="'{{ request.user.role }}'"></span></div>
+            <div>Цех пользователя: <span x-text="'{{ request.user.workshop.name|default:"Не назначен" }}'"></span></div>
+            <div>Количество цехов: <span x-text="workshops.length"></span></div>
+            <div>Выбранный цех: <span x-text="selectedWorkshopIdx >= 0 ? workshops[selectedWorkshopIdx]?.name : 'Нет'"></span></div>
+            <div>Цехи: <span x-text="workshops.map(w => w.name).join(', ')"></span></div>
+        </div> -->
+
+        <!-- Services for selected workshop -->
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+            </div>
+        </template>
+
+        <template x-if="!loading && services.length === 0">
+            <div class="text-center py-12">
+                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="settings" class="w-10 h-10 text-gray-400"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Нет активных услуг</h3>
+                <p class="text-gray-600">В этом цеху пока нет услуг</p>
+            </div>
+        </template>
+
+        <template x-if="!loading && services.length > 0">
+            <div class="space-y-4">
+                <template x-for="service in services" :key="service.id">
+                    <div class="card bg-white rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-[0.98]" 
+                         :data-service-id="service.id" style="margin-top: 10px;"
+                         @click="openServiceModal(service)">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <!-- Заголовок и основная информация -->
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="font-bold text-gray-900 text-base" x-text="service.name"></div>
+                                    <template x-if="service.is_active">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <span>Активна</span>
+                                        </span>
+                                    </template>
+                                </div>
+                                
+                                <!-- Описание -->
+                                <template x-if="service.description">
+                                    <div class="text-sm text-gray-600 mb-2" x-text="service.description"></div>
+                                </template>
+                                
+                                <!-- Цена и штраф -->
+                                <div class="grid grid-cols-2 gap-4 text-sm mb-3">
+                                    <div class="text-center">
+                                        <div class="text-gray-500">Цена услуги</div>
+                                        <div class="font-semibold text-green-600" x-text="service.service_price + ' ₽'"></div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-gray-500">Штраф за брак</div>
+                                        <div class="font-semibold text-red-600" x-text="service.defect_penalty + ' ₽'"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Единица измерения -->
+                                <div class="text-xs text-gray-500 mb-2">
+                                    <i data-lucide="ruler" class="w-3 h-3 inline mr-1"></i>
+                                    Единица: <span x-text="service.unit"></span>
+                                </div>
+                                
+                                <!-- Материалы -->
+                                <template x-if="service.materials_info && service.materials_info.length > 0">
+                                    <div class="text-xs text-gray-500 mb-2">
+                                        <i data-lucide="package" class="w-3 h-3 inline mr-1"></i>
+                                        Материалы: <span x-text="service.materials_info.length"></span> шт.
+                                    </div>
+                                </template>
+                                
+                                <!-- Дата обновления -->
+                                <template x-if="service.updated_at">
+                                    <div class="text-xs text-gray-400">
+                                        <i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>
+                                        Обновлено: <span x-text="new Date(service.updated_at).toLocaleDateString('ru-RU')"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <!-- Кнопка редактирования цены -->
+                            <div class="flex flex-col space-y-1 ml-3">
+                                <button @click.stop="openEditPriceModal(service)" 
+                                        class="px-3 py-2 rounded-lg shadow transition transform hover:scale-105 focus:ring-2 focus:ring-offset-2 focus:ring-purple-400 bg-purple-600 text-white flex items-center space-x-1 font-semibold text-xs">
+                                    <i data-lucide="edit-3" class="w-3 h-3"></i>
+                                    <span>Изменить цену</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </main>
+
+    <!-- Service Details Modal -->
+    <template x-if="showServiceModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="showServiceModal = false">
+            <div class="bg-white rounded-t-2xl w-full h-[90vh] flex flex-col animate-slide-up shadow-xl overflow-hidden" style="max-width: 100vw;">
+                <div class="flex items-center justify-between px-4 pt-3 pb-1 border-b border-gray-100 sticky top-0 bg-white z-10 min-h-[48px]">
+                    <h2 class="text-base font-bold text-gray-900 truncate">
+                        Услуга: <span x-text="selectedService ? selectedService.name : ''"></span>
+                    </h2>
+                    <button @click="showServiceModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-1 px-4 py-2 overflow-y-auto" style="scroll-behavior: smooth;">
+                    <template x-if="selectedService">
+                        <!-- Основная информация -->
+                        <div class="mb-6">
+                            <div class="bg-purple-50 rounded-xl p-4 border-l-4 border-purple-400">
+                                <h3 class="font-semibold text-purple-900 mb-3">Информация об услуге</h3>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-purple-700 font-medium">Название:</span>
+                                        <span class="text-purple-900" x-text="selectedService.name"></span>
+                                    </div>
+                                    <template x-if="selectedService.description">
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-700 font-medium">Описание:</span>
+                                            <span class="text-purple-900" x-text="selectedService.description"></span>
+                                        </div>
+                                    </template>
+                                    <div class="flex justify-between">
+                                        <span class="text-purple-700 font-medium">Единица измерения:</span>
+                                        <span class="text-purple-900" x-text="selectedService.unit"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-purple-700 font-medium">Цена услуги:</span>
+                                        <span class="text-purple-900 font-semibold" x-text="selectedService.service_price + ' ₽'"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-purple-700 font-medium">Штраф за брак:</span>
+                                        <span class="text-purple-900 font-semibold" x-text="selectedService.defect_penalty + ' ₽'"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-purple-700 font-medium">Статус:</span>
+                                        <span class="text-purple-900" x-text="selectedService.is_active ? 'Активна' : 'Неактивна'"></span>
+                                    </div>
+                                    <template x-if="selectedService.workshop_name">
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-700 font-medium">Цех:</span>
+                                            <span class="text-purple-900" x-text="selectedService.workshop_name"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="selectedService.created_at">
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-700 font-medium">Создана:</span>
+                                            <span class="text-purple-900" x-text="new Date(selectedService.created_at).toLocaleString('ru-RU')"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="selectedService.updated_at">
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-700 font-medium">Обновлена:</span>
+                                            <span class="text-purple-900" x-text="new Date(selectedService.updated_at).toLocaleString('ru-RU')"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Материалы -->
+                        <template x-if="selectedService.materials_info && selectedService.materials_info.length > 0">
+                            <div class="mb-6">
+                                <div class="bg-green-50 rounded-xl p-4 border-l-4 border-green-400">
+                                    <h3 class="font-semibold text-green-900 mb-3">Материалы для услуги</h3>
+                                    <div class="space-y-2">
+                                        <template x-for="material in selectedService.materials_info" :key="material.id">
+                                            <div class="bg-white rounded-lg p-3 border border-green-200">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-green-900" x-text="material.name"></div>
+                                                        <div class="text-sm text-green-700">
+                                                            Количество: <span class="font-medium" x-text="material.amount"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+                
+                <!-- Кнопки действий -->
+                <div class="p-4 border-t border-gray-100 bg-white sticky bottom-0">
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="openEditPriceModal(selectedService)" 
+                                class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                            <i data-lucide="edit-3" class="w-4 h-4 inline mr-2"></i>
+                            Изменить цену
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Edit Price Modal -->
+    <template x-if="showEditPriceModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="modal-content bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Изменить цену услуги</h3>
+                    <p class="text-gray-600 mb-2" x-text="editPriceForm.service_name"></p>
+                </div>
+                
+                <form @submit.prevent="submitEditPrice" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Новая цена <span class="text-red-500">*</span></label>
+                        <div class="flex items-center space-x-2">
+                            <button type="button" @click="editPriceForm.service_price = Math.max(0, editPriceForm.service_price - 10)" class="w-10 h-10 rounded-full bg-gray-100 text-2xl font-bold text-purple-600 flex items-center justify-center hover:bg-gray-200 transition-colors">-</button>
+                            <input type="number" 
+                                   x-model="editPriceForm.service_price" 
+                                   class="w-20 text-center px-2 py-2 border border-gray-300 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500" 
+                                   required 
+                                   placeholder="0"
+                                   step="0.01"
+                                   min="0"
+                                   @blur="editPriceForm.service_price = Math.max(0, parseFloat(editPriceForm.service_price) || 0)">
+                            <button type="button" @click="editPriceForm.service_price = (parseFloat(editPriceForm.service_price) || 0) + 10" class="w-10 h-10 rounded-full bg-gray-100 text-2xl font-bold text-purple-600 flex items-center justify-center hover:bg-gray-200 transition-colors">+</button>
+                        </div>
+                        <div class="text-xs mt-1 text-gray-500">
+                            Текущая цена: <span class="font-semibold" x-text="editPriceForm.current_price + ' ₽'"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-3 mt-4">
+                        <button type="button" @click="showEditPriceModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                        <button type="submit" data-submit-edit-price class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg" :disabled="isSubmitting">
+                            <template x-if="isSubmitting">
+                                <i data-lucide="loader" class="w-5 h-5 animate-spin mr-2"></i>
+                            </template>
+                            <span x-text="isSubmitting ? 'Сохраняется...' : 'Сохранить'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 max-w-md mx-auto w-full">
+        <a href="/dashboard/" class="flex flex-col items-center">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/employees/" class="flex flex-col items-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            <span class="text-xs">Сотрудники</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/orders/plans/master/" class="flex flex-col items-center">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Планы</span>
+        </a>
+        <a href="/services/master/" class="flex flex-col items-center nav-active">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span class="text-xs">Услуги</span>
+        </a>
+    </nav>
+
+    <!-- PWA Install Button -->
+    <div x-data="{ showInstall: false, deferredPrompt: null }" x-init="
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstall = true;
+        });
+    " class="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
+        <button x-show="showInstall" @click="deferredPrompt.prompt(); showInstall = false;" class="px-6 py-3 bg-blue-600 text-white rounded-xl shadow-lg flex items-center space-x-2 text-base font-semibold">
+            <i data-lucide='download' class='w-5 h-5'></i>
+            <span>Установить приложение</span>
+        </button>
+    </div>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/static/sw.js');
+        });
+    }
+    
+    function masterServicesPage() {
+        return {
+            loading: true,
+            workshops: [],
+            selectedWorkshopIdx: 0,
+            services: [],
+            showServiceModal: false,
+            selectedService: null,
+            showEditPriceModal: false,
+            editPriceForm: { service_id: null, service_name: '', service_price: 0, current_price: 0 },
+            toast: { show: false, message: '', type: 'success', timeout: null },
+            isSubmitting: false,
+            isOnline: navigator.onLine,
+            
+            showToast(msg, type = 'success') {
+                this.toast.message = msg;
+                this.toast.type = type;
+                this.toast.show = true;
+                lucide.createIcons();
+                if (this.toast.timeout) clearTimeout(this.toast.timeout);
+                this.toast.timeout = setTimeout(() => { this.toast.show = false; }, 2500);
+            },
+            
+            hideToast() {
+                this.toast.show = false;
+                if (this.toast.timeout) clearTimeout(this.toast.timeout);
+            },
+            
+            init() {
+                window.addEventListener('online', () => { this.isOnline = true; });
+                window.addEventListener('offline', () => { this.isOnline = false; });
+                this.loadWorkshops();
+                lucide.createIcons();
+            },
+            
+            async loadWorkshops() {
+                this.loading = true;
+                try {
+                    console.log('Loading workshops...');
+                    const resp = await fetch('/services/api/master/workshops/');
+                    const data = await resp.json();
+                    console.log('Workshops response:', data);
+                    
+                    this.workshops = data.data || [];
+                    console.log('Workshops loaded:', this.workshops);
+                    
+                    if (this.workshops.length > 0) {
+                        const savedWorkshopId = parseInt(localStorage.getItem('master_services_selected_workshop_id'));
+                        const savedIdx = this.workshops.findIndex(w => w && w.id === savedWorkshopId);
+                        this.selectedWorkshopIdx = savedIdx >= 0 ? savedIdx : 0;
+                        const currentWorkshop = this.workshops[this.selectedWorkshopIdx];
+                        if (currentWorkshop) {
+                            localStorage.setItem('master_services_selected_workshop_id', currentWorkshop.id);
+                        }
+                        await this.loadServices();
+                    } else {
+                        console.log('No workshops found');
+                    }
+                } catch (error) {
+                    console.error('Error loading workshops:', error);
+                    this.showToast('Ошибка загрузки цехов', 'error');
+                }
+                this.loading = false;
+            },
+            
+            async loadServices() {
+                this.loading = true;
+                const workshop = this.workshops[this.selectedWorkshopIdx];
+                if (!workshop) return;
+                
+                try {
+                    const resp = await fetch(`/services/api/master/services/?workshop=${workshop.id}`);
+                    const data = await resp.json();
+                    this.services = data.data || [];
+                } catch (error) {
+                    console.error('Error loading services:', error);
+                    this.showToast('Ошибка загрузки услуг', 'error');
+                }
+                
+                this.loading = false;
+                lucide.createIcons();
+            },
+            
+            async tabChanged(idx) {
+                this.selectedWorkshopIdx = idx;
+                const currentWorkshop = this.workshops[this.selectedWorkshopIdx];
+                if (currentWorkshop) {
+                    localStorage.setItem('master_services_selected_workshop_id', currentWorkshop.id);
+                }
+                await this.loadServices();
+                lucide.createIcons();
+            },
+            
+            openServiceModal(service) {
+                this.selectedService = service;
+                this.showServiceModal = true;
+                lucide.createIcons();
+            },
+            
+            openEditPriceModal(service) {
+                this.editPriceForm = {
+                    service_id: service.id,
+                    service_name: service.name,
+                    service_price: service.service_price,
+                    current_price: service.service_price
+                };
+                this.showEditPriceModal = true;
+                lucide.createIcons();
+            },
+            
+            async submitEditPrice() {
+                if (this.editPriceForm.service_price < 0) {
+                    this.showToast('Цена не может быть отрицательной', 'error');
+                    return;
+                }
+                
+                this.isSubmitting = true;
+                const submitBtn = document.querySelector('[data-submit-edit-price]');
+                if (submitBtn) submitBtn.disabled = true;
+                
+                try {
+                    const resp = await fetch(`/services/api/master/services/${this.editPriceForm.service_id}/update-price/`, {
+                        method: 'PATCH',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'X-CSRFToken': this.getCsrfToken() 
+                        },
+                        body: JSON.stringify({ service_price: this.editPriceForm.service_price })
+                    });
+                    
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        // Обновляем услугу в списке
+                        const serviceIndex = this.services.findIndex(s => s.id === this.editPriceForm.service_id);
+                        if (serviceIndex !== -1) {
+                            this.services[serviceIndex].service_price = this.editPriceForm.service_price;
+                            this.services[serviceIndex].updated_at = data.data.updated_at;
+                        }
+                        
+                        this.showEditPriceModal = false;
+                        this.showToast('Цена успешно обновлена!', 'success');
+                        lucide.createIcons();
+                    } else {
+                        const errorData = await resp.json();
+                        this.showToast(errorData.message || 'Ошибка при обновлении цены', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating price:', error);
+                    this.showToast('Ошибка сети при обновлении цены', 'error');
+                } finally {
+                    this.isSubmitting = false;
+                    if (submitBtn) submitBtn.disabled = false;
+                }
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            }
+        }
+    }
+    
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('masterServicesPage', masterServicesPage);
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html> 

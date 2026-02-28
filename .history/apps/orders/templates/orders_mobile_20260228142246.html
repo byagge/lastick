@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="mobileOrders()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Smart Factory — Заявки</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(.4,0,.2,1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes success-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-success-pop {
+            animation: success-pop 0.5s cubic-bezier(.4,0,.2,1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Заявки</span>
+        </div>
+        <button @click="showCreateModal = true" class="text-blue-600 bg-blue-100 rounded-full p-2 ml-2">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+    </header>
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <div class="relative mb-6">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text" placeholder="Поиск заявок..." x-model="searchTerm" class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl bg-gray-200"></div>
+                <div class="h-20 rounded-xl bg-gray-200"></div>
+    </div>
+        </template>
+        <template x-if="!loading">
+            <div>
+                <template x-if="filteredOrders().length === 0">
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="file-text" class="w-10 h-10 text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2" x-text="searchTerm ? 'Заявки не найдены' : 'Нет заявок' "></h3>
+                        <p class="text-gray-600" x-text="searchTerm ? 'Попробуйте изменить поиск' : 'Добавьте первую заявку' "></p>
+            </div>
+        </template>
+                <template x-for="order in filteredOrders()" :key="order.id">
+                    <div class="card bg-white rounded-xl p-4 mb-4" @click="openOrderModal(order)">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                                <h3 class="font-semibold text-gray-900 text-base" x-text="order.name"></h3>
+                                <p class="text-xs text-gray-500" x-text="order.client && order.client.name ? order.client.name : ''"></p>
+                    </div>
+                            <span class="text-xs font-semibold" :class="{
+                                'text-blue-600': order.status === 'new',
+                                'text-orange-600': order.status === 'production',
+                                'text-green-600': order.status === 'stock',
+                                'text-purple-600': order.status === 'shipped',
+                                'text-gray-600': !order.status
+                            }" x-text="order.status === 'new' ? 'Новый' : 
+                                       order.status === 'production' ? 'В производстве' : 
+                                       order.status === 'stock' ? 'На складе' : 
+                                       order.status === 'shipped' ? 'Отправлен' : 
+                                       order.status || 'Не указан'"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+                    <div class="col-span-2">
+                                <span class="text-gray-400">Товары:</span>
+                                <template x-if="order.items && order.items.length">
+                                    <ul class="text-xs text-gray-700 list-disc pl-4">
+                                        <template x-for="it in order.items" :key="it.id">
+                                            <li class="flex justify-between">
+                                                <span class="truncate" x-text="(it.product && it.product.name ? it.product.name : 'Товар') + (it.size ? ' ('+it.size+')' : '') + (it.color ? ' ['+it.color+']' : '')"></span>
+                                                <span class="ml-2 text-gray-900 font-semibold">x<span x-text="it.quantity"></span></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </template>
+                                <template x-if="!order.items || !order.items.length">
+                                    <span class="font-medium text-gray-700" x-text="order.product && order.product.name ? order.product.name : ''"></span>
+                                </template>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">Итого шт.:</span>
+                                <span class="font-medium text-gray-700" x-text="order.total_quantity || order.quantity"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400">Дата:</span>
+                                <span class="font-medium text-gray-700" x-text="formatDate(order.created_at)"></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400">Расходы:</span>
+                                <span class="font-medium text-gray-700" x-text="order.expenses.toLocaleString() + ' ⃀'"></span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400 text-xs">Комментарий:</span>
+                            <span class="text-xs text-gray-700" x-text="order.comment"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400 text-xs">Выполнено:</span>
+                            <span class="text-xs text-green-700 font-semibold" x-text="order.total_done_count"></span>
+                            <span class="text-gray-400 text-xs ml-2">Брак:</span>
+                            <span class="text-xs text-red-600 font-semibold" x-text="order.total_defective_count"></span>
+                            <template x-if="order.stages && order.stages.length > 0">
+                                <span class="text-gray-400 text-xs ml-2">Всего этапов:</span>
+                                <span class="text-xs text-blue-600 font-semibold" x-text="order.stages.length"></span>
+                            </template>
+                        </div>
+                        <template x-if="order.stages && order.stages.length">
+                            <div class="mb-2">
+                                <span class="text-gray-400 text-xs">Этапы заказа:</span>
+                                <ul class="text-xs text-gray-700 list-disc pl-4">
+                                    <template x-for="stage in order.stages" :key="stage.id">
+                                        <li>
+                                            <b x-text="stage.workshop && stage.workshop.name ? stage.workshop.name : ''"></b>:
+                                                <template x-if="stage.products">
+                                                    <span class="text-gray-700"> — <span x-text="stage.products"></span></span>
+                                                </template>
+                                                <template x-if="stage.in_progress > 0">
+                                                    <span class="text-blue-600">В работе: <span x-text="stage.in_progress"></span></span>
+                                                </template>
+                                                <template x-if="stage.completed > 0">
+                                                    <span class="text-purple-600">Передано: <span x-text="stage.completed"></span></span>
+                                                </template>
+                                                <template x-if="stage.done_count > 0">
+                                                    <span class="text-green-700">Выполнено: <span x-text="stage.done_count"></span></span>
+                                                </template>
+                                                <template x-if="stage.defective_count > 0">
+                                                    <span class="text-red-600">Брак: <span x-text="stage.defective_count"></span></span>
+                                                </template>
+                                                <template x-if="stage.date">
+                                                    <span class="text-gray-500"> — <span x-text="formatDate(stage.date)"></span></span>
+                                                </template>
+                                                <template x-if="stage.comment">
+                                                    <span class="text-gray-400"> — <span x-text="stage.comment"></span></span>
+                                                </template>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+                        <template x-if="order.defects && order.defects.length">
+                            <div class="mb-2">
+                                <span class="text-gray-400 text-xs">Браки:</span>
+                                <ul class="text-xs text-red-600 list-disc pl-4">
+                                    <template x-for="defect in order.defects" :key="defect.id">
+                                        <li>
+                                            <span x-text="defect.workshop && defect.workshop.name ? defect.workshop.name + ':' : ''"></span>
+                                            <span>Кол-во: <span x-text="defect.quantity"></span></span>
+                                            <template x-if="defect.comment">
+                                                <span class="text-gray-400"> — </span><span x-text="defect.comment"></span>
+                                            </template>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <!-- Модальное окно подробностей заявки -->
+                <template x-if="showOrderModal">
+                    <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="closeOrderModal()">
+                        <div class="bg-white rounded-t-2xl w-full h-[100dvh] flex flex-col animate-slide-up shadow-xl overflow-hidden" style="max-width: 100vw;">
+                            <div class="flex items-center justify-between px-4 pt-3 pb-1 border-b border-gray-100 sticky top-0 bg-white z-10 min-h-[48px]">
+                                <h2 class="text-base font-bold text-gray-900 truncate">Заявка: <span x-text="selectedOrder.name"></span></h2>
+                                <div class="flex items-center space-x-2">
+                                    <button @click="editOrder()" class="text-blue-600 hover:text-blue-700 p-1">
+                                        <i data-lucide="edit-3" class="w-5 h-5"></i>
+                                    </button>
+                                    <button @click="closeOrderModal()" class="text-gray-400 hover:text-gray-600">
+                                        <i data-lucide="x" class="w-6 h-6"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex-1 px-3 py-1 overflow-y-auto" style="scroll-behavior: smooth;">
+                                <!-- Шаг 1: Основная информация -->
+                                <template x-if="orderStep === 1">
+                    <div>
+                                        <div class="mb-2 text-xs text-gray-500">ID: <span x-text="selectedOrder.id"></span></div>
+                                        <div class="mb-2"><span class="text-gray-400 text-xs">Статус:</span> <span class="text-xs font-semibold" :class="{
+                                            'text-blue-600': selectedOrder.status === 'new',
+                                            'text-orange-600': selectedOrder.status === 'production',
+                                            'text-green-600': selectedOrder.status === 'stock',
+                                            'text-purple-600': selectedOrder.status === 'shipped',
+                                            'text-gray-600': !selectedOrder.status
+                                        }" x-text="selectedOrder.status === 'new' ? 'Новый' : 
+                                                   selectedOrder.status === 'production' ? 'В производстве' : 
+                                                   selectedOrder.status === 'stock' ? 'На складе' : 
+                                                   selectedOrder.status === 'shipped' ? 'Отправлен' : 
+                                                   selectedOrder.status || 'Не указан'"></span></div>
+                                        <div class="mb-2"><span class="text-gray-400 text-xs">Дата создания:</span> <span class="text-xs text-gray-700" x-text="formatDate(selectedOrder.created_at)"></span></div>
+                                        <div class="mb-2"><span class="text-gray-400 text-xs">Комментарий:</span> <span class="text-xs text-gray-700" x-text="selectedOrder.comment"></span></div>
+                                        <div class="mb-2"><span class="text-gray-400 text-xs">Расходы:</span> <span class="text-xs text-gray-700" x-text="selectedOrder.expenses.toLocaleString() + ' ⃀'"></span></div>
+                                        <div class="mb-2"><span class="text-gray-400 text-xs">Итого шт.:</span> <span class="text-xs text-gray-700" x-text="selectedOrder.total_quantity || selectedOrder.quantity"></span></div>
+                    </div>
+                                </template>
+                                <!-- Шаг 2: Клиент и товары -->
+                                <template x-if="orderStep === 2">
+                    <div>
+                                        <div class="mb-3">
+                                            <h3 class="font-semibold text-gray-900 text-xs mb-1">Клиент</h3>
+                                            <ul class="text-xs text-gray-700 space-y-0.5">
+                                                <li><b>Имя:</b> <span x-text="selectedOrder.client && selectedOrder.client.name"></span></li>
+                                                <li><b>Компания:</b> <span x-text="selectedOrder.client && selectedOrder.client.company"></span></li>
+                                                <li><b>Телефон:</b> <span x-text="selectedOrder.client && selectedOrder.client.phone"></span></li>
+                                                <li><b>Email:</b> <span x-text="selectedOrder.client && selectedOrder.client.email"></span></li>
+                                                <li><b>Адрес:</b> <span x-text="selectedOrder.client && selectedOrder.client.address"></span></li>
+                                            </ul>
+                                        </div>
+                                        <div class="mb-3">
+                                            <h3 class="font-semibold text-gray-900 text-xs mb-1">Товары</h3>
+                                            <template x-if="selectedOrder.items && selectedOrder.items.length">
+                                                <ul class="text-xs text-gray-700 space-y-0.5 list-disc pl-4">
+                                                    <template x-for="it in selectedOrder.items" :key="it.id">
+                                                        <li>
+                                                            <span x-text="(it.product && it.product.name ? it.product.name : 'Товар') + ' x' + it.quantity + (it.size ? ' ('+it.size+')' : '') + (it.color ? ' ['+it.color+']' : '')"></span>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <template x-if="!selectedOrder.items || !selectedOrder.items.length">
+                                                <ul class="text-xs text-gray-700 space-y-0.5">
+                                                    <li><b>Название:</b> <span x-text="selectedOrder.product && selectedOrder.product.name"></span></li>
+                                                    <li><b>Тип:</b> <span x-text="selectedOrder.product && selectedOrder.product.type"></span></li>
+                                                    <li><b>Описание:</b> <span x-text="selectedOrder.product && selectedOrder.product.description"></span></li>
+                                                    <li><b>Цена:</b> <span x-text="selectedOrder.product && selectedOrder.product.price"></span></li>
+                                                </ul>
+                                            </template>
+                                        </div>
+                                        <div class="mb-3">
+                                            <h3 class="font-semibold text-gray-900 text-xs mb-1">Цех (основной)</h3>
+                                            <ul class="text-xs text-gray-700 space-y-0.5">
+                                                <li><b>Название:</b> <span x-text="selectedOrder.workshop && selectedOrder.workshop.name"></span></li>
+                                                <li><b>Описание:</b> <span x-text="selectedOrder.workshop && selectedOrder.workshop.description"></span></li>
+                                                <li><b>Активен:</b> <span x-text="selectedOrder.workshop && selectedOrder.workshop.is_active ? 'Да' : 'Нет'"></span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </template>
+                                <!-- Шаг 3: Этапы заказа -->
+                                <template x-if="orderStep === 3">
+                                    <div class="mb-3">
+                                        <h3 class="font-semibold text-gray-900 text-xs mb-1">Этапы заказа</h3>
+                                        <template x-if="selectedOrder.stages && selectedOrder.stages.length > 0">
+                                        <ul class="text-xs text-gray-700 list-disc pl-4 space-y-0.5">
+                                                <template x-for="stage in selectedOrder.stages" :key="stage.id">
+                                                <li>
+                                                    <b x-text="stage.workshop && stage.workshop.name"></b>:
+                                                        <template x-if="stage.in_progress > 0">
+                                                            <span class="text-blue-600">В работе: <span x-text="stage.in_progress"></span></span>
+                                                        </template>
+                                                        <template x-if="stage.completed > 0">
+                                                            <span class="text-purple-600">Передано: <span x-text="stage.completed"></span></span>
+                                                        </template>
+                                                        <template x-if="stage.done_count > 0">
+                                                            <span class="text-green-700">Выполнено: <span x-text="stage.done_count"></span></span>
+                                                        </template>
+                                                        <template x-if="stage.defective_count > 0">
+                                                            <span class="text-red-600">Брак: <span x-text="stage.defective_count"></span></span>
+                                                        </template>
+                                                        <template x-if="stage.date">
+                                                            <span class="text-gray-500"> — <span x-text="formatDate(stage.date)"></span></span>
+                                                        </template>
+                                                        <template x-if="stage.comment">
+                                                            <span class="text-gray-400"> — <span x-text="stage.comment"></span></span>
+                                                        </template>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                        </template>
+                                        <template x-if="!selectedOrder.stages || selectedOrder.stages.length === 0">
+                                            <div class="text-center py-4">
+                                                <div class="text-gray-400 text-xs">Этапы не указаны</div>
+                                                <div class="text-gray-300 text-xs mt-1">Заказ еще не поступил в производство</div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <!-- Шаг 4: Браки -->
+                                <template x-if="orderStep === 4">
+                                    <div class="mb-3">
+                                        <h3 class="font-semibold text-gray-900 text-xs mb-1">Браки по заказу</h3>
+                                        <ul class="text-xs text-red-600 list-disc pl-4 space-y-0.5">
+                                            <template x-for="defect in selectedOrder.defects" :key="defect.id">
+                                                <li>
+                                                    <b x-text="defect.workshop && defect.workshop.name"></b>:
+                                                    Кол-во: <span x-text="defect.quantity"></span>,
+                                                    <span x-text="formatDate(defect.date)"></span>
+                                                    <template x-if="defect.comment"><span class="text-gray-400"> — </span><span x-text="defect.comment"></span></template>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                    </div>
+                            <div class="p-3 border-t border-gray-100 sticky bottom-0 bg-white z-10 min-h-[48px] flex gap-2">
+                                <button x-show="orderStep > 1" @click="orderStep--" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-xl text-base font-semibold">Назад</button>
+                                <button x-show="orderStep < 4" @click="orderStep++" class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-base font-semibold">Далее</button>
+                                <button x-show="orderStep === 4" @click="closeOrderModal()" class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-base font-semibold">Закрыть</button>
+                    </div>
+                </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </main>
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="/dashboard/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/clients/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Клиенты</span>
+        </a>
+        <a href="/orders/?create=1" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/inventory/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Склад</span>
+        </a>
+        <a href="/menu/" class="flex flex-col items-center text-gray-500 focus:outline-none">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+            <span class="text-xs">Другое</span>
+        </a>
+    </nav>
+    <!-- Removed legacy More Menu modal -->
+    <template x-if="showCreateModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg">
+            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 overflow-y-auto animate-slide-up" x-init="$nextTick(() => lucide.createIcons())" x-effect="$nextTick(() => lucide.createIcons())" style="max-height: 90vh; max-height: 90dvh; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Новая заявка</h2>
+                    <button @click="closeCreateModal()" class="text-gray-400 hover:text-gray-600" x-init="$nextTick(() => lucide.createIcons())">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="submitOrder" class="space-y-4">
+                    <!-- Шаги -->
+                    <template x-if="createStep === 1">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Название заказа <span class="text-red-500">*</span></label>
+                            <input type="text" x-model="newOrder.name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                    </template>
+                    <template x-if="createStep === 2">
+                        <div>
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="clientMode = 'existing'" :class="clientMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-2 rounded-lg font-semibold">Клиент уже покупал</button>
+                                <button type="button" @click="clientMode = 'new'" :class="clientMode === 'new' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-2 rounded-lg font-semibold">Новый клиент</button>
+                            </div>
+                            <template x-if="clientMode === 'existing'">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Выберите клиента</label>
+                                    <select x-model="newOrder.client_id" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">— Выберите —</option>
+                                        <template x-for="client in clients" :key="client.id">
+                                            <option :value="client.id" x-text="client.name + (client.company ? ' ('+client.company+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </template>
+                            <template x-if="clientMode === 'new'">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                                    <input type="text" x-model="clientForm.name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                                    <input type="tel" x-model="clientForm.phone" class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <input type="email" x-model="clientForm.email" class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Компания</label>
+                                    <input type="text" x-model="clientForm.company" class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                                    <input type="text" x-model="clientForm.address" class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="createStep === 3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Товары <span class="text-red-500">*</span></label>
+                            <div class="space-y-2">
+                                <template x-for="(item, idx) in newOrder.items" :key="idx">
+                                    <div class="rounded-xl border border-gray-200 p-3 bg-white shadow-sm">
+                                        <div class="grid grid-cols-12 gap-2 items-start">
+                                            <div class="col-span-12 sm:col-span-6">
+                                                <label class="text-xs text-gray-500">Товар</label>
+                                                <select x-model="item.product_id" class="w-full mt-1 px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px]">
+                                                    <option value="">— Товар —</option>
+                                                    <template x-for="product in products" :key="product.id">
+                                                        <option :value="product.id" x-text="product.name"></option>
+                                                    </template>
+                                                </select>
+                                            </div>
+                                            <div class="col-span-6 sm:col-span-2">
+                                                <label class="text-xs text-gray-500">Кол-во</label>
+                                                <input type="number" min="1" inputmode="numeric" pattern="[0-9]*" x-model.number="item.quantity" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg text-base min-h-[48px]">
+                                            </div>
+                                            <div class="col-span-6 sm:col-span-2">
+                                                <label class="text-xs text-gray-500">Размер</label>
+                                                <input type="text" x-model="item.size" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg text-base min-h-[48px]" placeholder="Напр. S/M/40x60">
+                                            </div>
+                                            <div class="col-span-6 sm:col-span-2">
+                                                <label class="text-xs text-gray-500">Цвет</label>
+                                                <input type="text" x-model="item.color" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg text-base min-h-[48px]" placeholder="Напр. Белый">
+                                            </div>
+                                            <div class="col-span-12 flex justify-end pt-2">
+                                                <button type="button" @click="removeItem(idx)" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-red-300 text-red-700 bg-red-50 active:scale-[0.99]" title="Удалить">
+                                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                                    <span>Удалить</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex gap-2 mt-3">
+                                <button type="button" @click="addItem()" class="flex-1 py-3 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 active:scale-[0.995]">+ Добавить товар</button>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="flex justify-between pt-4">
+                        <button type="button" @click="prevStep" :disabled="createStep === 1" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700" :class="createStep === 1 ? 'opacity-50 cursor-not-allowed' : ''">Назад</button>
+                        <button type="button" @click="nextStep" x-show="createStep < 3" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Далее</button>
+                        <button type="submit" x-show="createStep === 3" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Отправить</button>
+                    </div>
+                </form>
+                <template x-if="showSuccess">
+                    <div class="fixed inset-0 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                            <div class="mb-2">
+                                <svg class="w-16 h-16 mx-auto text-green-500 animate-success-pop" fill="none" viewBox="0 0 48 48" stroke="currentColor" stroke-width="3">
+                                    <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-opacity="0.15" fill="#fff"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 25l6 6 10-13"/>
+                                </svg>
+                            </div>
+                            <div class="text-lg font-semibold mb-2">Заявка успешно создана!</div>
+                            <button @click="closeCreateModal()" class="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg">Ок</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+    <!-- Модальное окно редактирования заявки -->
+    <template x-if="showEditModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg">
+            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 overflow-y-auto animate-slide-up" x-init="$nextTick(() => lucide.createIcons())" x-effect="$nextTick(() => lucide.createIcons())" style="max-height: 90vh; max-height: 90dvh; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Редактировать заявку</h2>
+                    <button @click="closeEditModal()" class="text-gray-400 hover:text-gray-600" x-init="$nextTick(() => lucide.createIcons())">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="submitEditOrder" class="space-y-4">
+                    <!-- Индикатор прогресса -->
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">Шаг <span x-text="editStep"></span> из 3</span>
+                            <span class="text-sm text-gray-500" x-text="editStep === 1 ? 'Основная информация' : editStep === 2 ? 'Клиент' : 'Товары'"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" :style="`width: ${(editStep / 3) * 100}%`"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Шаги редактирования -->
+                    <template x-if="editStep === 1">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Название заказа <span class="text-red-500">*</span></label>
+                                <input type="text" x-model="editOrder.name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required placeholder="Введите название заказа">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+                                <textarea x-model="editOrder.comment" rows="3" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Дополнительная информация о заказе"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Расходы (⃀)</label>
+                                <input type="number" min="0" step="0.01" x-model.number="editOrder.expenses" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" disabled>
+                                <p class="text-xs text-gray-500 mt-1">Расходы рассчитываются автоматически и не могут быть изменены вручную</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Статус заказа</label>
+                                <select x-model="editOrder.status" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="new">Новый</option>
+                                    <option value="production">В производстве</option>
+                                    <option value="stock">На складе</option>
+                                    <option value="shipped">Отправлен клиенту</option>
+                                </select>
+                            </div>
+                            
+                            <div class="bg-blue-50 p-3 rounded-lg">
+                                <p class="text-sm text-blue-700">
+                                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                                    Здесь вы можете изменить основную информацию о заказе. На следующих шагах вы сможете отредактировать клиента и товары.
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <template x-if="editStep === 2">
+                        <div class="space-y-4">
+                            <div class="bg-yellow-50 p-3 rounded-lg">
+                                <p class="text-sm text-yellow-700">
+                                    <i data-lucide="user" class="w-4 h-4 inline mr-1"></i>
+                                    Выберите способ редактирования клиента для заказа
+                                </p>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button type="button" @click="editClientMode = 'existing'" :class="editClientMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-3 rounded-lg font-semibold transition-colors">
+                                    <i data-lucide="users" class="w-4 h-4 inline mr-2"></i>
+                                    Выбрать существующего
+                                </button>
+                                <button type="button" @click="editClientMode = 'new'" :class="editClientMode === 'new' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'" class="flex-1 py-3 rounded-lg font-semibold transition-colors">
+                                    <i data-lucide="user-plus" class="w-4 h-4 inline mr-2"></i>
+                                    Создать нового
+                                </button>
+                            </div>
+                            
+                            <template x-if="editClientMode === 'existing'">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Выберите клиента</label>
+                                        <select x-model="editOrder.client_id" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">— Выберите клиента —</option>
+                                            <template x-for="client in clients" :key="client.id">
+                                                <option :value="client.id" x-text="client.name + (client.company ? ' ('+client.company+')' : '')"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    
+                                    <template x-if="editOrder.client_id">
+                                        <div class="bg-green-50 p-3 rounded-lg">
+                                            <p class="text-sm text-green-700">
+                                                <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>
+                                                Клиент выбран успешно
+                                            </p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <template x-if="editClientMode === 'new'">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Имя клиента <span class="text-red-500">*</span></label>
+                                        <input type="text" x-model="editClientForm.name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required placeholder="Введите имя клиента">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                                        <input type="tel" x-model="editClientForm.phone" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="+7 (999) 123-45-67">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                        <input type="email" x-model="editClientForm.email" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="client@example.com">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Компания</label>
+                                        <input type="text" x-model="editClientForm.company" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Название компании">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                                        <textarea x-model="editClientForm.address" rows="2" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Полный адрес доставки"></textarea>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    
+                    <template x-if="editStep === 3">
+                        <div class="space-y-4">
+                            <div class="bg-green-50 p-3 rounded-lg">
+                                <p class="text-sm text-green-700">
+                                    <i data-lucide="package" class="w-4 h-4 inline mr-1"></i>
+                                    Редактируйте товары заказа. Вы можете изменить количество, размеры, цвета и другие характеристики.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Товары заказа <span class="text-red-500">*</span></label>
+                                <div class="space-y-3">
+                                    <template x-for="(item, idx) in editOrder.items" :key="idx">
+                                        <div class="rounded-xl border border-gray-200 p-4 bg-white shadow-sm">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <h4 class="font-medium text-gray-900">Товар #<span x-text="idx + 1"></span></h4>
+                                                <button type="button" @click="removeEditItem(idx)" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 active:scale-[0.99]" title="Удалить товар">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    <span class="text-sm">Удалить</span>
+                                                </button>
+                                            </div>
+                                            
+                                            <div class="grid grid-cols-1 gap-3">
+                                                <!-- Выбор товара -->
+                                                <div>
+                                                    <label class="block text-xs text-gray-500 mb-1">Товар <span class="text-red-500">*</span></label>
+                                                    <select x-model="item.product_id" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
+                                                        <option value="">— Выберите товар —</option>
+                                                        <template x-for="product in products" :key="product.id">
+                                                            <option :value="product.id" x-text="product.name + (product.type ? ' ('+product.type+')' : '')"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                                
+                                                <!-- Количество и размер -->
+                                                <div class="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Количество <span class="text-red-500">*</span></label>
+                                                        <input type="number" min="1" inputmode="numeric" pattern="[0-9]*" x-model.number="item.quantity" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="1">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Размер</label>
+                                                        <input type="text" x-model="item.size" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="S/M/40x60">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Цвет и тип стекла -->
+                                                <div class="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Цвет</label>
+                                                        <input type="text" x-model="item.color" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Белый">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Тип стекла</label>
+                                                        <input type="text" x-model="item.glass_type" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Закаленное">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Дополнительные характеристики -->
+                                                <div class="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Тип краски</label>
+                                                        <input type="text" x-model="item.paint_type" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Акриловая">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs text-gray-500 mb-1">Цвет краски</label>
+                                                        <input type="text" x-model="item.paint_color" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Черный">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Спецификации -->
+                                                <div>
+                                                    <label class="block text-xs text-gray-500 mb-1">CNC спецификации</label>
+                                                    <input type="text" x-model="item.cnc_specs" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Требования к ЧПУ">
+                                                </div>
+                                                
+                                                <div>
+                                                    <label class="block text-xs text-gray-500 mb-1">Спецификации резки</label>
+                                                    <input type="text" x-model="item.cutting_specs" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Требования к резке">
+                                                </div>
+                                                
+                                                <div>
+                                                    <label class="block text-xs text-gray-500 mb-1">Примечания по упаковке</label>
+                                                    <textarea x-model="item.packaging_notes" rows="2" class="w-full px-3 py-3 border border-gray-300 rounded-lg text-base" placeholder="Особенности упаковки"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button type="button" @click="addEditItem()" class="flex-1 py-3 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100 active:scale-[0.995] transition-colors">
+                                    <i data-lucide="plus" class="w-4 h-4 inline mr-2"></i>
+                                    Добавить товар
+                                </button>
+                            </div>
+                            
+                            <div class="bg-blue-50 p-3 rounded-lg">
+                                <p class="text-sm text-blue-700">
+                                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                                    Убедитесь, что все обязательные поля заполнены. После сохранения изменения будут применены к заказу.
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <div class="flex justify-between pt-6 border-t border-gray-200">
+                        <button type="button" @click="prevEditStep" :disabled="editStep === 1" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 transition-colors" :class="editStep === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'">
+                            <i data-lucide="arrow-left" class="w-4 h-4 inline mr-2"></i>
+                            Назад
+                        </button>
+                        
+                        <div class="flex gap-2">
+                            <button type="button" @click="nextEditStep" x-show="editStep < 3" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                Далее
+                                <i data-lucide="arrow-right" class="w-4 h-4 inline ml-2"></i>
+                            </button>
+                            
+                            <button type="submit" x-show="editStep === 3" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                                Сохранить изменения
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <template x-if="showEditSuccess">
+                    <div class="fixed inset-0 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                            <div class="mb-2">
+                                <svg class="w-16 h-16 mx-auto text-green-500 animate-success-pop" fill="none" viewBox="0 0 48 48" stroke="currentColor" stroke-width="3">
+                                    <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-opacity="0.15" fill="#fff"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 25l6 6 10-13"/>
+                                </svg>
+                            </div>
+                            <div class="text-lg font-semibold mb-2">Заявка успешно обновлена!</div>
+                            <button @click="closeEditModal()" class="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg">Ок</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+    <script>
+    function mobileOrders() {
+            return {
+            loading: true,
+            orders: [],
+                searchTerm: '',
+            showOrderModal: false,
+            selectedOrder: {},
+            orderStep: 1,
+            showCreateModal: false,
+            createStep: 1,
+            clientMode: 'existing',
+            clients: [],
+            products: [],
+            clientForm: { name: '', phone: '', email: '', company: '', address: '' },
+            newOrder: { name: '', client_id: '', items: [ { product_id: '', quantity: 1, size: '', color: '' } ] },
+            showSuccess: false,
+            showEditModal: false,
+            editStep: 1,
+            editOrder: {},
+            editClientMode: 'existing',
+            editClientForm: { name: '', phone: '', email: '', company: '', address: '' },
+            showEditSuccess: false,
+            // removed showMoreMenu and its handlers
+            openOrderModal(order) {
+                this.selectedOrder = order;
+                this.showOrderModal = true;
+                this.orderStep = 1;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            closeOrderModal() {
+                this.showOrderModal = false;
+                this.selectedOrder = {};
+                this.orderStep = 1;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            closeCreateModal() {
+                this.showCreateModal = false;
+                this.createStep = 1;
+                this.clientMode = 'existing';
+                this.newOrder = { name: '', client_id: '', items: [ { product_id: '', quantity: 1, size: '', color: '' } ] };
+                this.clientForm = { name: '', phone: '', email: '', company: '', address: '' };
+                this.showSuccess = false;
+            },
+            openEditModal(order) {
+                // Глубокое копирование заказа для редактирования
+                this.editOrder = JSON.parse(JSON.stringify(order));
+                
+                // Преобразуем товары для редактирования
+                if (this.editOrder.items && this.editOrder.items.length > 0) {
+                    this.editOrder.items = this.editOrder.items.map(item => ({
+                        product_id: item.product ? item.product.id : '',
+                        quantity: item.quantity || 1,
+                        size: item.size || '',
+                        color: item.color || '',
+                        glass_type: item.glass_type || '',
+                        paint_type: item.paint_type || '',
+                        paint_color: item.paint_color || '',
+                        cnc_specs: item.cnc_specs || '',
+                        cutting_specs: item.cutting_specs || '',
+                        packaging_notes: item.packaging_notes || ''
+                    }));
+                } else {
+                    // Если нет товаров, создаем пустой список с полными полями
+                    this.editOrder.items = [{ 
+                        product_id: '', 
+                        quantity: 1, 
+                        size: '', 
+                        color: '',
+                        glass_type: '',
+                        paint_type: '',
+                        paint_color: '',
+                        cnc_specs: '',
+                        cutting_specs: '',
+                        packaging_notes: ''
+                    }];
+                }
+                
+                // Устанавливаем правильный статус если он пустой
+                if (!this.editOrder.status) {
+                    this.editOrder.status = 'new';
+                }
+                
+                this.editStep = 1;
+                this.editClientMode = 'existing';
+                this.editClientForm = order.client ? { ...order.client } : { name: '', phone: '', email: '', company: '', address: '' };
+                this.showEditModal = true;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            editOrder() {
+                this.openEditModal(this.selectedOrder);
+            },
+            closeEditModal() {
+                this.showEditModal = false;
+                this.editOrder = {};
+                this.editStep = 1;
+                this.editClientMode = 'existing';
+                this.editClientForm = { name: '', phone: '', email: '', company: '', address: '' };
+                this.showEditSuccess = false;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            async fetchOrders() {
+                const resp = await fetch('/orders/api/orders/');
+                const data = await resp.json();
+                this.orders = (data.results || data).map(order => {
+                    order.stages = order.stages || [];
+                    order.defects = order.defects || [];
+                    order.items = order.items || [];
+                    return order;
+                });
+            },
+            async fetchClients() {
+                const resp = await fetch('/clients/api/clients/');
+                const data = await resp.json();
+                this.clients = Array.isArray(data) ? data : (data.results || []);
+            },
+            async fetchProducts() {
+                const resp = await fetch('/products/api/products/');
+                const data = await resp.json();
+                this.products = Array.isArray(data) ? data : (data.results || []);
+            },
+            filteredOrders() {
+                const term = this.searchTerm.toLowerCase();
+                return this.orders.filter(o =>
+                    (o.name || '').toLowerCase().includes(term) ||
+                    (o.client && o.client.name ? o.client.name : '').toLowerCase().includes(term) ||
+                    (o.product && o.product.name ? o.product.name : '').toLowerCase().includes(term) ||
+                    ((o.items || []).some(it => (it.product && it.product.name ? it.product.name : '').toLowerCase().includes(term))) ||
+                    (o.status || '').toLowerCase().includes(term)
+                );
+            },
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                return d.toLocaleString('ru-RU');
+            },
+            nextStep() {
+                if (this.createStep === 1 && !this.newOrder.name) return;
+                if (this.createStep === 2) {
+                    if (this.clientMode === 'existing' && !this.newOrder.client_id) {
+                        alert('Выберите клиента!');
+                        return;
+                    }
+                    if (this.clientMode === 'new' && !this.clientForm.name) {
+                        alert('Введите имя клиента!');
+                        return;
+                    }
+                }
+                // Проверка товаров на шаге 3
+                if (this.createStep === 3) {
+                    const validItems = this.newOrder.items.filter(it => it.product_id && it.quantity > 0);
+                    if (!validItems.length) {
+                        alert('Добавьте хотя бы один товар!');
+                        return;
+                    }
+                }
+                this.createStep++;
+            },
+            prevStep() {
+                if (this.createStep > 1) this.createStep--;
+            },
+            addItem() {
+                this.newOrder.items.push({ product_id: '', quantity: 1, size: '', color: '' });
+                this.$nextTick(() => lucide.createIcons());
+            },
+            removeItem(idx) {
+                this.newOrder.items.splice(idx, 1);
+                if (this.newOrder.items.length === 0) {
+                    this.addItem();
+                }
+                this.$nextTick(() => lucide.createIcons());
+            },
+            nextEditStep() {
+                if (this.editStep === 1) {
+                    if (!this.editOrder.name || this.editOrder.name.trim() === '') {
+                        alert('Введите название заказа!');
+                        return;
+                    }
+                }
+                
+                if (this.editStep === 2) {
+                    if (this.editClientMode === 'existing') {
+                        if (!this.editOrder.client_id) {
+                            alert('Выберите клиента!');
+                            return;
+                        }
+                    } else if (this.editClientMode === 'new') {
+                        if (!this.editClientForm.name || this.editClientForm.name.trim() === '') {
+                            alert('Введите имя клиента!');
+                            return;
+                        }
+                        // Проверка email если он указан
+                        if (this.editClientForm.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.editClientForm.email)) {
+                            alert('Введите корректный email!');
+                            return;
+                        }
+                    }
+                }
+                
+                // Проверка товаров на шаге 3
+                if (this.editStep === 3) {
+                    const validItems = this.editOrder.items.filter(it => it.product_id && it.quantity > 0);
+                    if (!validItems.length) {
+                        alert('Добавьте хотя бы один товар!');
+                        return;
+                    }
+                    
+                    // Проверяем что все товары имеют обязательные поля
+                    for (let i = 0; i < this.editOrder.items.length; i++) {
+                        const item = this.editOrder.items[i];
+                        if (item.product_id && item.quantity > 0) {
+                            if (!item.product_id) {
+                                alert(`Товар #${i + 1}: выберите товар!`);
+                                return;
+                            }
+                            if (!item.quantity || item.quantity < 1) {
+                                alert(`Товар #${i + 1}: укажите количество больше 0!`);
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                this.editStep++;
+            },
+            prevEditStep() {
+                if (this.editStep > 1) this.editStep--;
+            },
+            addEditItem() {
+                this.editOrder.items.push({ 
+                    product_id: '', 
+                    quantity: 1, 
+                    size: '', 
+                    color: '',
+                    glass_type: '',
+                    paint_type: '',
+                    paint_color: '',
+                    cnc_specs: '',
+                    cutting_specs: '',
+                    packaging_notes: ''
+                });
+                this.$nextTick(() => lucide.createIcons());
+            },
+            removeEditItem(idx) {
+                this.editOrder.items.splice(idx, 1);
+                if (this.editOrder.items.length === 0) {
+                    this.addEditItem();
+                }
+                this.$nextTick(() => lucide.createIcons());
+            },
+            async submitOrder() {
+                let clientId = this.newOrder.client_id;
+                if (this.clientMode === 'new') {
+                    // Проверка email
+                    if (this.clientForm.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.clientForm.email)) {
+                        alert('Введите корректный email!');
+                        return;
+                    }
+                    // Сначала создаём клиента
+                    const resp = await fetch('/clients/api/clients/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(this.clientForm)
+                    });
+                    if (resp.ok) {
+                        const client = await resp.json();
+                        clientId = client.id;
+                    } else {
+                        alert('Ошибка создания клиента');
+                        return;
+                    }
+                }
+                if (!clientId) {
+                    alert('Клиент не выбран или не создан!');
+                    return;
+                }
+                // Теперь создаём заказ
+                const payload = {
+                    name: this.newOrder.name,
+                    client_id: clientId,
+                    items_data: this.newOrder.items.filter(it => it.product_id && it.quantity > 0)
+                };
+                const resp = await fetch('/orders/api/create/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    const created = await resp.json();
+                    this.orders.unshift(created);
+                    this.showSuccess = true;
+                } else {
+                    const errorData = await resp.json().catch(() => ({}));
+                    const errorMessage = errorData.error || errorData.detail || 'Ошибка создания заказа';
+                    alert(errorMessage);
+                }
+            },
+            async submitEditOrder() {
+                try {
+                    let clientId = this.editOrder.client_id;
+                    
+                    if (this.editClientMode === 'new') {
+                        // Проверка email
+                        if (this.editClientForm.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.editClientForm.email)) {
+                            alert('Введите корректный email!');
+                            return;
+                        }
+                        
+                        // Сначала создаём клиента
+                        const resp = await fetch('/clients/api/clients/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            body: JSON.stringify(this.editClientForm)
+                        });
+                        
+                        if (resp.ok) {
+                            const client = await resp.json();
+                            clientId = client.id;
+                        } else {
+                            const errorData = await resp.json().catch(() => ({}));
+                            const errorMessage = errorData.error || errorData.detail || 'Ошибка создания клиента';
+                            alert(errorMessage);
+                            return;
+                        }
+                    }
+                    
+                    if (!clientId) {
+                        alert('Клиент не выбран или не создан!');
+                        return;
+                    }
+
+                    // Фильтруем и валидируем товары
+                    const validItems = this.editOrder.items.filter(it => it.product_id && it.quantity > 0);
+                    if (validItems.length === 0) {
+                        alert('Добавьте хотя бы один товар!');
+                        return;
+                    }
+                    
+                    // Проверяем что все товары имеют валидные product_id
+                    for (let i = 0; i < validItems.length; i++) {
+                        const item = validItems[i];
+                        if (!item.product_id || isNaN(parseInt(item.product_id))) {
+                            alert(`Товар #${i + 1}: выберите корректный товар!`);
+                            return;
+                        }
+                        if (!item.quantity || item.quantity < 1) {
+                            alert(`Товар #${i + 1}: укажите количество больше 0!`);
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        name: this.editOrder.name.trim(),
+                        client_id: clientId,
+                        comment: this.editOrder.comment ? this.editOrder.comment.trim() : '',
+                        status: this.editOrder.status,
+                        items_data: validItems.map(item => ({
+                            product_id: parseInt(item.product_id),
+                            quantity: parseInt(item.quantity) || 1,
+                            size: item.size ? item.size.trim() : '',
+                            color: item.color ? item.color.trim() : '',
+                            glass_type: item.glass_type ? item.glass_type.trim() : '',
+                            paint_type: item.paint_type ? item.paint_type.trim() : '',
+                            paint_color: item.paint_color ? item.paint_color.trim() : '',
+                            cnc_specs: item.cnc_specs ? item.cnc_specs.trim() : '',
+                            cutting_specs: item.cutting_specs ? item.cutting_specs.trim() : '',
+                            packaging_notes: item.packaging_notes ? item.packaging_notes.trim() : ''
+                        }))
+                    };
+                    
+                    // Логируем payload для отладки
+                    console.log('Отправляем данные для обновления:', payload);
+                    
+                    const resp = await fetch(`/orders/api/orders/${this.editOrder.id}/`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (resp.ok) {
+                        const updated = await resp.json();
+                        console.log('Заказ успешно обновлен:', updated);
+                        const index = this.orders.findIndex(o => o.id === updated.id);
+                        if (index !== -1) {
+                            this.orders[index] = updated;
+                        }
+                        this.showEditSuccess = true;
+                    } else {
+                        const errorData = await resp.json().catch(() => ({}));
+                        console.error('Ошибка обновления заказа:', errorData);
+                        const errorMessage = errorData.error || errorData.detail || 'Ошибка обновления заказа';
+                        alert(`Ошибка ${resp.status}: ${errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Ошибка при обновлении заказа:', error);
+                    alert('Произошла ошибка при обновлении заказа. Попробуйте еще раз.');
+                }
+            },
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            },
+            async init() {
+                await this.fetchOrders();
+                await this.fetchClients();
+                await this.fetchProducts();
+                this.loading = false;
+                // Автоматически открыть модалку, если show_create=true в URL
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('create') === 'true' || params.get('create') === '1') {
+                    this.showCreateModal = true;
+                }
+                this.$nextTick(() => lucide.createIcons());
+            },
+            // Сброс выбора клиента при смене режима
+            watch: {
+                clientMode(newVal, oldVal) {
+                    if (newVal === 'existing') {
+                        this.clientForm = { name: '', phone: '', email: '', company: '', address: '' };
+                    } else if (newVal === 'new') {
+                        this.newOrder.client_id = '';
+                    }
+                },
+                editClientMode(newVal, oldVal) {
+                    if (newVal === 'existing') {
+                        this.editClientForm = { name: '', phone: '', email: '', company: '', address: '' };
+                    } else if (newVal === 'new') {
+                        this.editOrder.client_id = '';
+                    }
+                }
+            },
+            // removed openMoreMenu and closeMoreMenu
+        }
+    }
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html> 

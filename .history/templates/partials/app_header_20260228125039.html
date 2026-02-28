@@ -1,0 +1,119 @@
+<header class="fixed top-0 left-0 right-0 z-40">
+  <style>
+    .app-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .app-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .app-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.7); border-radius: 999px; }
+    .app-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.7) transparent; }
+  </style>
+  <div class="h-16 bg-white/90 backdrop-blur border-b border-gray-200/70 shadow-sm">
+    <div class="h-full px-6 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/" class="flex items-center gap-3 min-w-0">
+          <span class="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" 
+            class="bi bi-columns" viewBox="0 0 16 16">
+              <path d="M0 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1zm8.5 0v8H15V2zm0 9v3H15v-3zm-1-9H1v3h6.5zM1 14h6.5V6H1z"/>
+            </svg>
+          </span>
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold text-gray-900 leading-tight">lastick</span>
+            <span class="block text-xs text-gray-500 truncate">Управление производством</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="hidden lg:flex flex-1 max-w-2xl">
+        <div class="relative w-full">
+          <div class="relative w-full flex items-center">
+            <i data-lucide="search" class="absolute left-3 inset-y-0 my-auto w-4 h-4 text-gray-400"></i>
+            <input type="search" placeholder="Поиск по заказам, клиентам, складу..." class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="hidden md:flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Ассистент</span>
+        </button>
+        <button class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Создать</span>
+        </button>
+        <details class="relative">
+          <summary class="list-none w-10 h-10 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-center cursor-pointer">
+            <span class="relative">
+              <i data-lucide="bell" class="w-4 h-4"></i>
+              <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white"></span>
+            </span>
+          </summary>
+          <div class="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100">
+              <p class="text-sm font-semibold text-gray-900">Уведомления</p>
+              <p class="text-xs text-gray-500">Последние события по системе</p>
+            </div>
+            <div class="max-h-72 overflow-y-auto app-scrollbar">
+              <a href="#" class="flex gap-3 px-4 py-3 hover:bg-gray-50">
+                <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <i data-lucide="check-circle" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="text-sm text-gray-900">Партия завершена</p>
+                  <p class="text-xs text-gray-500 truncate">Заказ №1247 перемещен на склад</p>
+                </div>
+              </a>
+              <a href="#" class="flex gap-3 px-4 py-3 hover:bg-gray-50">
+                <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="text-sm text-gray-900">Низкий остаток</p>
+                  <p class="text-xs text-gray-500 truncate">Материал "Пленка 60мк" меньше 10%</p>
+                </div>
+              </a>
+              <a href="#" class="flex gap-3 px-4 py-3 hover:bg-gray-50">
+                <span class="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center">
+                  <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="text-sm text-gray-900">Новый запрос</p>
+                  <p class="text-xs text-gray-500 truncate">Требуется подтверждение оплаты</p>
+                </div>
+              </a>
+            </div>
+            <div class="px-4 py-3 border-t border-gray-100">
+              <a href="/notifications/" class="text-sm text-blue-600 hover:text-blue-700">Все уведомления</a>
+            </div>
+          </div>
+        </details>
+        <button class="w-10 h-10 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-center">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+        <button class="flex items-center gap-2 pl-2 pr-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50">
+          <span class="w-8 h-8 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white text-xs font-semibold flex items-center justify-center">
+            {{ request.user.get_full_name|default:request.user.username|slice:":2"|upper }}
+          </span>
+          <span class="hidden sm:block text-sm text-gray-700">
+            {{ request.user.get_full_name|default:request.user.username }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+<script>
+  (function () {
+    function initLucide() {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+    if (!window.lucide) {
+      var script = document.createElement('script');
+      script.src = 'https://unpkg.com/lucide@latest';
+      script.onload = initLucide;
+      document.head.appendChild(script);
+    }
+    document.addEventListener('DOMContentLoaded', initLucide);
+  })();
+</script>

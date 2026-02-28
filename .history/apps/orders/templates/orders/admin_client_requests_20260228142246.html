@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки клиента {{ client.name }}</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(.4,0,.2,1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .kanban-column { min-height: 500px; }
+        aside::-webkit-scrollbar { display: none; }
+        .card-hover { transition: all 0.2s ease-in-out; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .workshop-card { transition: all 0.3s ease-in-out; }
+        .workshop-card:hover { transform: scale(1.02); }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50" x-data="kanbanData()" x-init="init()">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
+    
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden ml-64 p-8 pt-32">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Заявки клиента</h1>
+                    <p class="text-gray-600 text-lg">{{ client.name }}{% if client.company %} ({{ client.company }}){% endif %}</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/orders/admin/" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 shadow-sm">
+                        <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+                        К списку клиентов
+                    </a>
+                    <a href="{% url 'orders:export_requests_excel_for_client' client.id %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 shadow-sm">
+                        <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                        Экспорт в Excel
+                    </a>
+                    <button @click="refreshData()" class="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                        Обновить
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kanban Board -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Канбан-доска заявок</h2>
+                    <p class="text-gray-600">Отслеживайте прогресс заявок по цехам в реальном времени</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
+                        <i data-lucide="info" class="w-4 h-4 inline mr-2"></i>
+                        Перетаскивайте заявки между колонками
+                    </span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
+                <!-- Заявки -->
+                <div class="kanban-column">
+                    <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-2xl p-6 mb-6 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-xl font-bold text-yellow-800 mb-2">Заявки</h3>
+                                <p class="text-sm text-yellow-700 font-medium">{{ pending_requests.count }} заявок ожидают рассмотрения</p>
+                            </div>
+                            <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="file-text" class="w-7 h-7 text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        {% for request in pending_requests %}
+                            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer card-hover" 
+                                 @click="openRequestModal({{ request.id }})">
+                                <div class="flex items-start justify-between mb-4">
+                                    <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                    <span class="text-xs text-yellow-600 bg-yellow-100 px-3 py-1 rounded-full font-medium">Ожидает</span>
+                                </div>
+                                <p class="text-xs text-gray-600 mb-4">{{ request.created_at|date:"d.m.Y H:i" }}</p>
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span class="flex items-center font-medium">
+                                        <i data-lucide="package" class="w-3 h-3 mr-2"></i>
+                                        {{ request.items.count }} позиций
+                                    </span>
+                                    <span class="font-bold text-sm">{{ request.total_amount|floatformat:0 }} ⃀</span>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center py-16 text-gray-500">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i data-lucide="file-text" class="w-8 h-8 text-gray-300"></i>
+                                </div>
+                                <p class="text-sm font-medium">Нет заявок</p>
+                                <p class="text-xs text-gray-400 mt-1">Все заявки обработаны</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Динамические цеха -->
+                {% for workshop in workshops %}
+                    <div class="kanban-column">
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6 mb-6 shadow-sm workshop-card">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-xl font-bold text-blue-800 mb-2">{{ workshop.name }}</h3>
+                                    <p class="text-sm text-blue-700 font-medium">
+                                        {% if workshop.id == 1 %}
+                                            Обычные товары
+                                        {% elif workshop.id == 2 %}
+                                            Стеклянные товары
+                                        {% else %}
+                                            {{ workshop.description|default:"Производство" }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                    {% if workshop.id == 1 %}
+                                        <i data-lucide="factory" class="w-7 h-7 text-white"></i>
+                                    {% elif workshop.id == 2 %}
+                                        <i data-lucide="glass" class="w-7 h-7 text-white"></i>
+                                    {% else %}
+                                        <i data-lucide="settings" class="w-7 h-7 text-white"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            {% for request in in_production_requests %}
+                                {% if request.order and request.order.stages %}
+                                    {% for stage in request.order.stages.all %}
+                                        {% if stage.workshop.id == workshop.id %}
+                                            <div class="bg-white rounded-xl border border-blue-200 p-5 shadow-sm card-hover">
+                                                <div class="flex items-start justify-between mb-4">
+                                                    <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                                    <span class="text-xs text-blue-600 bg-blue-100 px-3 py-1 rounded-full font-medium">В работе</span>
+                                                </div>
+                                                <p class="text-xs text-gray-600 mb-4">{{ stage.operation }}</p>
+                                                <div class="space-y-3">
+                                                    <div class="flex items-center justify-between text-xs text-gray-500">
+                                                        <span class="flex items-center font-medium">
+                                                            <i data-lucide="target" class="w-3 h-3 mr-2"></i>
+                                                            План: {{ stage.plan_quantity }} шт.
+                                                        </span>
+                                                        <span class="font-bold text-sm">{{ stage.completed_quantity }}/{{ stage.plan_quantity }}</span>
+                                                    </div>
+                                                    {% if stage.deadline %}
+                                                        <div class="flex items-center text-xs text-gray-500">
+                                                            <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
+                                                            Срок: {{ stage.deadline|date:"d.m.Y" }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% empty %}
+                                <div class="text-center py-16 text-gray-500">
+                                    {% if workshop.id == 1 %}
+                                        <i data-lucide="factory" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                    {% elif workshop.id == 2 %}
+                                        <i data-lucide="glass" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                    {% else %}
+                                        <i data-lucide="settings" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                    {% endif %}
+                                    <p class="text-sm font-medium">Нет заказов</p>
+                                    <p class="text-xs text-gray-400 mt-1">В цехе {{ workshop.name }}</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <!-- Упаковка -->
+                <div class="kanban-column">
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl p-6 mb-6 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-xl font-bold text-green-800 mb-2">Упаковка</h3>
+                                <p class="text-sm text-green-700 font-medium">Готовая продукция</p>
+                            </div>
+                            <div class="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                <i data-lucide="package" class="w-7 h-7 text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        {% for request in in_production_requests %}
+                            {% if request.order and request.order.stages %}
+                                {% for stage in request.order.stages.all %}
+                                    {% if 'упаковк' in stage.operation|lower %}
+                                        <div class="bg-white rounded-xl border border-green-200 p-5 shadow-sm card-hover">
+                                            <div class="flex items-start justify-between mb-4">
+                                                <h4 class="font-semibold text-gray-900 text-sm leading-tight">{{ request.name }}</h4>
+                                                <span class="text-xs text-green-600 bg-green-100 px-3 py-1 rounded-full font-medium">Упаковка</span>
+                                            </div>
+                                            <p class="text-xs text-gray-600 mb-4">{{ stage.operation }}</p>
+                                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                                <span class="flex items-center font-medium">
+                                                    <i data-lucide="package" class="w-3 h-3 mr-2"></i>
+                                                    {{ stage.plan_quantity }} шт.
+                                                </span>
+                                                <span class="font-bold text-sm">{{ stage.completed_quantity }}/{{ stage.plan_quantity }}</span>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        {% empty %}
+                            <div class="text-center py-16 text-gray-500">
+                                <i data-lucide="package" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+                                <p class="text-sm font-medium">Нет заказов</p>
+                                <p class="text-xs text-gray-400 mt-1">В упаковке</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Request Modal -->
+    <div x-show="showModal" x-transition class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                <div class="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-gray-900" x-text="selectedRequest ? 'Заявка: ' + selectedRequest.name : 'Заявка'"></h3>
+                        <button @click="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                    
+                    <template x-if="selectedRequest">
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Клиент</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="selectedRequest.client ? selectedRequest.client.name : 'Не указан'"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Дата создания</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="formatDate(selectedRequest.created_at)"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Общая сумма</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="(selectedRequest.total_amount || 0).toLocaleString() + ' ⃀'"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Количество позиций</label>
+                                    <p class="text-sm text-gray-900 font-medium" x-text="selectedRequest.items ? selectedRequest.items.length : 0"></p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Комментарий</label>
+                                <p class="text-sm text-gray-900 font-medium" x-text="selectedRequest.comment || 'Нет комментария'"></p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Товары</label>
+                                <div class="space-y-3">
+                                    <template x-for="item in selectedRequest.items" :key="item.id">
+                                        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Товар</label>
+                                                    <p class="text-gray-900 font-medium" x-text="item.product ? item.product.name : 'Не указан'"></p>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Количество</label>
+                                                    <p class="text-gray-900 font-medium" x-text="item.quantity"></p>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Цена</label>
+                                                    <p class="text-gray-900 font-medium" x-text="(item.price || 0).toLocaleString() + ' ⃀'"></p>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Размер</label>
+                                                    <p class="text-gray-900 font-medium" x-text="item.size || 'Не указан'"></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="bg-gray-50 px-6 py-4 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="approveRequest()" x-show="selectedRequest && selectedRequest.status === 'pending'" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-6 py-3 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 sm:ml-3 sm:w-auto sm:text-sm">
+                        <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i>
+                        Отправить на работу
+                    </button>
+                    <button @click="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function kanbanData() {
+        return {
+            showModal: false,
+            selectedRequest: null,
+            requests: [],
+            
+            async init() {
+                await this.fetchRequests();
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            async fetchRequests() {
+                try {
+                    const resp = await fetch('/finance/api/requests/');
+                    const data = await resp.json();
+                    this.requests = data;
+                } catch (error) {
+                    console.error('Error fetching requests:', error);
+                }
+            },
+            
+            openRequestModal(requestId) {
+                this.selectedRequest = this.requests.find(r => r.id === requestId);
+                this.showModal = true;
+            },
+            
+            closeModal() {
+                this.showModal = false;
+                this.selectedRequest = null;
+            },
+            
+            async approveRequest() {
+                if (!this.selectedRequest) return;
+                
+                try {
+                    const resp = await fetch(`/orders/api/requests/approve/${this.selectedRequest.id}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        }
+                    });
+                    
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        alert('Заявка одобрена! Заказ создан.');
+                        this.closeModal();
+                        await this.fetchRequests();
+                        window.location.reload();
+                    } else {
+                        const error = await resp.json();
+                        alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                    }
+                } catch (error) {
+                    console.error('Error approving request:', error);
+                    alert('Ошибка при одобрении заявки');
+                }
+            },
+            
+            async refreshData() {
+                await this.fetchRequests();
+                window.location.reload();
+            },
+            
+            exportData() {
+                alert('Функция экспорта в разработке');
+            },
+            
+            printReport() {
+                window.print();
+            },
+            
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                return d.toLocaleString('ru-RU');
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            }
+        }
+    }
+    
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('kanbanData', kanbanData);
+    });
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html> 

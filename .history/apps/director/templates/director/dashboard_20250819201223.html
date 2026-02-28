@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Factory — Дашборд</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <style>
+        .stat-card { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%); backdrop-filter: blur(10px); }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .chart-container { position: relative; }
+        .loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 10; }
+        .sidebar { 
+            width: 280px; 
+            transition: all 0.3s ease;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        /* Скрываем скроллбар, но оставляем возможность скроллинга */
+        .sidebar::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: transparent;
+        }
+        
+        /* Для Firefox */
+        .sidebar {
+            scrollbar-width: none;
+        }
+        .sidebar.sidebar-hidden { 
+            transform: translateX(-100%); 
+        }
+        .main-content { 
+            margin-left: 280px; 
+            transition: margin-left 0.3s ease; 
+        }
+        .main-content.expanded { 
+            margin-left: 0; 
+        }
+        .sidebar-item { transition: all 0.2s ease; }
+        .sidebar-item:hover { background-color: #f3f4f6; transform: translateX(4px); }
+        .sidebar-item.active { background-color: #dbeafe; color: #1d4ed8; border-right: 3px solid #3b82f6; }
+        .sidebar-item.active i { color: #1d4ed8; }
+        .sidebar-toggle { transition: transform 0.3s ease; }
+        .sidebar-toggle.rotated { transform: rotate(180deg); }
+        @media (max-width: 1024px) {
+            .sidebar { transform: translateX(-100%); }
+            .main-content { margin-left: 0; }
+            .sidebar.mobile-open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div x-data="smartFactoryDashboard()" x-init="init()">
+        <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-40" :class="sidebarOpen ? 'lg:left-72' : 'lg:left-0'">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <!-- Sidebar Toggle Button -->
+                    <button @click="toggleSidebar()" class="mr-4 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i data-lucide="menu" class="w-5 h-5 text-gray-600 sidebar-toggle" :class="sidebarOpen ? 'rotated' : ''"></i>
+                    </button>
+                    
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                        <span class="text-white font-bold text-xl">S</span>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">Smart Factory</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">Пользователь:</span>
+                        <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                            <span class="text-white text-sm font-medium" x-text="(overview.user_name || 'П').charAt(0).toUpperCase()"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+{% if request.session.impersonator_id %}
+    <div class="bg-yellow-100 border-b border-yellow-200 fixed top-16 left-0 right-0 z-30" :class="sidebarOpen ? 'lg:left-72' : 'lg:left-0'">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div class="text-center text-yellow-800 text-sm">
+    Режим имперсонации. <a href="{% url 'release_impersonation' %}" class="underline font-semibold">Вернуться</a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+        <!-- Sidebar -->
+    <aside class="sidebar fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50" :class="sidebarOpen ? '' : 'sidebar-hidden'">
+        <div class="p-6">
+            <!-- Logo Section -->
+            <div class="flex items-center mb-8">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                    <span class="text-white font-bold text-xl">S</span>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">Smart Factory</h2>
+                    <p class="text-sm text-gray-500">Панель управления</p>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Основное меню</h3>
+                
+                <a href="/dashboard/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 active">
+                    <i data-lucide="home" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Главная</span>
+                </a>
+
+                <a href="/orders/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Заказы</span>
+                </a>
+
+                <a href="/clients/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="user-plus" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Клиенты</span>
+                </a>
+
+                <a href="/employees/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="users" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Сотрудники</span>
+                </a>
+
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Производство</h3>
+
+                <a href="/products/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="package" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Товары</span>
+                </a>
+
+                <a href="/services/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="scissors" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Услуги</span>
+                </a>
+
+                <a href="/workshops/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="factory" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Цехи</span>
+                </a>
+
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Склад</h3>
+
+                <a href="/inventory/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="archive" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Материалы</span>
+                </a>
+
+                <a href="/finished_goods/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="package-check" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Готовая продукция</span>
+                </a>
+
+                <a href="/defects/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Брак</span>
+                </a>
+
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Дополнительно</h3>
+
+                <!-- Added Finance link -->
+                <a href="/finance/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="wallet" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Финансы</span>
+                </a>
+
+                <a href="/employee_tasks/defects/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Управление браком</span>
+                </a>
+
+                <a href="/attendance/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="calendar" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Посещаемость</span>
+                </a>
+
+                <a href="/settings/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="settings" class="w-5 h-5 text-gray-500"></i>
+                    <span class="font-medium">Настройки</span>
+                </a>
+            </nav>
+
+            <!-- Quick Stats in Sidebar -->
+            <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">Быстрая статистика</h4>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Активные заказы:</span>
+                        <span class="font-medium text-blue-600" x-text="overview.active_orders || 0"></span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Низкий запас:</span>
+                        <span class="font-medium" :class="overview.low_stock_count > 0 ? 'text-red-600' : 'text-green-600'" x-text="overview.low_stock_count || 0"></span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Эффективность:</span>
+                        <span class="font-medium text-green-600" x-text="(overview.avg_efficiency || 0) + '%'"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content pt-16" :class="sidebarOpen ? '' : 'expanded'">
+        {% if request.session.impersonator_id %}
+        <div class="pt-16"></div>
+        {% endif %}
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Page Title -->
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900">Аналитика производства</h2>
+                <p class="text-gray-600 mt-2">Комплексная сводка по всем показателям системы</p>
+            </div>
+
+            <!-- Key Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Sales -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Продажи</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.product_sales || '0'"></p>
+                            <p class="text-sm text-gray-500">шт.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Доход</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.total_income || 0)"></p>
+                            <p class="text-sm text-gray-500">руб.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="dollar-sign" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Defects -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Брак</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.defective_products || '0'"></p>
+                            <p class="text-sm text-gray-500">шт.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employees -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Сотрудники</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.total_employees || '0'"></p>
+                            <p class="text-sm text-gray-500">чел.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="users" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Secondary Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Clients -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Клиенты</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.total_clients || '0'"></p>
+                            <p class="text-sm text-gray-500">чел.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="user-plus" class="w-6 h-6 text-indigo-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Услуги</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.total_services || '0'"></p>
+                            <p class="text-sm text-gray-500">шт.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="scissors" class="w-6 h-6 text-yellow-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Materials -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Материалы</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.total_materials || '0'"></p>
+                            <p class="text-sm text-gray-500">шт.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="archive" class="w-6 h-6 text-gray-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Заказы</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="overview.total_orders || '0'"></p>
+                            <p class="text-sm text-gray-500">шт.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="clipboard-list" class="w-6 h-6 text-pink-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Balance -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Баланс</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.total_balance || 0)"></p>
+                            <p class="text-sm text-gray-500">руб.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="wallet" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Expenses -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Расходы</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.monthly_expenses || 0)"></p>
+                            <p class="text-sm text-gray-500">руб.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="trending-down" class="w-6 h-6 text-red-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Assets -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Активы</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.total_assets || 0)"></p>
+                            <p class="text-sm text-gray-500">руб.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="building" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Net Profit -->
+                <div class="stat-card rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Чистая прибыль</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.net_profit || 0)"></p>
+                            <p class="text-sm text-gray-500">руб.</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Main Chart -->
+                <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">График показателей</h3>
+                        <div class="flex space-x-2">
+                            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm" x-model="period" @change="updateChart()">
+                                <option value="week">Неделя</option>
+                                <option value="month">Месяц</option>
+                                <option value="year">Год</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container h-80">
+                        <div x-show="loading" class="loading-overlay">
+                            <div class="flex items-center space-x-2">
+                                <div class="spinner"></div>
+                                <span class="text-gray-600">Загрузка...</span>
+                            </div>
+                        </div>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- System Status Chart -->
+                <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Статус системы</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Низкий запас материалов</span>
+                            <span class="text-sm font-medium px-2 py-1 rounded-full" 
+                                  :class="overview.low_stock_count > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'"
+                                  x-text="overview.low_stock_count || 0"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Активные заказы</span>
+                            <span class="text-sm font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800" x-text="overview.active_orders || 0"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Средняя эффективность</span>
+                            <span class="text-sm font-medium px-2 py-1 rounded-full bg-green-100 text-green-800" x-text="(overview.avg_efficiency || 0) + '%'"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Общая стоимость материалов</span>
+                            <span class="text-sm font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-800" x-text="formatCurrency(overview.total_materials_value || 0)"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Tables Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Top Employees -->
+                <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Топ сотрудники</h3>
+                    <div class="overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сотрудник</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Выполнено</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Брак</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Эффективность</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="emp in topEmployees" :key="emp.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                                    <span class="text-blue-600 text-sm font-medium" x-text="(emp.full_name || emp.name).charAt(0).toUpperCase()"></span>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900" x-text="emp.full_name || emp.name"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900" x-text="emp.completed_works || 0"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900" x-text="emp.defects || 0"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" 
+                                                  :class="emp.efficiency >= 80 ? 'bg-green-100 text-green-800' : emp.efficiency >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
+                                                  x-text="(emp.efficiency || 0) + '%'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="topEmployees.length === 0" class="text-center py-8 text-gray-500">
+                            <p class="text-sm">Нет данных о сотрудниках</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Orders -->
+                <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Последние заказы</h3>
+                    <div class="overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Заказ</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиент</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="order in recentOrders" :key="order.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <span class="text-sm font-medium text-gray-900" x-text="order.name"></span>
+                                        </td>
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <span class="text-sm text-gray-900" x-text="order.client && order.client.name"></span>
+                                        </td>
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" 
+                                                  :class="getStatusClass(order.status)"
+                                                  x-text="order.status_display"></span>
+                                        </td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900" x-text="formatDate(order.created_at)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="recentOrders.length === 0" class="text-center py-8 text-gray-500">
+                            <p class="text-sm">Нет данных о заказах</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-xl p-6 border border-gray-200 shadowсм mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Быстрые действия</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <a href="/clients/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="user-plus" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Клиенты</span>
+                    </a>
+                    <a href="/employees/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="users" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Сотрудники</span>
+                    </a>
+                    <a href="/products/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="package" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Товары</span>
+                    </a>
+                    <a href="/services/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="scissors" class="w-6 h-6 text-yellow-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Услуги</span>
+                    </a>
+                    <a href="/inventory/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="archive" class="w-6 h-6 text-gray-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Склад</span>
+                    </a>
+                    <a href="/orders/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center mb-2">
+                            <i data-lucide="clipboard-list" class="w-6 h-6 text-pink-600"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 text-center">Заказы</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+function smartFactoryDashboard() {
+        return {
+            overview: {},
+            topEmployees: [],
+            recentOrders: [],
+            revenueChart: null,
+            loading: false,
+            period: 'week',
+            chartRequestId: 0,
+            sidebarOpen: true,
+
+            async init() {
+                await this.loadDashboardData();
+                await this.initChart();
+                lucide.createIcons();
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                    // Устанавливаем начальное состояние sidebar
+                    if (this.sidebarOpen) {
+                        document.querySelector('.sidebar').classList.remove('sidebar-hidden');
+                        document.querySelector('.main-content').classList.remove('expanded');
+                    }
+                    // Автоматически скрываем sidebar на мобильных устройствах
+                    if (window.innerWidth < 1024) {
+                        this.sidebarOpen = false;
+                        document.querySelector('.sidebar').classList.add('sidebar-hidden');
+                        document.querySelector('.main-content').classList.add('expanded');
+                    }
+                });
+            },
+
+            toggleSidebar() {
+                this.sidebarOpen = !this.sidebarOpen;
+                this.$nextTick(() => {
+                    if (this.sidebarOpen) {
+                        document.querySelector('.sidebar').classList.remove('sidebar-hidden');
+                        document.querySelector('.main-content').classList.remove('expanded');
+                    } else {
+                        document.querySelector('.sidebar').classList.add('sidebar-hidden');
+                        document.querySelector('.main-content').classList.add('expanded');
+                    }
+                });
+            },
+
+            async loadDashboardData() {
+                try {
+                    this.loading = true;
+                    
+                    // Загружаем основную статистику
+                    const overviewResponse = await fetch('/orders/dashboard/overview/', {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
+                    });
+                    if (overviewResponse.ok) {
+                        this.overview = await overviewResponse.json();
+                    }
+
+                    // Загружаем финансовые данные
+                    await this.loadFinanceData();
+
+                    // Загружаем дополнительные данные по всем приложениям
+                    await Promise.all([
+                        this.loadClientsData(),
+                        this.loadServicesData(),
+                        this.loadInventoryData(),
+                        this.loadOrdersData(),
+                        this.loadEmployeesData()
+                    ]);
+
+                } catch (e) { 
+                    console.error('Ошибка загрузки данных:', e);
+                    this.overview = {}; 
+                    this.topEmployees = []; 
+                    this.recentOrders = []; 
+                } finally { 
+                    this.loading = false; 
+                }
+            },
+
+            async loadFinanceData() {
+                try {
+                    const response = await fetch('/finance/api/dashboard-stats/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.overview.total_income = data.monthly_income || 0;
+                        this.overview.total_balance = data.total_balance || 0;
+                        this.overview.monthly_expenses = data.monthly_expenses || 0;
+                        this.overview.total_assets = data.total_assets || 0;
+                        this.overview.net_profit = data.monthly_profit || 0;
+                    }
+                } catch (e) {
+                    this.overview.total_income = 0;
+                    this.overview.total_balance = 0;
+                    this.overview.monthly_expenses = 0;
+                    this.overview.total_assets = 0;
+                    this.overview.net_profit = 0;
+                }
+            },
+
+            async loadClientsData() {
+                try {
+                    const response = await fetch('/clients/api/clients/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.overview.total_clients = data.results ? data.results.length : data.length;
+                    }
+                } catch (e) {
+                    this.overview.total_clients = 0;
+                }
+            },
+
+            async loadServicesData() {
+                try {
+                    const response = await fetch('/services/api/services/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.overview.total_services = data.data.length;
+                        }
+                    }
+                } catch (e) {
+                    this.overview.total_services = 0;
+                }
+            },
+
+            async loadInventoryData() {
+                try {
+                    const response = await fetch('/inventory/api/materials/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.overview.total_materials = data.data.length;
+                            // Подсчитываем материалы с низким запасом
+                            this.overview.low_stock_count = data.data.filter(m => 
+                                m.quantity <= m.min_quantity
+                            ).length;
+                            // Подсчитываем общую стоимость материалов
+                            this.overview.total_materials_value = data.data.reduce((sum, m) => 
+                                sum + (m.quantity * (m.price || 0)), 0
+                            );
+                        }
+                    }
+                } catch (e) {
+                    this.overview.total_materials = 0;
+                    this.overview.low_stock_count = 0;
+                    this.overview.total_materials_value = 0;
+                }
+            },
+
+            async loadOrdersData() {
+                try {
+                    const response = await fetch('/orders/api/orders/?ordering=-created_at&limit=10');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.recentOrders = data.results || data;
+                        this.overview.total_orders = data.count || data.length;
+                        
+                        // Подсчитываем активные заказы
+                        this.overview.active_orders = (data.results || data).filter(order => 
+                            order.status === 'production' || order.status === 'new'
+                        ).length;
+                    }
+                } catch (e) {
+                    this.recentOrders = [];
+                    this.overview.total_orders = 0;
+                    this.overview.active_orders = 0;
+                }
+            },
+
+            async loadEmployeesData() {
+                try {
+                    const response = await fetch('/employees/api/employees/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const employees = data.results || data;
+                        
+                        // Загружаем статистику для каждого сотрудника
+                        const employeesWithStats = await Promise.all(
+                            employees.map(async (emp) => {
+                                try {
+                                    const statsResponse = await fetch(`/employees/api/employees/${emp.id}/stats/`);
+                                    if (statsResponse.ok) {
+                                        const stats = await statsResponse.json();
+                                        return {
+                                            ...emp,
+                                            full_name: emp.first_name && emp.last_name ? 
+                                                `${emp.first_name} ${emp.last_name}` : emp.username,
+                                            completed_works: stats.completed_tasks || 0,
+                                            defects: stats.defective_quantity || 0,
+                                            efficiency: stats.efficiency || 0
+                                        };
+                                    }
+                                } catch (e) {}
+                                return {
+                                    ...emp,
+                                    full_name: emp.first_name && emp.last_name ? 
+                                        `${emp.first_name} ${emp.last_name}` : emp.username,
+                                    completed_works: 0,
+                                    defects: 0,
+                                    efficiency: 0
+                                };
+                            })
+                        );
+
+                        this.topEmployees = employeesWithStats
+                            .sort((a, b) => (b.completed_works || 0) - (a.completed_works || 0))
+                            .slice(0, 10);
+
+                        // Вычисляем среднюю эффективность
+                        const totalEfficiency = employeesWithStats.reduce((sum, emp) => sum + (emp.efficiency || 0), 0);
+                        this.overview.avg_efficiency = employeesWithStats.length > 0 ? 
+                            Math.round(totalEfficiency / employeesWithStats.length) : 0;
+
+                    } else {
+                        this.topEmployees = [];
+                        this.overview.avg_efficiency = 0;
+                    }
+                } catch (e) {
+                    this.topEmployees = [];
+                    this.overview.avg_efficiency = 0;
+                }
+            },
+
+            async initChart() {
+                this.loading = true;
+                this.chartRequestId++;
+                const currentRequestId = this.chartRequestId;
+                let chartData = {
+                    labels: [], 
+                    revenue: [], 
+                    defects: [], 
+                    orders_count: [], 
+                    sales: [] 
+                };
+                
+                try {
+                    const chartResponse = await fetch(`/orders/dashboard/revenue-chart/?period=${this.period}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
+                    });
+                
+                    if (currentRequestId !== this.chartRequestId) return;
+                
+                    if (chartResponse.ok) {
+                        const responseData = await chartResponse.json();
+                        chartData = { ...chartData, ...responseData };
+                    }
+                } catch (e) {
+                    
+                } finally {
+                    if (currentRequestId === this.chartRequestId) {
+                        if (this.revenueChart) this.revenueChart.destroy();
+                        
+                        const existing = window.Chart && window.Chart.getChart ? window.Chart.getChart('revenueChart') : null;
+                        if (existing) { existing.destroy(); }
+                        const ctxEl = document.getElementById('revenueChart');
+                         const ctx = ctxEl && ctxEl.getContext ? ctxEl.getContext('2d') : null;
+                        if (ctx) {
+                            // Ensure labels and datasets always present
+                            if (!chartData.labels || chartData.labels.length === 0) {
+                                const days = this.period === 'month' ? 30 : this.period === 'year' ? 365 : 7;
+                                const labels = [];
+                                for (let i = days - 1; i >= 0; i--) {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() - i);
+                                    labels.push(('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2));
+                                }
+                                chartData.labels = labels;
+                                chartData.revenue = new Array(days).fill(0);
+                                chartData.defects = new Array(days).fill(0);
+                                chartData.orders_count = new Array(days).fill(0);
+                                chartData.sales = new Array(days).fill(0);
+                            } else {
+                                ['revenue','sales','defects','orders_count'].forEach(key => {
+                                    if (!Array.isArray(chartData[key]) || chartData[key].length !== chartData.labels.length) {
+                                        chartData[key] = new Array(chartData.labels.length).fill(0);
+                                    }
+                                });
+                            }
+                            if (!window.Chart) {
+                                for (let i = 0; i < 60; i++) { 
+                                    await new Promise(r => setTimeout(r, 50));
+                                    if (window.Chart) break;
+                                }
+                            }
+                            this.revenueChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: chartData.labels,
+                                    datasets: [
+                                        {
+                                            label: 'Доход (₽)',
+                                            data: (Array.isArray(chartData.revenue) ? chartData.revenue : new Array(chartData.labels.length).fill(0)).map(v => Number(v) || 0),
+                                            borderColor: '#3B82F6',
+                                            backgroundColor: '#3B82F622',
+                                            borderWidth: 2,
+                                            tension: 0.4,
+                                            fill: false,
+                                            yAxisID: 'y1',
+                                            pointBackgroundColor: '#3B82F6',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 3,
+                                            pointHoverRadius: 5
+                                        },
+                                        {
+                                            label: 'Продажи (шт)',
+                                            data: (Array.isArray(chartData.sales) ? chartData.sales : new Array(chartData.labels.length).fill(0)).map(v => Number(v) || 0),
+                                            borderColor: '#10B981',
+                                            backgroundColor: '#10B98122',
+                                            borderWidth: 2,
+                                            tension: 0.4,
+                                            fill: false,
+                                            yAxisID: 'y2',
+                                            pointBackgroundColor: '#10B981',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 3,
+                                            pointHoverRadius: 5
+                                        },
+                                        {
+                                            label: 'Брак (шт)',
+                                            data: (Array.isArray(chartData.defects) ? chartData.defects : new Array(chartData.labels.length).fill(0)).map(v => Number(v) || 0),
+                                            borderColor: '#EF4444',
+                                            backgroundColor: '#EF444422',
+                                            borderWidth: 2,
+                                            tension: 0.4,
+                                            fill: false,
+                                            yAxisID: 'y2',
+                                            pointBackgroundColor: '#EF4444',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 3,
+                                            pointHoverRadius: 5
+                                        },
+                                        {
+                                            label: 'Заказы (шт)',
+                                            data: (Array.isArray(chartData.orders_count) ? chartData.orders_count : new Array(chartData.labels.length).fill(0)).map(v => Number(v) || 0),
+                                            borderColor: '#6366F1',
+                                            backgroundColor: '#6366F122',
+                                            borderWidth: 2,
+                                            tension: 0.4,
+                                            fill: false,
+                                            yAxisID: 'y2',
+                                            pointBackgroundColor: '#6366F1',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 3,
+                                            pointHoverRadius: 5
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: true },
+                                        tooltip: {
+                                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                            titleColor: '#fff',
+                                            bodyColor: '#fff',
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            borderWidth: 1
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            grid: { display: true, color: 'rgba(0,0,0,0.05)' },
+                                            ticks: { color: '#6B7280' }
+                                        },
+                                        y1: {
+                                            type: 'linear',
+                                            display: true,
+                                            position: 'left',
+                                            grid: { display: true, color: 'rgba(0,0,0,0.05)' }, 
+                                            ticks: { color: '#6B7280' }
+                                        },
+                                        y2: {
+                                            type: 'linear',
+                                            display: true,
+                                            position: 'right',
+                                            grid: { display: false },
+                                            ticks: { color: '#6B7280' }
+                                        }
+                                    },
+                                    interaction: {
+                                        intersect: false,
+                                        mode: 'index'
+                                    }
+                                }
+                            });
+                        }
+                        this.loading = false;
+                    }
+                }
+            },
+
+            async updateChart() { 
+                this.loading = true; 
+                await this.initChart(); 
+                this.loading = false; 
+            },
+
+            formatCurrency(amount) {
+                return new Intl.NumberFormat('ru-RU', {
+                    style: 'currency',
+                    currency: 'RUB',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(amount);
+            },
+
+            formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit'
+                });
+            },
+
+            getStatusClass(status) {
+                const statusClasses = {
+                    'new': 'bg-blue-100 text-blue-800',
+                    'production': 'bg-yellow-100 text-yellow-800',
+                    'completed': 'bg-green-100 text-green-800',
+                    'cancelled': 'bg-red-100 text-red-800'
+                };
+                return statusClasses[status] || 'bg-gray-100 text-gray-800';
+            }
+        }
+    }
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+</script>
+</body>
+</html> 

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="employeeOrdersPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-192x192.png">
+    <link rel="shortcut icon" href="/static/icons/icon-192x192.png">
+    <title>Заявки сотрудников</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0e121a; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .pill { background: #0e121a; color: #fff; }
+        .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); }
+        .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        .sheet-bg { background: rgba(10, 12, 16, 0.45); }
+        .sheet { border-top-left-radius: 20px; border-top-right-radius: 20px; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-3 h-14">
+        <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                <span class="text-white font-bold text-lg">S</span>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500">Сотрудник</div>
+                <span class="text-base font-semibold text-gray-900">Заявки</span>
+            </div>
+        </div>
+        <span class="text-xs text-gray-500">Только просмотр</span>
+    </header>
+
+    <main class="flex-1 pt-16 pb-16 px-3 w-full">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-xl font-bold text-gray-900">Все заявки</h1>
+            <div class="pill text-xs px-3 py-1 rounded-full">Лента</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <div class="card bg-white rounded-xl border border-gray-200 p-3">
+                <p class="text-xs text-gray-500">Всего</p>
+                <p class="text-lg font-semibold text-gray-900" x-text="requests.length"></p>
+            </div>
+            <div class="card bg-white rounded-xl border border-gray-200 p-3">
+                <p class="text-xs text-gray-500">Сумма</p>
+                <p class="text-lg font-semibold text-gray-900" x-text="totalAmount().toLocaleString() + ' сом'"></p>
+            </div>
+            <div class="card bg-white rounded-xl border border-gray-200 p-3">
+                <p class="text-xs text-gray-500">Позиции</p>
+                <p class="text-lg font-semibold text-gray-900" x-text="totalItems()"></p>
+            </div>
+        </div>
+
+        <div class="relative mb-4">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text" x-model="searchTerm" @input="filterRequests()" placeholder="Поиск по заявкам..." class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900">
+        </div>
+
+        <template x-if="isLoading">
+            <div class="space-y-3">
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 skeleton h-24"></div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 skeleton h-24"></div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-4 skeleton h-24"></div>
+            </div>
+        </template>
+
+        <template x-if="!isLoading && filteredRequests.length === 0">
+            <div class="text-center py-16">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="inbox" class="w-7 h-7 text-gray-400"></i>
+                </div>
+                <p class="text-gray-600">Заявок пока нет</p>
+            </div>
+        </template>
+
+        <div class="space-y-3" x-show="!isLoading && filteredRequests.length > 0">
+            <template x-for="request in filteredRequests" :key="request.id">
+                <button class="card bg-white rounded-xl border border-gray-200 p-4 text-left w-full" @click="openRequestModal(request)">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900" x-text="request.name || 'Без названия'"></p>
+                            <p class="text-xs text-gray-500" x-text="request.client && request.client.name ? request.client.name : 'Клиент не указан'"></p>
+                        </div>
+                        <span class="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-full" x-text="request.status_display || '—'"></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
+                            <span x-text="formatDate(request.created_at)"></span>
+                        </div>
+                        <div class="flex items-center space-x-2 justify-end">
+                            <i data-lucide="package" class="w-4 h-4 text-gray-400"></i>
+                            <span x-text="itemsCount(request) + ' поз.'"></span>
+                        </div>
+                        <div class="flex items-center space-x-2 col-span-2">
+                            <i data-lucide="wallet" class="w-4 h-4 text-gray-400"></i>
+                            <span class="font-medium text-gray-900" x-text="(request.total_amount || 0).toLocaleString() + ' сом'"></span>
+                        </div>
+                    </div>
+                    <template x-if="request.comment">
+                        <p class="text-xs text-gray-500 mt-2" x-text="request.comment"></p>
+                    </template>
+                </button>
+            </template>
+        </div>
+    </main>
+
+    
+
+    <div x-show="showRequestModal" x-transition class="fixed inset-0 z-40 flex items-end sheet-bg" @click.self="closeRequestModal()">
+        <div class="sheet bg-white w-full max-h-[85vh] overflow-y-auto p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs text-gray-500">Заявка</p>
+                    <h3 class="text-lg font-semibold text-gray-900" x-text="selectedRequest?.name || 'Без названия'"></h3>
+                </div>
+                <button class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center" @click="closeRequestModal()">
+                    <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Клиент</p>
+                    <p class="font-medium text-gray-900" x-text="selectedRequest?.client?.name || 'Не указан'"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Статус</p>
+                    <p class="font-medium text-gray-900" x-text="selectedRequest?.status_display || '—'"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Дата</p>
+                    <p class="font-medium text-gray-900" x-text="formatDate(selectedRequest?.created_at)"></p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Сумма</p>
+                    <p class="font-medium text-gray-900" x-text="(selectedRequest?.total_amount || 0).toLocaleString() + ' сом'"></p>
+                </div>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm font-semibold text-gray-900 mb-2">Позиции</p>
+                <template x-if="selectedRequest?.items && selectedRequest.items.length">
+                    <div class="space-y-2">
+                        <template x-for="item in selectedRequest.items" :key="item.id">
+                            <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                                <p class="text-sm font-medium text-gray-900" x-text="item.product ? item.product.name : 'Товар'"></p>
+                                <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
+                                    <span x-text="'Кол-во: ' + (item.quantity || 0)"></span>
+                                    <span x-text="item.price ? item.price.toLocaleString() + ' сом' : ''"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!selectedRequest?.items || !selectedRequest.items.length">
+                    <p class="text-xs text-gray-500">Позиции не указаны</p>
+                </template>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-900 mb-2">Комментарий</p>
+                <p class="text-sm text-gray-600" x-text="selectedRequest?.comment || '—'"></p>
+            </div>
+            <div class="h-4"></div>
+        </div>
+    </div>
+
+    <script>
+        function employeeOrdersPage() {
+            return {
+                requests: [],
+                filteredRequests: [],
+                searchTerm: '',
+                isLoading: true,
+                showRequestModal: false,
+                selectedRequest: null,
+                async init() {
+                    await this.fetchRequests();
+                    this.filterRequests();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                async fetchRequests() {
+                    try {
+                        const resp = await fetch('/finance/api/requests/');
+                        const data = await resp.json();
+                        const all = Array.isArray(data) ? data : [];
+                        // Показываем сотрудникам только заявки в статусе ожидания (ещё не выполнены)
+                        this.requests = all.filter(req => (req.status || '') === 'pending');
+                    } catch (err) {
+                        console.error('Failed to load requests', err);
+                        this.requests = [];
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                filterRequests() {
+                    const term = (this.searchTerm || '').toLowerCase();
+                    if (!term) {
+                        this.filteredRequests = this.requests || [];
+                        return;
+                    }
+                    this.filteredRequests = (this.requests || []).filter(req => {
+                        const name = (req.name || '').toLowerCase();
+                        const client = (req.client && req.client.name ? req.client.name : '').toLowerCase();
+                        return name.includes(term) || client.includes(term);
+                    });
+                },
+                formatDate(dateStr) {
+                    if (!dateStr) return '—';
+                    const date = new Date(dateStr);
+                    if (Number.isNaN(date.getTime())) return '—';
+                    return date.toLocaleDateString('ru-RU');
+                },
+                itemsCount(request) {
+                    return request && Array.isArray(request.items) ? request.items.length : 0;
+                },
+                totalAmount() {
+                    return (this.requests || []).reduce((sum, req) => sum + (Number(req.total_amount) || 0), 0);
+                },
+                totalItems() {
+                    return (this.requests || []).reduce((sum, req) => sum + this.itemsCount(req), 0);
+                },
+                openRequestModal(request) {
+                    this.selectedRequest = request || null;
+                    this.showRequestModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeRequestModal() {
+                    this.showRequestModal = false;
+                    this.selectedRequest = null;
+                },
+            }
+        }
+    </script>
+</body>
+</html>

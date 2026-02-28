@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="taskDetailPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Детали задачи</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
+    <script id="task-id" type="application/json">{{ task_id|default:'null' }}</script>
+    <script id="is-helper" type="application/json">{{ is_helper|yesno:"true,false" }}</script>
+    <script>
+      (function(){
+        const getJSON = (id) => {
+          const el = document.getElementById(id);
+          if (!el) return null;
+          try { return JSON.parse(el.textContent); } catch (_) { return null; }
+        };
+        const qs = new URLSearchParams(window.location.search);
+        window.user_id = getJSON('user-id');
+        window.task_id = getJSON('task-id');
+        const helperFromTag = getJSON('is-helper');
+        const helperFromQs = qs.has('helper') ? (qs.get('helper') === '1' || qs.get('helper') === 'true') : null;
+        window.is_helper = (helperFromQs !== null) ? helperFromQs : (helperFromTag === true);
+      })();
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .product-image { object-fit: cover; }
+        
+        /* Image Modal Styles */
+        .image-modal-enter { opacity: 0; transform: scale(0.9); }
+        .image-modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
+        .image-modal-exit { opacity: 1; transform: scale(1); }
+        .image-modal-exit-active { opacity: 0; transform: scale(0.9); transition: all 0.2s ease-in; }
+        
+        /* Zoom Styles */
+        .image-zoomed { 
+            transform: scale(1.5); 
+            transition: transform 0.3s ease-out;
+        }
+        .image-normal { 
+            transform: scale(1); 
+            transition: transform 0.3s ease-out;
+        }
+        
+        /* Dynamic zoom based on currentScale */
+        .image-dynamic-zoom {
+            transition: transform 0.1s ease-out;
+        }
+        
+        /* Touch-friendly controls */
+        .zoom-control {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Prevent text selection */
+        .image-modal img {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        /* Smooth transitions for all interactive elements */
+        .image-modal * {
+            transition: all 0.2s ease-out;
+        }
+        
+        /* Hover effects for controls */
+        .zoom-control:hover {
+            transform: scale(1.1);
+        }
+        
+        .zoom-control:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-3 h-14">
+        <div class="flex items-center space-x-3">
+            <a href="/employee_tasks/tasks/" class="text-gray-600 hover:text-gray-900">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span class="text-white font-bold text-lg">S</span>
+            </div>
+            <span class="text-base font-semibold text-gray-900">Детали задачи</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <template x-if="task && !isTaskCompleted()">
+                <div class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
+                    <i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>
+                    В работе
+                </div>
+            </template>
+            <template x-if="task && isTaskCompleted()">
+                <div class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                    <i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i>
+                    Выполнено
+                </div>
+            </template>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="flex-1 pt-16 pb-16 px-3 w-full">
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-32 rounded-lg skeleton bg-gray-200"></div>
+                <div class="h-20 rounded-lg skeleton bg-gray-200"></div>
+                <div class="h-20 rounded-lg skeleton bg-gray-200"></div>
+            </div>
+        </template>
+        
+        <template x-if="!loading && task">
+            <div class="space-y-4">
+                <!-- Task Header -->
+                <div class="card bg-white rounded-lg p-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <h1 class="text-lg font-bold text-gray-900" x-text="task.stage_name ? task.stage_name : ('Этап №' + task.stage)"></h1>
+                                <template x-if="task.is_combined && task.combined_tasks">
+                                    <div class="flex items-center space-x-1 bg-blue-100 px-2 py-1 rounded-full">
+                                        <i data-lucide="package" class="w-3 h-3 text-blue-600"></i>
+                                        <span class="text-xs text-blue-700 font-medium" x-text="'Группа (' + task.combined_tasks.length + ' товаров)'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <p class="text-sm text-gray-600" x-text="task.stage_description || 'Описание отсутствует'"></p>
+                            <template x-if="task.is_combined && task.combined_tasks">
+                                <p class="text-xs text-blue-600 mt-1">
+                                    <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                                    Эта задача объединяет несколько товаров заказа
+                                </p>
+                            </template>
+                        </div>
+                        <div class="ml-3">
+                            <div class="w-6 h-6 rounded border-2 flex items-center justify-center"
+                                 :class="isTaskCompleted() ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'">
+                                <i data-lucide="check" class="w-4 h-4 text-white" x-show="isTaskCompleted()"></i>
+                            </div>
+                        </div>
+                    </div>
+                                        
+                    <!-- Progress -->
+                    <div class="mb-3">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600">Прогресс</span>
+                            <span class="font-medium" x-text="`${getDisplayQuantity(task, 'completed')}/${getDisplayQuantity(task, 'plan')}`"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="h-2 rounded-full transition-all duration-300" 
+                                 :class="isTaskCompleted() ? 'bg-green-500' : 'bg-blue-500'"
+                                 :style="`width: ${Math.min(100, (getRealQuantity(task, 'completed') / getRealQuantity(task, 'plan')) * 100)}%`"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Task Stats -->
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="bg-blue-50 p-2 rounded-lg">
+                            <div class="text-blue-600 font-medium">План</div>
+                            <div class="text-blue-900 font-bold" x-text="getDisplayQuantity(task, 'plan')"></div>
+                        </div>
+                        <div class="bg-green-50 p-2 rounded-lg">
+                            <div class="text-green-600 font-medium">Выполнено</div>
+                            <div class="text-green-900 font-bold" x-text="getDisplayQuantity(task, 'completed')"></div>
+                        </div>
+                        <template x-if="task.defective_quantity > 0">
+                            <div class="bg-red-50 p-2 rounded-lg">
+                                <div class="text-red-600 font-medium">Брак</div>
+                                <div class="text-red-900 font-bold" x-text="getDisplayQuantity(task, 'defective')"></div>
+                            </div>
+                        </template>
+                        <template x-if="task.earnings">
+                            <div class="bg-yellow-50 p-2 rounded-lg">
+                                <div class="text-yellow-600 font-medium">Заработок</div>
+                                <div class="text-yellow-900 font-bold" x-text="`${Number((task.net_earnings ?? task.earnings) || 0).toFixed(1)} ⃀`"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Product Information -->
+                <template x-if="task.order_item">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="package" class="w-5 h-5 mr-2 text-blue-600"></i>
+                            Информация о товаре
+                        </h2>
+                        
+                        <!-- Product Image -->
+                        <template x-if="task.order_item.product && task.order_item.product.img">
+                            <div class="mb-4">
+                                <img :src="task.order_item.product.img" :alt="task.order_item.product.name" 
+                                     class="w-full h-48 rounded-lg product-image bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity duration-200"
+                                     @click="openImageModal(task.order_item.product.img, task.order_item.product.name)">
+                            </div>
+                        </template>
+                        
+                        <!-- Product Details -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Товар:</span>
+                                <span class="font-semibold text-gray-900" x-text="task.order_item.product ? task.order_item.product.name : 'Не указан'"></span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Количество плана:</span>
+                                <span class="font-semibold text-gray-900" x-text="task.quantity || 0"></span>
+                            </div>
+                            
+                            <template x-if="task.order_item.size">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Размер:</span>
+                                    <div class="flex items-center space-x-1">
+                                        <i data-lucide="ruler" class="w-4 h-4 text-blue-600"></i>
+                                        <span class="font-medium text-gray-900" x-text="shouldShowSizeAdjustment(task) ? getAdjustedSize(task.order_item.size) : task.order_item.size"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="task.order_item.color">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Цвет:</span>
+                                    <div class="flex items-center space-x-1">
+                                        <i data-lucide="palette" class="w-4 h-4 text-purple-600"></i>
+                                        <span class="font-medium text-gray-900" x-text="task.order_item.color"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="task.order_item.product && task.order_item.product.is_glass">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Тип стекла:</span>
+                                    <div class="flex items-center space-x-1">
+                                        <i data-lucide="droplets" class="w-4 h-4 text-cyan-600"></i>
+                                        <span class="font-medium text-gray-900" x-text="task.order_item.glass_type_display || 'Не указан'"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="task.order_item.paint_type">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Тип краски:</span>
+                                    <div class="flex items-center space-x-1">
+                                        <i data-lucide="brush" class="w-4 h-4 text-orange-600"></i>
+                                        <span class="font-medium text-gray-900" x-text="task.order_item.paint_type"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="task.order_item.paint_color">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Цвет краски:</span>
+                                    <div class="flex items-center space-x-1">
+                                        <i data-lucide="droplet" class="w-4 h-4 text-red-600"></i>
+                                        <span class="font-medium text-gray-900" x-text="task.order_item.paint_color"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <!-- Disclaimer for workshops ID 1 and 3 -->
+                        <template x-if="shouldShowWarning(task)">
+                            <div class="bg-yellow-50 p-3 rounded-lg mt-3">
+                                <div class="text-yellow-800 text-sm">
+                                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                                    <strong>Еслатма:</strong> ешиклар сони кўрсатилган, сизнинг устахонангизда 1 ешик икки қисмдан иборат, яъни сизнинг иш миқдорингиз <strong class="text-yellow-900" x-text="(task.quantity || 0) * 2"></strong> шаклида бажарилиши керак.
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                
+                <!-- Fallback Product Information (when order_item is null) -->
+                <template x-if="!task.order_item">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="package" class="w-5 h-5 mr-2 text-blue-600"></i>
+                            Товары заказа
+                        </h2>
+                        
+                        <template x-if="task.workshop_info && task.workshop_info.items && task.workshop_info.items.length">
+                            <div class="space-y-2">
+                                <template x-for="it in task.workshop_info.items" :key="it.product + '-' + it.size + '-' + it.color">
+                                    <div class="flex items-center space-x-3 border border-gray-200 rounded-lg p-2">
+                                        <template x-if="it.photo">
+                                            <img :src="it.photo" :alt="it.product" class="w-12 h-12 rounded object-cover border border-gray-200">
+                                        </template>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-gray-900" x-text="it.product || 'Товар'"></div>
+                                            <div class="text-xs text-gray-600">
+                                                <span x-text="it.quantity"></span> шт.
+                                                <template x-if="it.size"> • <span x-text="it.size"></span></template>
+                                                <template x-if="it.color"> • <span x-text="it.color"></span></template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        
+                        <template x-if="!(task.workshop_info && task.workshop_info.items && task.workshop_info.items.length)">
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Операция:</span>
+                                    <span class="font-semibold text-gray-900" x-text="task.stage_name || 'Не указана'"></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Цех:</span>
+                                    <span class="font-medium text-gray-900" x-text="task.workshop_info && task.workshop_info.workshop_name ? task.workshop_info.workshop_name : 'Не указан'"></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Количество:</span>
+                                    <span class="font-medium text-gray-900" x-text="task.quantity"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                
+                <!-- Order Information -->
+                <template x-if="task.order_item && task.order_item.order">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="file-text" class="w-5 h-5 mr-2 text-green-600"></i>
+                            Информация о заказе
+                        </h2>
+                        
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Название заказа:</span>
+                                <span class="font-medium text-gray-900" x-text="task.title || 'Не указано'"></span>
+                            </div>
+                            <!-- <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Номер заказа:</span>
+                                <span class="font-medium text-gray-900" x-text="task.order_item.order.id"></span>
+                            </div> -->
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Клиент:</span>
+                                <span class="font-medium text-gray-900" x-text="task.order_item.order.client ? task.order_item.order.client.name : 'Не указан'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Статус заказа:</span>
+                                <span class="font-medium text-gray-900" x-text="task.order_item.order.status_display || task.order_item.order.status"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Дата создания:</span>
+                                <span class="font-medium text-gray-900" x-text="new Date(task.order_item.order.created_at).toLocaleDateString('ru-RU')"></span>
+                            </div>
+                            
+                            <!-- Все товары заказа -->
+                            <template x-if="task.order_item.order.items && task.order_item.order.items.length">
+                                <div class="mt-3 pt-3 border-t border-gray-200">
+                                    <div class="text-sm font-semibold text-gray-800 mb-2">Все товары заказа:</div>
+                                    <div class="space-y-2">
+                                        <template x-for="item in task.order_item.order.items" :key="item.id">
+                                            <div class="text-sm border-l-2 border-gray-300 pl-3 py-2" :class="item.id === task.order_item.id ? 'border-l-blue-600 bg-blue-50' : ''">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-gray-900" x-text="item.product.name"></div>
+                                                        <div class="text-gray-600 text-xs">
+                                                            <span x-text="item.quantity"></span> шт.
+                                                            <template x-if="item.size"> • <span x-text="item.size"></span></template>
+                                                            <template x-if="item.color"> • <span x-text="item.color"></span></template>
+                                                        </div>
+                                                    </div>
+                                                    <div class="ml-3">
+                                                        <template x-if="item.id === task.order_item.id">
+                                                            <div class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">Текущий</div>
+                                                        </template>
+                                                        <template x-if="item.id !== task.order_item.id">
+                                                            <div class="text-gray-500 text-xs">ID: <span x-text="item.id"></span></div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Fallback Order Information (when order_item is null) -->
+                <template x-if="!task.order_item">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="file-text" class="w-5 h-5 mr-2 text-green-600"></i>
+                            Информация о заказе (основная)
+                        </h2>
+                        
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Операция:</span>
+                                <span class="font-medium text-gray-900" x-text="task.stage_name || 'Не указана'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">План:</span>
+                                <span class="font-medium text-gray-900" x-text="task.quantity"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Выполнено:</span>
+                                <span class="font-medium text-gray-900" x-text="task.completed_quantity"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Брак:</span>
+                                <span class="font-medium text-gray-900" x-text="task.defective_quantity"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Combined Tasks Information -->
+                <template x-if="task.is_combined && task.combined_tasks">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="package" class="w-5 h-5 mr-2 text-blue-600"></i>
+                            Детали группировки задач
+                        </h2>
+                        
+                        <div class="space-y-3">
+                            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                <div class="text-sm font-medium text-blue-800 mb-2">
+                                    Эта задача объединяет <span x-text="task.combined_tasks.length"></span> товаров заказа
+                                </div>
+                                <div class="text-xs text-blue-700">
+                                    Все товары назначены одновременно и выполняются как единая задача
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <template x-for="(subTask, index) in task.combined_tasks" :key="subTask.id">
+                                    <div class="border border-gray-200 rounded-lg p-3" :class="subTask.id === task.id ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm font-medium text-gray-900">Товар <span x-text="index + 1"></span></span>
+                                                <template x-if="subTask.id === task.id">
+                                                    <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">Текущий</span>
+                                                </template>
+                                            </div>
+                                            <div class="text-xs text-gray-500">ID: <span x-text="subTask.id"></span></div>
+                                        </div>
+                                        
+                                        <template x-if="subTask.order_item && subTask.order_item.product">
+                                            <div class="space-y-1">
+                                                <div class="text-sm font-medium text-gray-900" x-text="subTask.order_item.product.name"></div>
+                                                <div class="text-xs text-gray-600">
+                                                    <span x-text="subTask.quantity"></span> шт.
+                                                    <template x-if="subTask.order_item.size"> • <span x-text="subTask.order_item.size"></span></template>
+                                                    <template x-if="subTask.order_item.color"> • <span x-text="subTask.order_item.color"></span></template>
+                                                </div>
+                                                <div class="text-xs text-gray-500">
+                                                    Выполнено: <span class="font-medium" x-text="subTask.completed_quantity || 0"></span> /
+                                                    <span class="font-medium" x-text="subTask.quantity || 0"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Workshop Information -->
+                <template x-if="task.workshop_info && Object.keys(task.workshop_info).length > 0">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="settings" class="w-5 h-5 mr-2 text-purple-600"></i>
+                            Спецификации цеха
+                        </h2>
+                        
+                        <div class="space-y-2 text-sm">
+                            <template x-if="task.workshop_info.cutting_specs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Распил:</span>
+                                    <span class="font-medium text-gray-900" x-text="task.workshop_info.cutting_specs"></span>
+                                </div>
+                            </template>
+                            <template x-if="task.workshop_info.cnc_specs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">ЧПУ:</span>
+                                    <span class="font-medium text-gray-900" x-text="task.workshop_info.cnc_specs"></span>
+                                </div>
+                            </template>
+                            <template x-if="task.workshop_info.preparation_specs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Заготовка:</span>
+                                    <span class="font-medium text-gray-900" x-text="task.workshop_info.preparation_specs"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Fallback Workshop Information (when workshop_info is empty) -->
+                <template x-if="!task.workshop_info || Object.keys(task.workshop_info).length === 0">
+                    <div class="card bg-white rounded-lg p-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <i data-lucide="settings" class="w-5 h-5 mr-2 text-purple-600"></i>
+                            Информация о цехе
+                        </h2>
+                        
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Операция:</span>
+                                <span class="font-medium text-gray-900" x-text="task.stage_name || 'Не указана'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">План:</span>
+                                <span class="font-medium text-gray-900" x-text="task.quantity"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Выполнено:</span>
+                                <span class="font-medium text-gray-900" x-text="task.completed_quantity"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 p-3 rounded-lg mt-3">
+                            <div class="text-blue-800 text-sm">
+                                <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                                <strong>Информация:</strong> Детальные спецификации цеха будут добавлены мастером.
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Action Buttons -->
+                <div class="space-y-3">
+                    <template x-if="!isTaskCompleted()">
+                        <button @click="openCompleteModal()" 
+                                class="w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-150">
+                            <i data-lucide="check-circle" class="w-5 h-5 inline mr-2"></i>
+                            Отметить выполнение
+                        </button>
+                    </template>
+                    
+                    <template x-if="isTaskCompleted()">
+                        <div class="w-full py-4 bg-green-100 border-2 border-green-300 text-green-800 rounded-lg font-bold text-lg text-center">
+                            <i data-lucide="check-circle" class="w-5 h-5 inline mr-2"></i>
+                            Задача выполнена
+                        </div>
+                    </template>
+                    
+                    <template x-if="task.defective_quantity > 0 && !isTaskCompleted()">
+                        <button @click="openDefectModal()" 
+                                class="w-full py-3 bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700 rounded-lg font-semibold text-base transition-colors duration-150">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-2"></i>
+                            Просмотреть брак
+                        </button>
+                    </template>
+                    
+                    <template x-if="task.defective_quantity > 0 && isTaskCompleted()">
+                        <div class="w-full py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg font-semibold text-base text-center">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-2"></i>
+                            Брак: <span x-text="task.defective_quantity"></span> шт.
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+        
+        <template x-if="!loading && !task">
+            <div class="text-center py-12">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="alert-circle" class="w-8 h-8 text-red-500"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Задача не найдена</h3>
+                <p class="text-gray-600 mb-4">Запрашиваемая задача не существует или была удалена</p>
+                <a href="/employee_tasks/tasks/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+                    Вернуться к задачам
+                </a>
+            </div>
+        </template>
+    </main>
+    
+    <!-- Complete Modal -->
+    <template x-if="showCompleteModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg p-3">
+            <div class="bg-white rounded-xl p-4 w-full max-w-sm mx-auto shadow-2xl max-h-[95vh] overflow-y-auto">
+                <div class="text-center mb-4">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="check-circle" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Выполнить задачу</h3>
+                    <p class="text-gray-600 text-sm" x-text="task ? (task.stage_name ? task.stage_name : ('Этап №' + task.stage)) : ''"></p>
+                </div>
+                
+                <!-- Completion Toggle -->
+                <div class="flex flex-col items-center mt-4 mb-3">
+                    <div class="text-center mb-3">
+                        <div class="text-base font-semibold text-gray-900 mb-1">Работа выполнена?</div>
+                        <div class="text-xs text-gray-600">Отметьте, если весь план выполнен</div>
+                    </div>
+                    
+                    <!-- Toggle Switch -->
+                    <div class="relative inline-flex items-center cursor-pointer" @click="doneInput = !doneInput">
+                        <input type="checkbox" x-model="doneInput" class="sr-only">
+                        <div class="w-14 h-7 bg-gray-200 rounded-full transition-colors duration-200 ease-in-out" 
+                             :class="doneInput ? 'bg-green-500' : 'bg-gray-300'">
+                            <div class="w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out mt-0.5"
+                                 :class="doneInput ? 'translate-x-7' : 'translate-x-0.5'">
+                            </div>
+                        </div>
+                        <div class="ml-3 text-center">
+                            <div class="text-xl font-bold" :class="doneInput ? 'text-green-600' : 'text-gray-400'">
+                                <span x-show="doneInput">✓</span>
+                                <span x-show="!doneInput">○</span>
+                            </div>
+                            <div class="text-xs font-medium" :class="doneInput ? 'text-green-600' : 'text-gray-500'">
+                                <span x-show="doneInput">ГОТОВО</span>
+                                <span x-show="!doneInput">НЕ ГОТОВО</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Info -->
+                    <div class="mt-3 text-center">
+                        <div class="text-xs text-gray-600">
+                            <span x-show="doneInput">
+                                <span class="font-semibold text-green-600">Выполнено:</span> весь план (<span x-text="getDisplayQuantity(task, 'plan')"></span>)
+                            </span>
+                            <span x-show="!doneInput">
+                                <span class="font-semibold text-gray-600">Выполнено:</span> 0
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Defect Section -->
+                <div class="text-center mb-3">
+                    <div class="text-center mb-3">
+                        <div class="text-base font-semibold text-red-700 mb-1">Брак</div>
+                        <div class="text-xs text-gray-600">Укажите количество бракованных изделий</div>
+                    </div>
+                    
+                    <div class="flex items-center justify-center space-x-3">
+                        <button @click="defectiveInput = Math.max(0, defectiveInput - 1)" 
+                                class="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 active:bg-red-300 text-xl font-bold text-red-600 flex items-center justify-center transition-colors duration-150 shadow-sm">
+                            <span class="text-2xl">−</span>
+                        </button>
+                        
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-red-600 mb-1" x-text="defectiveInput"></div>
+                            <div class="text-xs text-gray-500">шт.</div>
+                        </div>
+                        
+                        <button @click="defectiveInput = defectiveInput + 1" 
+                                class="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 active:bg-red-300 text-xl font-bold text-red-600 flex items-center justify-center transition-colors duration-150 shadow-sm">
+                            <span class="text-2xl">+</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Defect Info -->
+                    <div class="mt-3 text-center">
+                        <div class="text-xs text-gray-600">
+                            <span x-show="defectiveInput > 0">
+                                <span class="font-semibold text-red-600">Брак:</span> <span x-text="defectiveInput"></span> шт.
+                            </span>
+                            <span x-show="defectiveInput === 0">
+                                <span class="font-semibold text-green-600">Брака нет</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex space-x-2 mt-6">
+                    <button @click="showCompleteModal = false" 
+                            class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold text-sm hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150">
+                        Отмена
+                    </button>
+                    <button @click="submitCompleted()" 
+                            class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-150">
+                        Сохранить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Image Modal -->
+    <template x-if="showImageModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg p-3" 
+             x-show="showImageModal"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             @click="closeImageModal()">
+            <div class="relative w-full h-full flex items-center justify-center">
+                <!-- Close Button -->
+                <button @click="closeImageModal()" 
+                        class="absolute top-4 right-4 z-10 w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors duration-200 backdrop-blur zoom-control">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+                
+                <!-- Image Container -->
+                <div class="relative max-w-full max-h-full" @click.stop>
+                    <img :src="selectedImage.src" :alt="selectedImage.alt" 
+                         class="max-w-full max-h-full object-contain rounded-lg shadow-2xl image-dynamic-zoom"
+                         :style="`transform: scale(${currentScale})`"
+                         @click="toggleImageZoom()"
+                         @dblclick="toggleImageZoom()"
+                         @touchstart="handleTouchStart"
+                         @touchmove="handleTouchMove"
+                         @touchend="handleTouchEnd">
+                    
+                    <!-- Zoom Controls -->
+                    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                        <button @click="resetImageZoom()" 
+                                class="w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors duration-200 backdrop-blur zoom-control"
+                                title="Сбросить масштаб">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        </button>
+                        <button @click="toggleImageZoom()" 
+                                class="w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors duration-200 backdrop-blur zoom-control"
+                                :title="imageZoomed ? 'Уменьшить' : 'Увеличить'">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Image Info -->
+                <div class="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-2 rounded-lg backdrop-blur text-sm">
+                    <div class="font-medium" x-text="selectedImage.alt"></div>
+                    <div class="text-xs opacity-75">
+                        <span x-show="currentScale <= 1.1">Нажмите для увеличения</span>
+                        <span x-show="currentScale > 1.1">Масштаб: <span x-text="Math.round(currentScale * 100)"></span>%</span>
+                    </div>
+                </div>
+                
+                <!-- Gesture Hint -->
+                <div class="absolute top-4 left-4 bg-black/50 text-white px-3 py-2 rounded-lg backdrop-blur text-sm">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="smartphone" class="w-4 h-4"></i>
+                        <span>Двойной тап или pinch для масштабирования</span>
+                    </div>
+                </div>
+                
+                <!-- Zoom Level Indicator -->
+                <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-2 rounded-lg backdrop-blur text-sm">
+                    <div class="text-center">
+                        <div class="text-xs opacity-75">Масштаб</div>
+                        <div class="font-bold" x-text="`${Math.round(currentScale * 100)}%`"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Defect Modal -->
+    <template x-if="showDefectModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg p-3">
+            <div class="bg-white rounded-xl p-4 w-full max-w-md mx-auto shadow-2xl max-h-[95vh] overflow-y-auto">
+                <div class="text-center mb-4">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Информация о браке</h3>
+                    <p class="text-gray-600 text-sm">Детали бракованных изделий</p>
+                </div>
+                
+                <!-- Defect Details -->
+                <div class="space-y-4 mb-6">
+                    <div class="bg-red-50 p-3 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-red-700 font-medium">Количество брака:</span>
+                            <span class="text-red-900 font-bold text-lg" x-text="task ? task.defective_quantity : 0"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <div class="text-gray-600 font-medium">План:</div>
+                            <div class="text-gray-900 font-bold" x-text="task ? task.quantity : 0"></div>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <div class="text-gray-600 font-medium">Выполнено:</div>
+                            <div class="text-gray-900 font-bold" x-text="task ? task.completed_quantity : 0"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Defect Impact -->
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <div class="text-yellow-800 text-sm">
+                            <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                            <strong>Влияние на заработок:</strong> Брак может влиять на итоговую оплату за выполненную работу.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex space-x-2">
+                    <button @click="showDefectModal = false" 
+                            class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold text-sm hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150">
+                        Закрыть
+                    </button>
+                    <button @click="openCompleteModal(); showDefectModal = false" 
+                            class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-150">
+                        Исправить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Bottom Navigation -->
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center nav-active">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/notifications/" class="flex flex-col items-center">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span class="text-xs">Уведомления</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center">
+            <i data-lucide="bar-chart" class="w-5 h-5"></i>
+            <span class="text-xs">Статистика</span>
+        </a>
+        <a href="/accounts/profile/" class="flex flex-col items-center">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Профиль</span>
+        </a>
+    </nav>
+
+    <script>
+    function taskDetailPage() {
+        return {
+            loading: true,
+            task: null,
+            showCompleteModal: false,
+            doneInput: false,
+            defectiveInput: 0,
+            userId: null,
+            taskId: null,
+            isHelper: false,
+            showImageModal: false,
+            selectedImage: { src: '', alt: '' },
+            imageZoomed: false,
+            startX: 0,
+            startY: 0,
+            currentScale: 1,
+            startDistance: 0,
+            startScale: 1,
+            showDefectModal: false,
+            
+            async init() {
+                this.userId = window.user_id || null;
+                this.taskId = window.task_id || null;
+                this.isHelper = !!window.is_helper;
+                
+                console.log('=== DEBUG: INIT ===');
+                console.log('User ID from window:', this.userId);
+                console.log('Task ID from window:', this.taskId);
+                console.log('Is helper from window:', this.isHelper);
+                console.log('User ID type:', typeof this.userId);
+                console.log('Task ID type:', typeof this.taskId);
+                console.log('Is helper type:', typeof this.isHelper);
+                console.log('Window user_id:', window.user_id);
+                console.log('Window task_id:', window.task_id);
+                console.log('Window is_helper:', window.is_helper);
+                
+                // Add keyboard event listeners
+                document.addEventListener('keydown', this.handleKeyDown.bind(this));
+                
+                await this.loadTask();
+                lucide.createIcons();
+            },
+            
+            async loadTask() {
+                if (!this.taskId) {
+                    console.log('=== DEBUG: NO TASK ID ===');
+                    console.log('Task ID is null/undefined, skipping load');
+                    this.loading = false;
+                    return;
+                }
+                
+                console.log('=== DEBUG: LOADING TASK ===');
+                console.log('Task ID to load:', this.taskId);
+                console.log('User ID:', this.userId);
+                
+                this.loading = true;
+                try {
+                    const apiUrl = this.isHelper 
+                        ? `/employee_tasks/api/helper-tasks/${this.taskId}/`
+                        : `/employee_tasks/api/employee-tasks/${this.taskId}/`;
+                    console.log('API URL:', apiUrl);
+                    
+                    const resp = await fetch(apiUrl);
+                    console.log('Response status:', resp.status);
+                    console.log('Response ok:', resp.ok);
+                    console.log('Response headers:', Object.fromEntries(resp.headers.entries()));
+                    
+                    if (resp.ok) {
+                        const taskData = await resp.json();
+                        console.log('=== DEBUG: TASK DATA RECEIVED ===');
+                        console.log('Raw task data:', taskData);
+                        console.log('Task employee ID:', taskData.employee);
+                        console.log('Task helper ID:', taskData.helper);
+                        console.log('Task employee type:', typeof taskData.employee);
+                        console.log('Current user ID:', this.userId);
+                        console.log('Current user ID type:', typeof this.userId);
+                        console.log('Employee comparison:', String(taskData.employee) === String(this.userId));
+                        console.log('Helper comparison:', String(taskData.helper) === String(this.userId));
+                        
+                        this.task = taskData;
+                        
+                        // Проверяем, что задача принадлежит текущему пользователю
+                        const belongsToUser = this.isHelper 
+                            ? String(this.task.helper) === String(this.userId)
+                            : String(this.task.employee) === String(this.userId);
+                        if (!belongsToUser) {
+                            console.log('=== DEBUG: ACCESS DENIED ===');
+                            console.log('Task employee ID:', this.task.employee);
+                            console.log('Task helper ID:', this.task.helper);
+                            console.log('Current user ID:', this.userId);
+                            console.log('Access denied - task does not belong to current user');
+                            this.task = null;
+                        } else {
+                            console.log('=== DEBUG: ACCESS GRANTED ===');
+                            console.log('User has access to this task');
+                        }
+                        
+                        
+                        // Проверяем структуру данных для поиска информации о цехе
+                        if (this.task.workshop_info) {
+                            console.log('workshop_info keys:', Object.keys(this.task.workshop_info));
+                            console.log('workshop_info full object:', JSON.stringify(this.task.workshop_info, null, 2));
+                        }
+                        if (this.task.workshop) {
+                            console.log('workshop keys:', Object.keys(this.task.workshop));
+                        }
+                        if (this.task.stage) {
+                            console.log('stage keys:', Object.keys(this.task.stage));
+                            if (this.task.stage.workshop) {
+                                console.log('stage.workshop keys:', Object.keys(this.task.stage.workshop));
+                            }
+                        }
+                        
+                        // Проверяем, изменился ли order_item после исправления сериализатора
+                        console.log('=== DEBUG: ORDER_ITEM CHECK AFTER FIX ===');
+                        console.log('order_item after serializer fix:', this.task.order_item);
+                        console.log('order_item type after fix:', typeof this.task.order_item);
+                        console.log('order_item is null after fix:', this.task.order_item === null);
+                        
+                        if (this.task.order_item) {
+                            console.log('✅ SUCCESS: order_item is now available!');
+                        } else {
+                            console.log('❌ STILL NULL: order_item is still null after fix');
+                        }
+                        
+                        // Проверяем заработок
+                        console.log('=== DEBUG: EARNINGS CHECK ===');
+                        console.log('Task earnings:', this.task.earnings);
+                        console.log('Task net_earnings:', this.task.net_earnings);
+                        console.log('Task completed_quantity:', this.task.completed_quantity);
+                        console.log('Task quantity:', this.task.quantity);
+                        
+                        // Если заработок не отображается, но задача выполнена, показываем предупреждение
+                        if (this.task.completed_quantity >= this.task.quantity && !this.task.earnings && !this.task.net_earnings) {
+                            console.warn('⚠️ Задача выполнена, но заработок не отображается. Возможно, нужно обновить данные.');
+                        }
+                        
+                        // Подробная проверка order_item
+                        console.log('=== DEBUG: ORDER_ITEM ANALYSIS ===');
+                        console.log('Raw order_item:', this.task.order_item);
+                        console.log('order_item type:', typeof this.task.order_item);
+                        console.log('order_item is null:', this.task.order_item === null);
+                        console.log('order_item is undefined:', this.task.order_item === undefined);
+                        
+                        if (this.task.order_item) {
+                            console.log('=== DEBUG: ORDER ITEM DATA ===');
+                            console.log('Order item ID:', this.task.order_item.id);
+                            console.log('Order item size:', this.task.order_item.size);
+                            console.log('Order item color:', this.task.order_item.color);
+                            console.log('Order item paint_type:', this.task.order_item.paint_type);
+                            console.log('Order item paint_color:', this.task.order_item.paint_color);
+                            
+                            if (this.task.order_item.product) {
+                                console.log('=== DEBUG: PRODUCT DATA ===');
+                                console.log('Product ID:', this.task.order_item.product.id);
+                                console.log('Product name:', this.task.order_item.product.name);
+                                console.log('Product img:', this.task.order_item.product.img);
+                                console.log('Product is_glass:', this.task.order_item.product.is_glass);
+                                console.log('Product glass_type:', this.task.order_item.product.glass_type);
+                                console.log('Glass type display:', this.task.order_item.glass_type_display);
+                            } else {
+                                console.log('=== DEBUG: NO PRODUCT DATA ===');
+                                console.log('Product field is missing or null');
+                            }
+                            
+                            if (this.task.order_item.order) {
+                                console.log('=== DEBUG: ORDER DATA ===');
+                                console.log('Order ID:', this.task.order_item.order.id);
+                                console.log('Order status:', this.task.order_item.order.status);
+                                console.log('Order status_display:', this.task.order_item.order.status_display);
+                                console.log('Order created_at:', this.task.order_item.order.created_at);
+                                
+                                if (this.task.order_item.order.client) {
+                                    console.log('Client name:', this.task.order_item.order.client.name);
+                                }
+                            } else {
+                                console.log('=== DEBUG: NO ORDER DATA ===');
+                                console.log('Order field is missing or null');
+                            }
+                        } else {
+                            console.log('=== DEBUG: ORDER_ITEM IS NULL ===');
+                            console.log('order_item is null - this is the problem!');
+                            console.log('Task stage:', this.task.stage);
+                            console.log('Task stage type:', typeof this.task.stage);
+                            
+                            // Проверяем все доступные данные
+                            console.log('=== DEBUG: ALL AVAILABLE DATA ===');
+                            console.log('Full task object:', JSON.stringify(this.task, null, 2));
+                            console.log('Task keys:', Object.keys(this.task));
+                            
+                            // Проверяем stage данные
+                            if (this.task.stage) {
+                                console.log('Stage data:', this.task.stage);
+                                console.log('Stage keys:', Object.keys(this.task.stage));
+                                console.log('Stage type:', typeof this.task.stage);
+                                
+                                // Проверяем, является ли stage числом или объектом
+                                if (typeof this.task.stage === 'number') {
+                                    console.log('Stage is a number (ID), not an object');
+                                    console.log('This means we need to fetch stage data separately');
+                                } else if (typeof this.task.stage === 'object') {
+                                    console.log('Stage is an object, checking for order and order_item');
+                                    console.log('Stage order:', this.task.stage.order);
+                                    console.log('Stage order_item:', this.task.stage.order_item);
+                                }
+                            }
+                            
+                            // Проверяем workshop_info
+                            console.log('Workshop info:', this.task.workshop_info);
+                            console.log('Workshop info type:', typeof this.task.workshop_info);
+                            console.log('Workshop info keys:', this.task.workshop_info ? Object.keys(this.task.workshop_info) : 'null');
+                            
+                            // Проверяем title для получения информации о заказе
+                            if (this.task.title) {
+                                // Title содержит "Резка - №45-6789", где №45-6789 это номер заказа
+                                const orderMatch = this.task.title.match(/№([^-]+)/);
+                                if (orderMatch) {
+                                    console.log('Order number from title:', orderMatch[1]);
+                                }
+                            }
+                        }
+                    } else {
+                        this.task = null;
+                    }
+                } catch (error) {
+                    this.task = null;
+                }
+                
+                this.loading = false;
+            },
+            
+            openCompleteModal() {
+                if (!this.task) {
+                    console.log('No task available, cannot open modal');
+                    return;
+                }
+                
+                // Проверяем, не выполнена ли уже задача
+                if (this.isTaskCompleted()) {
+                    alert('Задача уже выполнена и не может быть изменена. Обратитесь к мастеру для корректировки.');
+                    return;
+                }
+                
+                // Используем реальные количества для проверки завершения
+                const realCompleted = this.getRealQuantity(this.task, 'completed');
+                const realPlan = this.getRealQuantity(this.task, 'plan');
+                this.doneInput = realCompleted >= realPlan;
+                this.defectiveInput = this.task.defective_quantity || 0;
+                
+                console.log('Initial doneInput:', this.doneInput);
+                console.log('Initial defectiveInput:', this.defectiveInput);
+                console.log('Real completed quantity:', realCompleted);
+                console.log('Real plan quantity:', realPlan);
+                console.log('Task defective_quantity:', this.task.defective_quantity);
+                
+                this.showCompleteModal = true;
+            },
+            
+            async submitCompleted() {
+                console.log('=== DEBUG: SUBMIT COMPLETED ===');
+                console.log('Task object:', this.task);
+                if (!this.task) {
+                    console.log('No task available, cannot submit');
+                    return;
+                }
+                
+                // Проверяем, не выполнена ли уже задача
+                if (this.isTaskCompleted()) {
+                    alert('Задача уже выполнена и не может быть изменена. Обратитесь к мастеру для корректировки.');
+                    return;
+                }
+                
+                const done = !!this.doneInput;
+                const completedQty = done ? (this.task.quantity || 0) : 0;
+                
+                console.log('Submit data:');
+                console.log('- doneInput:', this.doneInput);
+                console.log('- done:', done);
+                console.log('- completedQty:', completedQty);
+                console.log('- defectiveInput:', this.defectiveInput);
+                console.log('- task.quantity:', this.task.quantity);
+                console.log('- Real plan quantity:', this.getRealQuantity(this.task, 'plan'));
+                console.log('- Real completed quantity:', this.getRealQuantity(this.task, 'completed'));
+                
+                try {
+                    const requestData = {
+                        completed_quantity: completedQty,
+                        defective_quantity: this.defectiveInput
+                    };
+                    console.log('Request payload:', requestData);
+                    
+                    const csrfToken = this.getCsrfToken();
+                    console.log('CSRF Token:', csrfToken);
+                    
+                    const resp = await fetch(`/employee_tasks/api/employee-tasks/${this.task.id}/`, {
+                        method: 'PATCH',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'X-CSRFToken': csrfToken 
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    console.log('Submit response status:', resp.status);
+                    console.log('Submit response ok:', resp.ok);
+                    
+                    if (resp.ok) {
+                        console.log('=== DEBUG: SUBMIT SUCCESS ===');
+                        console.log('Task updated successfully');
+                        
+                        this.task.completed_quantity = completedQty;
+                        this.task.defective_quantity = this.defectiveInput;
+                        this.showCompleteModal = false;
+                        
+                        console.log('Updated task object:', this.task);
+                        
+                        // Показываем уведомление об успехе
+                        this.showSuccessMessage();
+                    } else {
+                        console.log('=== DEBUG: SUBMIT ERROR ===');
+                        console.log('Submit failed with status:', resp.status);
+                        try {
+                            const errorText = await resp.text();
+                            console.log('Error response:', errorText);
+                        } catch (e) {
+                            console.log('Could not read error response:', e);
+                        }
+                    }
+                } catch (error) {
+                    console.log('=== DEBUG: SUBMIT EXCEPTION ===');
+                    console.error('Error updating task:', error);
+                    console.log('Error name:', error.name);
+                    console.log('Error message:', error.message);
+                }
+            },
+            
+            showSuccessMessage() {
+                console.log('=== DEBUG: SHOW SUCCESS MESSAGE ===');
+                // Можно добавить красивое уведомление
+                alert('Задача успешно обновлена!');
+            },
+            
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        const token = decodeURIComponent(cookie.substring(name.length + 1));
+                        console.log('CSRF Token found:', token);
+                        return token;
+                    }
+                }
+                console.log('No CSRF token found in cookies');
+                return '';
+            },
+
+            openImageModal(src, alt) {
+                this.selectedImage = { src, alt };
+                this.showImageModal = true;
+                this.imageZoomed = false; // Reset zoom on open
+                this.currentScale = 1; // Reset scale on open
+                this.startX = 0;
+                this.startY = 0;
+                this.startDistance = 0;
+                this.startScale = 1;
+            },
+
+            closeImageModal() {
+                this.showImageModal = false;
+                this.selectedImage = { src: '', alt: '' };
+                this.imageZoomed = false;
+                this.currentScale = 1;
+                this.startX = 0;
+                this.startY = 0;
+                this.startDistance = 0;
+                this.startScale = 1;
+            },
+
+            toggleImageZoom() {
+                if (this.imageZoomed) {
+                    this.currentScale = 1;
+                } else {
+                    this.currentScale = 1.5;
+                }
+                this.imageZoomed = !this.imageZoomed;
+            },
+
+            resetImageZoom() {
+                this.currentScale = 1;
+                this.imageZoomed = false;
+            },
+
+            handleTouchStart(event) {
+                if (event.touches.length === 1) {
+                    this.startX = event.touches[0].clientX;
+                    this.startY = event.touches[0].clientY;
+                } else if (event.touches.length === 2) {
+                    // Pinch to zoom
+                    const touch1 = event.touches[0];
+                    const touch2 = event.touches[1];
+                    this.startDistance = Math.sqrt(
+                        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                        Math.pow(touch2.clientY - touch1.clientY, 2)
+                    );
+                    this.startScale = this.currentScale;
+                }
+            },
+ 
+            handleTouchMove(event) {
+                if (event.touches.length === 1) {
+                    const deltaX = event.touches[0].clientX - this.startX;
+                    const deltaY = event.touches[0].clientY - this.startY;
+ 
+                    // Only handle significant movements
+                    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+                        this.currentScale += deltaY * 0.001; // Scale based on vertical movement
+                        this.currentScale = Math.max(1, Math.min(this.currentScale, 3)); // Limit scale
+                        
+                        if (this.currentScale > 1.1) {
+                            this.imageZoomed = true;
+                        } else {
+                            this.imageZoomed = false;
+                        }
+                    }
+ 
+                    this.startX = event.touches[0].clientX;
+                    this.startY = event.touches[0].clientY;
+                } else if (event.touches.length === 2) {
+                    // Pinch to zoom
+                    const touch1 = event.touches[0];
+                    const touch2 = event.touches[1];
+                    const currentDistance = Math.sqrt(
+                        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                        Math.pow(touch2.clientY - touch1.clientY, 2)
+                    );
+                    
+                    if (this.startDistance > 0) {
+                        const scale = currentDistance / this.startDistance;
+                        this.currentScale = Math.max(1, Math.min(this.startScale * scale, 3));
+                        
+                        if (this.currentScale > 1.1) {
+                            this.imageZoomed = true;
+                        } else {
+                            this.imageZoomed = false;
+                        }
+                    }
+                }
+            },
+ 
+            handleTouchEnd() {
+                this.startX = 0;
+                this.startY = 0;
+                this.startDistance = 0;
+                this.startScale = 1;
+            },
+
+            handleKeyDown(event) {
+                if (event.key === 'Escape') {
+                    this.closeImageModal();
+                }
+            },
+            
+            openDefectModal() {
+                console.log('=== DEBUG: OPEN DEFECT MODAL ===');
+                console.log('Task object:', this.task);
+                if (!this.task) {
+                    console.log('No task available, cannot open defect modal');
+                    return;
+                }
+                
+                // Проверяем, не выполнена ли уже задача
+                if (this.isTaskCompleted()) {
+                    alert('Задача уже выполнена и не может быть изменена. Обратитесь к мастеру для корректировки.');
+                    return;
+                }
+                
+                this.showDefectModal = true;
+            },
+
+            getDisplayQuantity(task, type) {
+                if (!task) return '0';
+                
+                let quantity = 0;
+                if (type === 'plan') {
+                    quantity = task.quantity || 0;
+                } else if (type === 'completed') {
+                    quantity = task.completed_quantity || 0;
+                } else if (type === 'defective') {
+                    quantity = task.defective_quantity || 0;
+                }
+                
+                return quantity.toString();
+            },
+            
+            // Функция для получения реального количества работы (для расчетов)
+            getRealQuantity(task, type) {
+                if (!task) return 0;
+                
+                let quantity = 0;
+                if (type === 'plan') {
+                    quantity = task.quantity || 0;
+                } else if (type === 'completed') {
+                    quantity = task.completed_quantity || 0;
+                } else if (type === 'defective') {
+                    quantity = task.defective_quantity || 0;
+                }
+                
+                return quantity;
+            },
+            
+            // Проверяем, нужно ли показать предупреждение для цехов ID 1 и 3
+            shouldShowWarning(task) {
+                if (!task) return false;
+                
+                // Проверяем название задачи
+                const taskName = (task.stage_name || task.title || '').toLowerCase();
+                
+                // Показываем предупреждение если задача называется "резка" или содержит "обработка на станках с чпу"
+                return taskName.includes('резка') || taskName.includes('обработка на станках с чпу');
+            },
+            
+            // Проверяем, нужно ли показать скорректированный размер для цехов ID 1, 3, 4, 5
+            shouldShowSizeAdjustment(task) {
+                if (!task) return false;
+                
+                // Получаем ID цеха из различных возможных источников
+                let workshopId = null;
+                
+                // Отладочная информация
+                console.log('=== DEBUG: SIZE ADJUSTMENT CHECK ===');
+                console.log('Task workshop_info:', task.workshop_info);
+                console.log('Task workshop_info keys:', task.workshop_info ? Object.keys(task.workshop_info) : 'null');
+                console.log('Task workshop:', task.workshop);
+                console.log('Task stage:', task.stage);
+                
+                // Проверяем workshop_info более детально
+                if (task.workshop_info) {
+                    console.log('Workshop info details:');
+                    for (let key in task.workshop_info) {
+                        console.log(`  ${key}:`, task.workshop_info[key]);
+                    }
+                    
+                    // Ищем ID цеха в различных возможных полях
+                    if (task.workshop_info.workshop_id) {
+                        workshopId = task.workshop_info.workshop_id;
+                    } else if (task.workshop_info.id) {
+                        workshopId = task.workshop_info.id;
+                    } else if (task.workshop_info.workshop && task.workshop_info.workshop.id) {
+                        workshopId = task.workshop_info.workshop.id;
+                    }
+                }
+                
+                // Альтернативные источники
+                if (!workshopId && task.workshop) {
+                    workshopId = typeof task.workshop === 'object' ? task.workshop.id : task.workshop;
+                }
+                
+                if (!workshopId && task.stage && task.stage.workshop) {
+                    workshopId = typeof task.stage.workshop === 'object' ? task.stage.workshop.id : task.stage.workshop;
+                }
+                
+                console.log('Found workshop ID:', workshopId);
+                console.log('Should show adjustment:', workshopId && [1, 3, 4, 5].includes(parseInt(workshopId)));
+                
+                // ВРЕМЕННО: для тестирования показываем скорректированный размер всегда
+                // TODO: Убрать эту строку после отладки
+                const forceShow = true;
+                console.log('Force show adjustment:', forceShow);
+                
+                // Проверяем, является ли цех одним из тех, где нужно показывать скорректированный размер
+                return forceShow || (workshopId && [1, 3, 4, 5].includes(parseInt(workshopId)));
+            },
+            
+            // Функция для расчета скорректированного размера (+1 к каждому числу)
+            getAdjustedSize(size) {
+                if (!size) return '';
+                
+                // Размер может быть в формате "80-200" или "80x200" или "80,200"
+                const sizeStr = size.toString();
+                
+                // Отладочная информация
+                console.log('=== DEBUG: SIZE ADJUSTMENT ===');
+                console.log('Original size:', size);
+                console.log('Size string:', sizeStr);
+                
+                // Ищем числа в строке и увеличиваем каждое на 1
+                const adjustedSize = sizeStr.replace(/\d+/g, (match) => {
+                    const adjusted = (parseInt(match) + 1).toString();
+                    console.log(`Adjusting ${match} to ${adjusted}`);
+                    return adjusted;
+                });
+                
+                console.log('Adjusted size result:', adjustedSize);
+                return adjustedSize;
+            },
+            
+            // Проверяем, выполнена ли задача
+            isTaskCompleted() {
+                if (!this.task) return false;
+                return this.getRealQuantity(this.task, 'completed') >= this.getRealQuantity(this.task, 'plan');
+            }
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Услуги — Управление услугами</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .menu-card { transition: all 0.3s ease; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); backdrop-filter: blur(10px); }
+        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
+        aside::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto ml-64 p-6 pt-28" x-data="inventoryData()" x-init="lucide.createIcons()">
+        <!-- Заголовок и кнопки управления -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Услуги: управление услугами</h1>
+                <p class="text-gray-600">Добавляйте, редактируйте и анализируйте услуги и их характеристики</p>
+            </div>
+            <div class="flex items-center space-x-4 mt-4 lg:mt-0">
+                <button @click="viewMode = 'table'" :class="{'bg-blue-600 text-white': viewMode === 'table', 'bg-gray-200 text-gray-700': viewMode !== 'table'}" class="p-2 rounded-md">
+                    <i data-lucide="grid"></i>
+                </button>
+                <button @click="viewMode = 'cards'" :class="{'bg-blue-600 text-white': viewMode === 'cards', 'bg-gray-200 text-gray-700': viewMode !== 'cards'}" class="p-2 rounded-md">
+                    <i data-lucide="list"></i>
+                </button>
+                <button @click="openAddForm()" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    <i data-lucide="plus"></i>
+                    <span>Добавить</span>
+                </button>
+            </div>
+        </div>
+        <!-- Статистика -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-blue-50 rounded-xl p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-blue-600">Общая оплата</p>
+                    <p class="text-2xl font-bold text-blue-900" x-text="stats().totalValue.toLocaleString() + ' ⃀'"></p>
+                </div>
+                <i data-lucide="dollar-sign" class="text-blue-600 w-8 h-8"></i>
+            </div>
+            <div class="bg-green-50 rounded-xl p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-green-600">Всего услуг</p>
+                    <p class="text-2xl font-bold text-green-900" x-text="stats().totalItems"></p>
+                </div>
+                <i data-lucide="scissors" class="text-green-600 w-8 h-8"></i>
+            </div>
+            <div class="bg-purple-50 rounded-xl p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-purple-600">Активные услуги</p>
+                    <p class="text-2xl font-bold text-purple-900" x-text="stats().activeServices"></p>
+                </div>
+                <i data-lucide="check-circle" class="text-purple-600 w-8 h-8"></i>
+            </div>
+            <div class="bg-yellow-50 rounded-xl p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-yellow-600">Средняя оплата</p>
+                    <p class="text-2xl font-bold text-yellow-900" x-text="stats().avgPrice.toLocaleString() + ' сом'"></p>
+                </div>
+                <i data-lucide="trending-up" class="text-yellow-600 w-8 h-8"></i>
+            </div>
+        </div>
+        <!-- Элементы управления -->
+        <div class="flex flex-col lg:flex-row gap-4 items-center justify-between mb-6">
+            <div class="flex items-center space-x-4 w-full lg:w-auto">
+                <div class="relative flex-1 lg:flex-none">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input type="text" placeholder="Поиск услуг..." x-model="searchTerm" class="pl-10 pr-4 py-2 w-full lg:w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <!-- <button @click="showLowStock = !showLowStock" :class="{'bg-red-600 text-white': showLowStock, 'bg-gray-200 text-gray-700': !showLowStock}" class="flex items-center space-x-2 px-4 py-2 rounded-md">
+                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                    <span>Низкие остатки</span>
+                </button> -->
+            </div>
+            <div class="flex items-center space-x-2">
+                <template x-if="selectedRows.length > 0">
+                    <button @click="bulkDelete()" class="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span>Удалить (<span x-text="selectedRows.length"></span>)</span>
+                    </button>
+                </template>
+                <button @click="exportToExcel()" class="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Экспорт в Excel</span>
+                </button>
+            </div>
+        </div>
+        <!-- Табличный вид -->
+        <div x-show="viewMode === 'table'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left">
+                                <input type="checkbox"
+                                       :checked="selectedRows.length === filteredMaterials().length"
+                                       @change="toggleSelectAll()"
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
+                            <template x-for="column in ['name', 'workshop_name', 'unit', 'materials', 'service_price', 'defect_penalty', 'is_active']">
+                                <th class="px-4 py-3 text-left font-medium text-gray-900 cursor-pointer hover:bg-gray-100"
+                                    @click="handleSort(column)">
+                                    <div class="flex items-center space-x-2">
+                                        <span x-text="columnLabels[column]"></span>
+                                        <template x-if="sortField === column">
+                                            <i :data-lucide="sortDirection === 'asc' ? 'chevron-up' : 'chevron-down'"
+                                               style="width: 16px; height: 16px;"></i>
+                                        </template>
+                                    </div>
+                                </th>
+                            </template>
+                            <th class="px-4 py-3 text-right font-medium text-gray-900">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <template x-for="service in filteredMaterials()" :key="service.id">
+                            <tr :class="{'bg-blue-50': selectedRows.includes(service.id)}">
+                                <td class="px-4 py-3">
+                                    <input type="checkbox"
+                                           :checked="selectedRows.includes(service.id)"
+                                           @change="toggleSelect(service.id)"
+                                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                </td>
+                                <!-- Название услуги -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'name')"
+                                         @click="startEditing(service.id, 'name')"
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded font-medium">
+                                        <span x-text="service.name"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'name')" 
+                                         class="flex items-center space-x-1">
+                                        <input type="text" 
+                                               x-model="editValue" 
+                                               @blur="saveEdit(service.id, 'name')" 
+                                               @keydown.enter="saveEdit(service.id, 'name')" 
+                                               @keydown.esc="cancelEdit()" 
+                                               class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button @click="saveEdit(service.id, 'name')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Цех -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'workshop')" 
+                                         @click="startEditing(service.id, 'workshop')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded">
+                                        <span x-text="service.workshop_name"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'workshop')" 
+                                         class="flex items-center space-x-1">
+                                        <select x-model="editValue" 
+                                                @change="saveEdit(service.id, 'workshop')" 
+                                                class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Выберите цех</option>
+                                            <template x-for="workshop in workshops" :key="workshop.id">
+                                                <option :value="workshop.id" x-text="workshop.name"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="saveEdit(service.id, 'workshop')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Единица измерения -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'unit')" 
+                                         @click="startEditing(service.id, 'unit')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded">
+                                        <span x-text="service.unit"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'unit')" 
+                                         class="flex items-center space-x-1">
+                                        <select x-model="editValue" 
+                                                @change="saveEdit(service.id, 'unit')" 
+                                                class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Выберите единицу измерения</option>
+                                            <option value="шт">шт</option>
+                                            <option value="кг">кг</option>
+                                            <option value="м">м</option>
+                                            <option value="л">л</option>
+                                        </select>
+                                        <button @click="saveEdit(service.id, 'unit')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Материалы -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'materials')" 
+                                         @click="startEditing(service.id, 'materials')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded">
+                                        <span x-text="service.materials_info.map(m => m.name).join(', ')"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'materials')" 
+                                         class="flex items-center space-x-1">
+                                        <select x-model="editValue" 
+                                                @change="saveEdit(service.id, 'materials')" 
+                                                class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Выберите материалы</option>
+                                            <template x-for="material in materials" :key="material.id">
+                                                <option :value="material.id" x-text="material.name"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="saveEdit(service.id, 'materials')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Оплата за услугу -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'service_price')" 
+                                         @click="startEditing(service.id, 'service_price')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded font-medium text-green-600">
+                                        <span x-text="service.service_price.toLocaleString() + ' ⃀'"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'service_price')" 
+                                         class="flex items-center space-x-1">
+                                        <input type="number" 
+                                               x-model="editValue" 
+                                               @blur="saveEdit(service.id, 'service_price')" 
+                                               @keydown.enter="saveEdit(service.id, 'service_price')" 
+                                               @keydown.esc="cancelEdit()" 
+                                               class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button @click="saveEdit(service.id, 'service_price')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Штраф за брак -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'defect_penalty')" 
+                                         @click="startEditing(service.id, 'defect_penalty')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded text-red-600">
+                                        <span x-text="service.defect_penalty.toLocaleString() + ' ⃀'"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'defect_penalty')" 
+                                         class="flex items-center space-x-1">
+                                        <input type="number" 
+                                               x-model="editValue" 
+                                               @blur="saveEdit(service.id, 'defect_penalty')" 
+                                               @keydown.enter="saveEdit(service.id, 'defect_penalty')" 
+                                               @keydown.esc="cancelEdit()" 
+                                               class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button @click="saveEdit(service.id, 'defect_penalty')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Статус -->
+                                <td class="px-4 py-3">
+                                    <div x-show="!isEditing(service.id, 'is_active')" 
+                                         @click="startEditing(service.id, 'is_active')" 
+                                         class="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded">
+                                        <span :class="service.is_active ? 'text-green-600' : 'text-red-600'" x-text="service.is_active ? 'Активна' : 'Неактивна'"></span>
+                                    </div>
+                                    <div x-show="isEditing(service.id, 'is_active')" 
+                                         class="flex items-center space-x-1">
+                                        <select x-model="editValue" 
+                                                @change="saveEdit(service.id, 'is_active')" 
+                                               class="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="true">Активна</option>
+                                            <option value="false">Неактивна</option>
+                                        </select>
+                                        <button @click="saveEdit(service.id, 'is_active')" 
+                                                class="p-1 text-green-600 hover:text-green-800">
+                                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button @click="cancelEdit()" 
+                                                class="p-1 text-red-600 hover:text-red-800">
+                                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <!-- Действия -->
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex items-center justify-end space-x-2">
+                                        <button @click="openEditForm(service)" 
+                                                class="p-1 text-blue-600 hover:text-blue-800" 
+                                                title="Редактировать">
+                                            <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
+                                        </button>
+                                        <!-- <button @click="duplicateMaterial(service)" 
+                                                class="p-1 text-green-600 hover:text-green-800" 
+                                                title="Дублировать">
+                                            <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
+                                        </button> -->
+                                        <button @click="deleteMaterial(service.id)" 
+                                                class="p-1 text-red-600 hover:text-red-800" 
+                                                title="Удалить">
+                                            <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Если услуг нет -->
+            <div x-show="filteredMaterials().length === 0" class="text-center py-12">
+                <i data-lucide="package" class="mx-auto text-gray-400 mb-4" style="width: 48px; height: 48px;"></i>
+                <p class="text-gray-500 text-lg">Услуги не найдены</p>
+                <p class="text-gray-400">Попробуйте изменить параметры поиска</p>
+            </div>
+        </div>
+
+        <!-- Карточный вид -->
+        <div x-show="viewMode === 'cards'" 
+             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <template x-for="service in filteredMaterials()" :key="service.id">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="font-semibold text-gray-900" x-text="service.name"></h3>
+                            <p class="text-sm text-gray-600" x-text="service.code"></p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button @click="openEditForm(service)" 
+                                    class="p-1 text-blue-600 hover:text-blue-800" 
+                                    title="Редактировать">
+                                <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <button @click="duplicateMaterial(service)" 
+                                    class="p-1 text-green-600 hover:text-green-800" 
+                                    title="Дублировать">
+                                <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <button @click="deleteMaterial(service.id)" 
+                                    class="p-1 text-red-600 hover:text-red-800" 
+                                    title="Удалить">
+                                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">Цех:</span>
+                            <p class="font-medium" x-text="service.workshop_name"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Единица измерения:</span>
+                            <p class="font-medium" x-text="service.unit"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Материалы:</span>
+                            <p class="font-medium" x-text="service.materials_info.map(m => m.name).join(', ')"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Оплата за услугу:</span>
+                            <p class="font-medium text-green-600" x-text="service.service_price.toLocaleString() + ' ⃀'"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Штраф за брак:</span>
+                            <p class="font-medium text-red-600" x-text="service.defect_penalty.toLocaleString() + ' ⃀'"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Статус:</span>
+                            <p class="font-medium" :class="service.is_active ? 'text-green-600' : 'text-red-600'" x-text="service.is_active ? 'Активна' : 'Неактивна'"></p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <!-- Если услуг нет -->
+            <div x-show="filteredMaterials().length === 0" 
+                 class="col-span-full text-center py-12">
+                <i data-lucide="package" class="mx-auto text-gray-400 mb-4" style="width: 48px; height: 48px;"></i>
+                <p class="text-gray-500 text-lg">Услуги не найдены</p>
+                <p class="text-gray-400">Попробуйте изменить параметры поиска</p>
+            </div>
+        </div>
+
+        <!-- Модальная форма -->
+        <div x-show="showForm" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-2 sm:p-6">
+            <div x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="relative w-full max-w-xl sm:max-w-2xl bg-white rounded-3xl shadow-2xl border border-blue-100 mx-auto min-h-[500px] flex flex-col overflow-hidden">
+                <!-- Hero-блок (всегда видим, фон яркий, с тенью) -->
+                <div class="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-blue-100 bg-gradient-to-r from-blue-600 to-blue-500 shadow-md sticky top-0 z-20">
+                        <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i data-lucide="package" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div>
+                            <h2 class="text-2xl font-bold text-white" x-text="editingMaterial ? 'Редактировать услугу' : 'Добавить новую услугу'"></h2>
+                            <p class="text-blue-100 text-sm" x-text="editingMaterial ? 'Обновите информацию об услуге' : 'Заполните информацию о новой услуге'"></p>
+                            </div>
+                        </div>
+                        <button @click="closeForm()" 
+                            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors absolute right-4 top-4 sm:static sm:ml-4">
+                        <i data-lucide="x" class="w-6 h-6 text-white"></i>
+                        </button>
+                    </div>
+                <!-- Tabs и форма -->
+                <div class="flex-1 flex flex-col overflow-y-auto bg-white">
+                    <div x-data="{ tab: 'main' }" class="flex-1 flex flex-col">
+                        <!-- Tabs -->
+                        <div class="flex space-x-2 overflow-x-auto px-4 pt-4 pb-2 bg-white sticky top-0 z-10">
+                            <button type="button" @click="tab = 'main'" :class="tab === 'main' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold focus:outline-none transition-colors whitespace-nowrap">Основное</button>
+                            <button type="button" @click="tab = 'finance'" :class="tab === 'finance' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold focus:outline-none transition-colors whitespace-nowrap">Финансы</button>
+                            <button type="button" @click="tab = 'materials'" :class="tab === 'materials' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold focus:outline-none transition-colors whitespace-nowrap">Материалы</button>
+                            <button type="button" @click="tab = 'desc'" :class="tab === 'desc' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'" class="px-4 py-2 rounded-lg font-semibold focus:outline-none transition-colors whitespace-nowrap">Описание</button>
+                </div>
+                        <form @submit.prevent="saveMaterial()" class="flex-1 flex flex-col justify-between">
+                            <div class="flex-1 flex flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8 min-h-[350px]">
+                    <!-- Основная информация -->
+                                <div x-show="tab === 'main'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-lg font-bold text-blue-700 mb-2 flex items-center space-x-2">
+                            <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
+                            <span>Основная информация</span>
+                        </h3>
+                        <!-- Название услуги -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                <i data-lucide="tag" class="w-4 h-4 text-gray-500"></i>
+                                <span>Название услуги *</span>
+                            </label>
+                                        <input type="text" x-model="formData.name" placeholder="Например: Резка металла"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" required>
+                        </div>
+                                    <!-- Цех -->
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                    <i data-lucide="building" class="w-4 h-4 text-gray-500"></i>
+                                    <span>Цех *</span>
+                                </label>
+                                        <select x-model="formData.workshop" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" required>
+                                    <option value="">Выберите цех</option>
+                                    <template x-for="workshop in workshops" :key="workshop.id">
+                                        <option :value="workshop.id" x-text="workshop.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                                    <!-- Единица измерения -->
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                            <i data-lucide="ruler" class="w-4 h-4 text-gray-500"></i>
+                                            <span>Единица измерения *</span>
+                                </label>
+                                        <select x-model="formData.unit" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" required>
+                                            <option value="услуга">услуга</option>
+                                            <option value="шт">шт</option>
+                                            <option value="кг">кг</option>
+                                            <option value="м">м</option>
+                                            <option value="л">л</option>
+                                        </select>
+                                    </div>
+                                    <!-- Статус -->
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                            <i data-lucide="check-circle" class="w-4 h-4 text-gray-500"></i>
+                                            <span>Статус</span>
+                                        </label>
+                                        <select x-model="formData.is_active" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                            <option :value="true">Активна</option>
+                                            <option :value="false">Неактивна</option>
+                                        </select>
+                                </div>
+                            </div>
+                    <!-- Финансовые характеристики -->
+                                <div x-show="tab === 'finance'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-lg font-bold text-green-700 mb-2 flex items-center space-x-2">
+                            <i data-lucide="calculator" class="w-5 h-5 text-green-600"></i>
+                            <span>Финансовые характеристики</span>
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                                <i data-lucide="dollar-sign" class="w-4 h-4 text-gray-500"></i>
+                                                <span>Оплата за услугу (⃀) *</span>
+                                </label>
+                                            <input type="number" x-model="formData.service_price" min="0" step="0.01" placeholder="0.00"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" required>
+                            </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                                <i data-lucide="alert-triangle" class="w-4 h-4 text-gray-500"></i>
+                                                <span>Штраф за брак (⃀)</span>
+                            </label>
+                                            <input type="number" x-model="formData.defect_penalty" min="0" step="0.01" placeholder="0.00"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                    </div>
+                                </div>
+                            </div>
+                                <!-- Материалы -->
+                                <div x-show="tab === 'materials'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-lg font-bold text-yellow-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="package" class="w-5 h-5 text-yellow-600"></i>
+                                        <span>Материалы</span>
+                                    </h3>
+                                    <div x-data="{
+                                        get materialsList() { return formData.materials || []; },
+                                        set materialsList(val) { formData.materials = val; },
+                                        addMaterial() {
+                                            if (!formData.materials) formData.materials = [];
+                                            this.materialsList = [...this.materialsList, {id: '', amount: 1}];
+                                        },
+                                        removeMaterial(idx) {
+                                            this.materialsList = this.materialsList.filter((_, i) => i !== idx);
+                                        }
+                                    }" x-init="if (!formData.materials) formData.materials = []">
+                                        <template x-for="(mat, idx) in materialsList" :key="idx">
+                                            <div class="flex gap-2 mb-2 items-center">
+                                                <select x-model="mat.id" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500">
+                                                    <option value="">Выберите материал</option>
+                                                    <template x-for="material in rawMaterials" :key="material.id">
+                                                        <option :value="Number(material.id)" x-text="material.name"></option>
+                                                    </template>
+                                                </select>
+                                                <input type="number" min="0.001" step="0.001" x-model="mat.amount" class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" placeholder="Кол-во">
+                                                <button type="button" @click="removeMaterial(idx)" class="text-red-600 hover:text-red-800 text-xl px-2">&times;</button>
+                        </div>
+                                        </template>
+                                        <button type="button" @click="addMaterial()" class="mt-2 px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg font-semibold flex items-center gap-2">
+                                            <i data-lucide="plus" class="w-4 h-4"></i>
+                                            <span>Добавить материал</span>
+                                        </button>
+                    </div>
+                                </div>
+                    <!-- Описание -->
+                                <div x-show="tab === 'desc'" class="space-y-4 transition-all duration-300">
+                                    <h3 class="text-lg font-bold text-gray-700 mb-2 flex items-center space-x-2">
+                                        <i data-lucide="file-text" class="w-5 h-5 text-gray-500"></i>
+                            <span>Описание</span>
+                                    </h3>
+                                    <textarea x-model="formData.description" rows="3" placeholder="Дополнительная информация об услуге..."
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"></textarea>
+                    </div>
+                            </div>
+                    <!-- Кнопки -->
+                            <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-6 border-t border-gray-200 bg-white rounded-b-xl px-6 pb-6">
+                                <button type="button" @click="closeForm()"
+                                        class="px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-xl hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center space-x-2 w-full sm:w-auto">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                            <span>Отмена</span>
+                        </button>
+                        <button type="submit" 
+                                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl w-full sm:w-auto">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span x-text="editingMaterial ? 'Обновить' : 'Добавить услугу'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+            </div>
+        </div>
+
+        <!-- Нижняя панель статистики -->
+        <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between text-sm text-gray-600">
+                <div class="flex items-center space-x-6 mb-2 md:mb-0">
+                    <span>Показано: <span x-text="filteredMaterials().length"></span> из <span x-text="materials.length"></span></span>
+                    <span>Выбрано: <span x-text="selectedRows.length"></span></span>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <span>Общая оплата: <span x-text="stats().totalValue.toLocaleString() + ' ⃀'"></span></span>
+                    <span class="text-purple-600">Активные услуги: <span x-text="stats().activeServices"></span></span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Логика Alpine.js -->
+    <script>
+        function inventoryData() {
+            return {
+                materials: [],
+                rawMaterials: [], // Добавляем массив сырья
+                searchTerm: '',
+                sortField: 'name',
+                sortDirection: 'asc',
+                selectedRows: [],
+                editingCell: null,
+                editValue: null,
+                showForm: false,
+                editingMaterial: null,
+                formData: {},
+                viewMode: 'table',
+                showLowStock: false,
+                columnLabels: {
+                    name: 'Название услуги',
+                    workshop_name: 'Цех',
+                    unit: 'Ед. изм.',
+                    materials: 'Материалы',
+                    service_price: 'Оплата за услугу',
+                    defect_penalty: 'Штраф за брак',
+                    is_active: 'Статус'
+                },
+                workshops: [], // Добавляем массив цехов
+                // Загрузка услуг с API
+                async fetchMaterials() {
+                    const resp = await fetch('/services/api/services/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.materials = data.data;
+                    }
+                },
+                // Загрузка статистики с API
+                async fetchStats() {
+                    const resp = await fetch('/services/api/services/stats/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this._stats = data.data;
+                    }
+                },
+                _stats: null,
+                stats() {
+                    return this._stats || { totalValue: 0, totalItems: 0, activeServices: 0, avgPrice: 0 };
+                },
+                // CRUD
+                async saveMaterial() {
+                    // Подготавливаем данные для отправки
+                    const dataToSend = { ...this.formData };
+                    
+                    // Фильтруем материалы, убирая пустые записи
+                    if (dataToSend.materials) {
+                        dataToSend.materials = dataToSend.materials.filter(mat => mat.id && mat.amount > 0);
+                    }
+                    
+                    if (this.editingMaterial) {
+                        // update
+                        const resp = await fetch(`/services/api/services/${this.formData.id}/update/`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(dataToSend)
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            await this.fetchMaterials();
+                            await this.fetchStats();
+                            this.closeForm();
+                        } else {
+                            alert(data.message || 'Ошибка обновления');
+                        }
+                    } else {
+                        // create
+                        const resp = await fetch('/services/api/services/create/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(dataToSend)
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            await this.fetchMaterials();
+                            await this.fetchStats();
+                            this.closeForm();
+                        } else {
+                            alert(data.message || 'Ошибка создания');
+                        }
+                    }
+                },
+                async deleteMaterial(id) {
+                    if (!confirm('Удалить материал?')) return;
+                    const resp = await fetch(`/services/api/services/${id}/delete/`, { method: 'DELETE' });
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        await this.fetchMaterials();
+                        await this.fetchStats();
+                    } else {
+                        alert(data.message || 'Ошибка удаления');
+                    }
+                },
+                async bulkDelete() {
+                    if (!confirm('Удалить выбранные материалы?')) return;
+                    const resp = await fetch('/services/api/services/bulk-delete/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: this.selectedRows })
+                    });
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        await this.fetchMaterials();
+                        await this.fetchStats();
+                        this.selectedRows = [];
+                    } else {
+                        alert(data.message || 'Ошибка удаления');
+                    }
+                },
+                // Фильтрация и сортировка материалов
+                filteredMaterials() {
+                    let filtered = this.materials.filter(material => {
+                        const matchesSearch = material.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+                            material.workshop_name.toLowerCase().includes(this.searchTerm.toLowerCase());
+                        return matchesSearch;
+                    });
+                    return filtered.sort((a, b) => {
+                        const aValue = a[this.sortField];
+                        const bValue = b[this.sortField];
+                        if (typeof aValue === 'string' && typeof bValue === 'string') {
+                            return this.sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                        }
+                        if (typeof aValue === 'number' && typeof bValue === 'number') {
+                            return this.sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+                        }
+                        return 0;
+                    });
+                },
+
+                // Выбор строки
+                toggleSelect(id) {
+                    if (this.selectedRows.includes(id)) {
+                        this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
+                    } else {
+                        this.selectedRows.push(id);
+                    }
+                },
+
+                // Выбор всех строк
+                toggleSelectAll() {
+                    if (this.selectedRows.length === this.filteredMaterials().length) {
+                        this.selectedRows = [];
+                    } else {
+                        this.selectedRows = this.filteredMaterials().map(m => m.id);
+                    }
+                },
+
+                // Сортировка
+                handleSort(field) {
+                    if (this.sortField === field) {
+                        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.sortField = field;
+                        this.sortDirection = 'asc';
+                    }
+                },
+
+                // Начало редактирования ячейки
+                startEditing(id, field) {
+                    const material = this.materials.find(m => m.id === id);
+                    if (material) {
+                        this.editingCell = { id, field };
+                        this.editValue = material[field];
+                    }
+                },
+
+                // Сохранение редактирования ячейки
+                async saveEdit(id, field) {
+                    const material = this.materials.find(m => m.id === id);
+                    if (material) {
+                        const oldValue = material[field];
+                        const newValue = field === 'service_price' || field === 'defect_penalty' ? Number(this.editValue) : this.editValue;
+                        
+                        // Обновляем локально для мгновенного отклика
+                        material[field] = newValue;
+                        if (field === 'service_price' || field === 'defect_penalty') {
+                            material.total_cost = material.service_price + material.defect_penalty;
+                        }
+                        
+                        // Отправляем изменения на сервер
+                        try {
+                            const updateData = { [field]: newValue };
+                            const resp = await fetch(`/services/api/services/${id}/update/`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(updateData)
+                            });
+                            const data = await resp.json();
+                            
+                            if (data.status !== 'success') {
+                                // Если ошибка, возвращаем старое значение
+                                material[field] = oldValue;
+                                if (field === 'service_price' || field === 'defect_penalty') {
+                                    material.total_cost = material.service_price + material.defect_penalty;
+                                }
+                                alert(data.message || 'Ошибка сохранения');
+                            } else {
+                                // Обновляем статистику после успешного сохранения
+                                await this.fetchStats();
+                            }
+                        } catch (error) {
+                            // Если ошибка, возвращаем старое значение
+                            material[field] = oldValue;
+                            if (field === 'service_price' || field === 'defect_penalty') {
+                                material.total_cost = material.service_price + material.defect_penalty;
+                            }
+                            alert('Ошибка сохранения изменений');
+                        }
+                    }
+                    this.editingCell = null;
+                    this.editValue = null;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                // Отмена редактирования ячейки
+                cancelEdit() {
+                    this.editingCell = null;
+                    this.editValue = null;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                // Открытие формы добавления
+                openAddForm() {
+                    this.formData = {
+                        name: '',
+                        workshop: '',
+                        service_price: 0,
+                        defect_penalty: 0,
+                        unit: 'услуга', // Изменяем на 'услуга' по умолчанию
+                        description: '',
+                        is_active: true, // Добавляем поле is_active
+                        materials: [] // Добавляем массив материалов
+                    };
+                    this.editingMaterial = null;
+                    this.showForm = true;
+                    this.$nextTick(() => {
+                        lucide.createIcons();
+                        // Убеждаемся, что массив материалов инициализирован
+                        if (!this.formData.materials) {
+                            this.formData.materials = [];
+                        }
+                    });
+                },
+
+                // Открытие формы редактирования
+                openEditForm(material) {
+                    this.formData = { ...material };
+                    // Исправляем маппинг: приводим id к числовому типу
+                    if (material.materials_info && material.materials_info.length > 0) {
+                        this.formData.materials = material.materials_info.map(m => ({ 
+                            id: Number(m.id), 
+                            amount: Number(m.amount) 
+                        }));
+                    } else {
+                        this.formData.materials = [];
+                    }
+                    // Убеждаемся, что workshop правильно установлен
+                    if (material.workshop) {
+                        this.formData.workshop = Number(material.workshop);
+                    }
+                    // Убеждаемся, что is_active правильно установлен
+                    if (material.is_active !== undefined) {
+                        this.formData.is_active = Boolean(material.is_active);
+                    } else {
+                        this.formData.is_active = true;
+                    }
+                    this.editingMaterial = material;
+                    this.showForm = true;
+                    this.$nextTick(() => {
+                        lucide.createIcons();
+                        // Убеждаемся, что массив материалов инициализирован
+                        if (!this.formData.materials) {
+                            this.formData.materials = [];
+                        }
+                    });
+                },
+
+                // Закрытие формы
+                closeForm() {
+                    this.showForm = false;
+                    this.formData = {};
+                    this.editingMaterial = null;
+                    this.$nextTick(() => {
+                        lucide.createIcons();
+                        // Убеждаемся, что форма очищена
+                        this.formData = {
+                            name: '',
+                            workshop: '',
+                            service_price: 0,
+                            defect_penalty: 0,
+                            unit: 'услуга',
+                            description: '',
+                            is_active: true,
+                            materials: []
+                        };
+                    });
+                },
+
+                // Экспорт в Excel
+                async exportToExcel() {
+                    try {
+                        // Загружаем библиотеку SheetJS
+                        if (typeof XLSX === 'undefined') {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                            script.onload = () => this.performExcelExport();
+                            document.head.appendChild(script);
+                        } else {
+                            this.performExcelExport();
+                        }
+                    } catch (error) {
+                        console.error('Ошибка экспорта:', error);
+                        alert('Ошибка при экспорте в Excel');
+                    }
+                },
+
+                performExcelExport() {
+                    // Подготавливаем данные для экспорта
+                    const data = this.filteredMaterials().map(service => ({
+                        'Название услуги': service.name,
+                        'Цех': service.workshop_name || 'Не указан',
+                        'Единица измерения': service.unit || 'услуга',
+                        'Материалы': (service.materials_info || []).map(mat => `${mat.name} (${mat.amount} ${mat.unit || 'шт'})`).join('; '),
+                        'Оплата за услугу (⃀)': service.service_price || 0,
+                        'Штраф за брак (⃀)': service.defect_penalty || 0,
+                        'Статус': service.is_active ? 'Активна' : 'Неактивна',
+                        'Дата создания': service.created_at ? new Date(service.created_at).toLocaleDateString('ru-RU') : 'Не указана',
+                        'Последнее изменение': service.updated_at ? new Date(service.updated_at).toLocaleDateString('ru-RU') : 'Не указана'
+                    }));
+
+                    // Создаем рабочую книгу
+                    const wb = XLSX.utils.book_new();
+                    
+                    // Создаем лист с данными
+                    const ws = XLSX.utils.json_to_sheet(data);
+
+                    // Настраиваем ширину столбцов
+                    const colWidths = [
+                        { wch: 30 }, // Название услуги
+                        { wch: 20 }, // Цех
+                        { wch: 15 }, // Единица измерения
+                        { wch: 40 }, // Материалы
+                        { wch: 18 }, // Оплата за услугу
+                        { wch: 18 }, // Штраф за брак
+                        { wch: 12 }, // Статус
+                        { wch: 15 }, // Дата создания
+                        { wch: 15 }  // Последнее изменение
+                    ];
+                    ws['!cols'] = colWidths;
+
+                    // Добавляем стили для заголовков
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    for (let col = range.s.c; col <= range.e.c; col++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                        if (!ws[cellAddress]) continue;
+                        
+                        ws[cellAddress].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "2563EB" } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                top: { style: "thin", color: { rgb: "FFFFFF" } },
+                                bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                                left: { style: "thin", color: { rgb: "FFFFFF" } },
+                                right: { style: "thin", color: { rgb: "FFFFFF" } }
+                            }
+                        };
+                    }
+
+                    // Добавляем стили для данных
+                    for (let row = 1; row <= range.e.r; row++) {
+                        for (let col = range.s.c; col <= range.e.c; col++) {
+                            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                            if (!ws[cellAddress]) continue;
+                            
+                            ws[cellAddress].s = {
+                                font: { color: { rgb: "000000" } },
+                                fill: { fgColor: { rgb: row % 2 === 0 ? "F8FAFC" : "FFFFFF" } },
+                                alignment: { vertical: "center" },
+                                border: {
+                                    top: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    left: { style: "thin", color: { rgb: "E2E8F0" } },
+                                    right: { style: "thin", color: { rgb: "E2E8F0" } }
+                                }
+                            };
+                        }
+                    }
+
+                    // Добавляем лист в книгу
+                    XLSX.utils.book_append_sheet(wb, ws, 'Услуги');
+
+                    // Создаем лист со статистикой
+                    const statsData = [
+                        { 'Показатель': 'Общая оплата (⃀)', 'Значение': this.stats().totalValue.toLocaleString() },
+                        { 'Показатель': 'Всего услуг', 'Значение': this.stats().totalItems },
+                        { 'Показатель': 'Активные услуги', 'Значение': this.stats().activeServices },
+                        { 'Показатель': 'Средняя оплата (⃀)', 'Значение': this.stats().avgPrice.toLocaleString() }
+                    ];
+                    
+                    const statsWs = XLSX.utils.json_to_sheet(statsData);
+                    statsWs['!cols'] = [{ wch: 25 }, { wch: 20 }];
+                    
+                    // Стили для статистики
+                    const statsRange = XLSX.utils.decode_range(statsWs['!ref']);
+                    for (let col = statsRange.s.c; col <= statsRange.e.c; col++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                        if (!statsWs[cellAddress]) continue;
+                        
+                        statsWs[cellAddress].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "10B981" } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                top: { style: "thin", color: { rgb: "FFFFFF" } },
+                                bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                                left: { style: "thin", color: { rgb: "FFFFFF" } },
+                                right: { style: "thin", color: { rgb: "FFFFFF" } }
+                            }
+                        };
+                    }
+
+                    XLSX.utils.book_append_sheet(wb, statsWs, 'Статистика');
+
+                    // Экспортируем файл
+                    const fileName = `Услуги_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+                    XLSX.writeFile(wb, fileName);
+                },
+
+                // Проверка редактирования ячейки
+                isEditing(id, field) {
+                    return this.editingCell && this.editingCell.id === id && this.editingCell.field === field;
+                },
+
+                showHistory(material) {
+                    alert(`История изменений для: ${material.name}\n\nСоздано: ${material.created_at}\nПоследнее изменение: ${material.updated_at}`);
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                async duplicateMaterial(material) {
+                    try {
+                        const newMaterial = { ...material };
+                        delete newMaterial.id;
+                        newMaterial.name = material.name + ' (копия)';
+                        
+                        const resp = await fetch('/services/api/services/create/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newMaterial)
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            await this.fetchMaterials();
+                            await this.fetchStats();
+                            alert('Материал успешно дублирован!');
+                        } else {
+                            alert(data.message || 'Ошибка дублирования');
+                        }
+                    } catch (error) {
+                        alert('Ошибка дублирования материала');
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                async init() {
+                    await this.fetchMaterials();
+                    await this.fetchStats();
+                    await this.fetchWorkshops();
+                    await this.fetchRawMaterials();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                // Загрузка цехов с API
+                async fetchWorkshops() {
+                    const resp = await fetch('/services/api/workshops/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.workshops = data.data;
+                    }
+                },
+
+                // Загрузка материалов с API
+                async fetchRawMaterials() {
+                    const resp = await fetch('/services/api/materials/');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.rawMaterials = data.data;
+                    }
+                }
+            };
+        }
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('inventoryData', inventoryData);
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
+

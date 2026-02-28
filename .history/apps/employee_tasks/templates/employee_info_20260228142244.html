@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="employeeInfoPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Профиль сотрудника</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <i data-lucide="user" class="w-6 h-6 text-white"></i>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Профиль</span>
+        </div>
+    </header>
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+            </div>
+        </template>
+        <template x-if="!loading && employee">
+            <div>
+                <div class="card bg-white rounded-xl p-6 mb-6 flex flex-col items-center">
+                    <div class="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold mb-3">
+                        <span x-text="getInitials(employee.full_name || employee.employee_name || employee.username)"></span>
+                    </div>
+                    <div class="font-bold text-xl text-gray-900 mb-1" x-text="employee.full_name || employee.employee_name || employee.username"></div>
+                    <div class="text-sm text-gray-500 mb-2" x-text="employee.position || ''"></div>
+                    <div class="text-xs text-gray-400 mb-1" x-text="employee.workshop_name || ''"></div>
+                </div>
+                <div class="bg-white rounded-xl p-4 mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center"><i data-lucide="phone" class="w-4 h-4 mr-2 text-blue-600"></i>Контакты</h4>
+                    <div class="space-y-2 text-sm">
+                        <div><span class="font-medium text-gray-700">Телефон:</span> <span x-text="employee.phone || '-' "></span></div>
+                        <div><span class="font-medium text-gray-700">Email:</span> <span x-text="employee.email || '-' "></span></div>
+                <div class="bg-white rounded-xl p-4 mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center"><i data-lucide="wallet" class="w-4 h-4 mr-2 text-blue-600"></i>??????? ??????</h4>
+                    <div class="space-y-2 text-sm">
+                        <div><span class="font-medium text-gray-700">??? ??????:</span> <span x-text="employee.payment_type_display || '-'"></span></div>
+                        <div><span class="font-medium text-gray-700">??????:</span> <span x-text="employee.work_schedule_display || '-'"></span></div>
+                    </div>
+                </div>
+                    </div>
+                </div>
+                
+                </div>
+                <div class="bg-white rounded-xl p-4 mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center"><i data-lucide="bar-chart-3" class="w-4 h-4 mr-2 text-blue-600"></i>Статистика</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-green-50 rounded-lg p-3 text-center">
+                            <div class="text-lg font-bold text-green-700" x-text="employee.completed_works || 0">0</div>
+                            <div class="text-xs text-green-600">Выполнено работ</div>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-3 text-center">
+                            <div class="text-lg font-bold text-red-700" x-text="employee.defects || 0">0</div>
+                            <div class="text-xs text-red-600">Браков</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3 text-center">
+                            <div class="text-lg font-bold text-blue-700" x-text="formatCurrency(employee.monthly_salary || 0)">⃀0</div>
+                            <div class="text-xs text-blue-600">Заработок</div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3 text-center">
+                            <div class="text-lg font-bold text-purple-700" x-text="employee.efficiency ? employee.efficiency + '%' : '0%'">0%</div>
+                            <div class="text-xs text-purple-600">Эффективность</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center"><i data-lucide="check-square" class="w-4 h-4 mr-2 text-blue-600"></i>Задачи</h4>
+                    <div class="space-y-2">
+                        <template x-if="employee.tasks && employee.tasks.length">
+                            <div>
+                                <template x-for="task in employee.tasks" :key="task.id">
+                                    <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                                        <input type="checkbox" :checked="task.completed_quantity >= task.quantity" disabled class="w-5 h-5 text-blue-600 rounded">
+                                        <div class="flex-1">
+                                            <div class="font-medium" x-text="task.stage_name ? task.stage_name : ('Этап №' + task.stage)"></div>
+                                            <div class="text-xs text-gray-500">План: <span x-text="getDisplayQuantity(task, 'plan')"></span>, Выполнено: <span x-text="getDisplayQuantity(task, 'completed')"></span></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="!employee.tasks || !employee.tasks.length">
+                            <div class="text-gray-400 text-center py-8">Нет задач</div>
+                        </template>
+                    </div>
+                </div>
+                
+            </div>
+        </template>
+    </main>
+    <!-- Bottom Navigation -->
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center nav-active">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/notifications/" class="flex flex-col items-center">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span class="text-xs">Уведомления</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center">
+            <i data-lucide="bar-chart" class="w-5 h-5"></i>
+            <span class="text-xs">Статистика</span>
+        </a>
+        <a href="/accounts/profile/" class="flex flex-col items-center">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Профиль</span>
+        </a>
+    </nav>
+    <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
+    <script>
+      window.user_id = JSON.parse(document.getElementById('user-id').textContent);
+    </script>
+    <script>
+    function employeeInfoPage() {
+        return {
+            loading: true,
+            employee: null,
+            async init() {
+                // Получить данные текущего пользователя
+                const resp = await fetch('/employee_tasks/api/employee-full-info/' + window.user_id + '/');
+                if (resp.ok) {
+                    this.employee = await resp.json();
+                }
+                this.loading = false;
+            },
+            getInitials(name) {
+                if (!name) return '';
+                return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            },
+            formatCurrency(value) {
+                return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+            },
+            getDisplayQuantity(task, type) {
+                if (!task) return '0';
+                
+                let quantity = 0;
+                if (type === 'plan') {
+                    quantity = task.quantity || 0;
+                } else if (type === 'completed') {
+                    quantity = task.completed_quantity || 0;
+                }
+                
+                return quantity.toString();
+            },
+            
+            // Функция для получения реального количества работы (для расчетов)
+            getRealQuantity(task, type) {
+                if (!task) return 0;
+                
+                let quantity = 0;
+                if (type === 'plan') {
+                    quantity = task.quantity || 0;
+                } else if (type === 'completed') {
+                    quantity = task.completed_quantity || 0;
+                }
+                
+                return quantity;
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });
+    </script>
+</body>
+</html> 

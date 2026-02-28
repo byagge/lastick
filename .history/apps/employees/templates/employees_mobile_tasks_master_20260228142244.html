@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="mobileEmployees()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Zappis — Сотрудники</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Django context variables for JS -->
+    <script type="text/javascript">
+        window.userWorkshopIds = {{ userWorkshopIds|default:'[]'|safe }};
+        window.userWorkshopList = {{ userWorkshopList|default:'[]'|safe }};
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">Z</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Zappis</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button @click="openAddTransferModal()" class="text-gray-600 hover:text-blue-600">
+                <i data-lucide="plus" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <!-- Workshop Selector -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Цех</label>
+            <select x-model="selectedWorkshopId" @change="loadAllEmployees()" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <template x-for="workshop in userWorkshopList" :key="workshop.id">
+                    <option :value="workshop.id" x-text="workshop.name"></option>
+                </template>
+            </select>
+        </div>
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Сотрудники</h1>
+                <p class="text-sm text-gray-600">Управление персоналом</p>
+            </div>
+        </div>
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Всего</p>
+                        <p class="text-xl font-bold" x-text="filteredEmployees(selectedWorkshopId).length">0</p>
+                    </div>
+                    <i data-lucide="users" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-xl p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90">Эффективность</p>
+                        <p class="text-xl font-bold" x-text="getAverageEfficiency() + '%'">0%</p>
+                    </div>
+                    <i data-lucide="trending-up" class="w-6 h-6 opacity-80"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Search Bar -->
+        <div class="relative mb-6">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            <input type="text" 
+                   placeholder="Поиск сотрудников..." 
+                   x-model="searchTerm"
+                   class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <!-- Loading State -->
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+            </div>
+        </template>
+        <!-- Employees List -->
+        <template x-if="!loading">
+            <div>
+                <template x-if="filteredEmployees(selectedWorkshopId).length === 0">
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="users" class="w-10 h-10 text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2" x-text="searchTerm ? 'Сотрудники не найдены' : 'Нет сотрудников'"></h3>
+                        <p class="text-gray-600" x-text="searchTerm ? 'Попробуйте изменить поиск' : 'Добавьте первого сотрудника'"></p>
+                    </div>
+                </template>
+                <template x-for="employee in filteredEmployees(selectedWorkshopId)" :key="employee.id">
+                    <div class="card bg-white rounded-xl p-4 mb-4 cursor-pointer" @click="openEmployeeProfile(employee)">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold">
+                                <span x-text="getInitials(employee.full_name)"></span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-semibold text-gray-900 mb-1" x-text="employee.full_name"></div>
+                                <div class="text-sm text-gray-600 mb-1" x-text="getWorkshopName(employee.workshop)"></div>
+                                <div class="text-xs text-gray-500" x-text="employee.phone"></div>
+                            </div>
+                            <div class="flex flex-col items-end space-y-2">
+                                <span :class="getRoleClass(employee.role)" class="px-2 py-1 text-xs rounded-full font-medium" x-text="getRoleLabel(employee.role)"></span>
+                                <div class="flex items-center space-x-1">
+                                    <div class="w-2 h-2 rounded-full" :class="getEfficiencyColor(getEmployeeStats(employee.id).efficiency || 0)"></div>
+                                    <span class="text-xs text-gray-500" x-text="getEmployeeStats(employee.id).efficiency || 0 + '%'">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Quick Stats -->
+                        <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100">
+                            <div class="text-center">
+                                <div class="text-sm font-semibold text-green-600" x-text="getEmployeeStats(employee.id).completed_works || 0">0</div>
+                                <div class="text-xs text-gray-500">Работ</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-semibold text-red-600" x-text="getEmployeeStats(employee.id).defects || 0">0</div>
+                                <div class="text-xs text-gray-500">Браков</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-semibold text-blue-600" x-text="formatCurrency(getEmployeeStats(employee.id).monthly_salary || 0)">⃀0</div>
+                                <div class="text-xs text-gray-500">Зарплата</div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white nav-bar border-t border-gray-200 flex justify-around items-center h-16 max-w-md mx-auto w-full">
+        <a href="/" class="flex flex-col items-center">
+            <i data-lucide="home" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Главная</span>
+        </a>
+        <a href="#" class="flex flex-col items-center">
+            <i data-lucide="calendar" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Записи</span>
+        </a>
+        <a href="#" class="flex flex-col items-center nav-active">
+            <i data-lucide="users" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Сотрудники</span>
+        </a>
+        <a href="#" class="flex flex-col items-center">
+            <i data-lucide="user-plus" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Клиенты</span>
+        </a>
+        <a href="#" class="flex flex-col items-center">
+            <i data-lucide="settings" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Профиль</span>
+        </a>
+    </nav>
+
+    <!-- Add Employee Modal -->
+    <template x-if="showAddEmployeeModal">
+        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="showAddEmployeeModal = false">
+            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Добавить сотрудника</h2>
+                    <button @click="showAddEmployeeModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="addEmployee" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ФИО <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="formData.full_name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Роль <span class="text-red-500">*</span></label>
+                        <select x-model="formData.role" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="worker">Сотрудник</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Телефон <span class="text-red-500">*</span></label>
+                        <input type="tel" x-model="formData.phone" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                        <input type="email" x-model="formData.email" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Цех</label>
+                        <select x-model="formData.workshop" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Выберите цех</option>
+                            <template x-for="workshop in userWorkshopList" :key="workshop.id">
+                                <option :value="workshop.id" x-text="workshop.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" @click="showAddEmployeeModal = false" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                        <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Добавить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <!-- Employee Profile Modal -->
+    <template x-if="showProfileModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="closeProfileModal()">
+            <div class="bg-white rounded-t-2xl w-full max-w-md h-screen flex flex-col">
+                <div class="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                    <h2 class="text-lg font-bold text-gray-900">Профиль сотрудника</h2>
+                    <button @click="closeProfileModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto" x-show="selectedEmployee">
+                    <div class="p-4">
+                        <!-- Employee Header -->
+                        <div class="text-center mb-6">
+                            <div class="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
+                                <span x-text="getInitials(selectedEmployee.full_name)"></span>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-1" x-text="selectedEmployee.full_name"></h3>
+                            <span :class="getRoleClass(selectedEmployee.role)" class="px-3 py-1 text-sm rounded-full font-medium" x-text="getRoleLabel(selectedEmployee.role)"></span>
+                        </div>
+
+                        <!-- Mobile Navigation Menu -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <button @click="profileTab = 'info'; reinitializeIcons()" :class="profileTab === 'info' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
+                                <i data-lucide="user" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Информация</span>
+                            </button>
+                            <button @click="profileTab = 'stats'; reinitializeIcons()" :class="profileTab === 'stats' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
+                                <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Статистика</span>
+                            </button>
+                            <button @click="profileTab = 'analytics'; reinitializeIcons()" :class="profileTab === 'analytics' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
+                                <i data-lucide="trending-up" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Аналитика</span>
+                            </button>
+                            <button @click="profileTab = 'tasks'; reinitializeIcons()" :class="profileTab === 'tasks' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
+                                <i data-lucide="check-square" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Задачи</span>
+                            </button>
+                            <button @click="profileTab = 'notifications'; reinitializeIcons()" :class="profileTab === 'notifications' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'" class="p-4 rounded-lg border-2 flex flex-col items-center space-y-2">
+                                <i data-lucide="bell" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Уведомления</span>
+                            </button>
+                                <i data-lucide="folder" class="w-6 h-6"></i>
+                                <span class="text-sm font-medium">Документы</span>
+                            </button>
+                        </div>
+
+                        <!-- Content Sections -->
+                        <!-- Info Tab -->
+                        <div x-show="profileTab === 'info'" class="space-y-4">
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3 flex items-center">
+                                    <i data-lucide="user" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                    Личные данные
+                                </h4>
+                                <div class="space-y-3">
+                                    <div class="flex items-center space-x-3">
+                                        <i data-lucide="phone" class="w-5 h-5 text-gray-400"></i>
+                                        <span class="text-gray-900" x-text="selectedEmployee.phone"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <i data-lucide="mail" class="w-5 h-5 text-gray-400"></i>
+                                        <span class="text-gray-900" x-text="selectedEmployee.email"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <i data-lucide="building" class="w-5 h-5 text-gray-400"></i>
+                                        <span class="text-gray-900" x-text="getWorkshopName(selectedEmployee.workshop)"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <i data-lucide="calendar" class="w-5 h-5 text-gray-400"></i>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <i data-lucide="calendar-x" class="w-5 h-5 text-gray-400"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3 flex items-center">
+                                    <i data-lucide="id-card" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                    Документы
+                                </h4>
+                                <div class="space-y-2">
+                                </div>
+                            </div>
+
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3 flex items-center">
+                                    <i data-lucide="file-text" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                    Примечания
+                                </h4>
+                                <p class="text-gray-600 text-sm" x-text="selectedEmployee.notes || 'Примечания отсутствуют'"></p>
+                            </div>
+                        </div>
+
+                        <!-- Stats Tab -->
+                        <div x-show="profileTab === 'stats'" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-green-50 rounded-lg p-3 text-center">
+                                    <div class="text-lg font-bold text-green-700" x-text="getEmployeeStats(selectedEmployee.id).completed_works || 0">0</div>
+                                    <div class="text-xs text-green-600">Выполнено работ</div>
+                                </div>
+                                <div class="bg-red-50 rounded-lg p-3 text-center">
+                                    <div class="text-lg font-bold text-red-700" x-text="getEmployeeStats(selectedEmployee.id).defects || 0">0</div>
+                                    <div class="text-xs text-red-600">Браков</div>
+                                </div>
+                                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                    <div class="text-lg font-bold text-blue-700" x-text="formatCurrency(getEmployeeStats(selectedEmployee.id).monthly_salary || 0)">⃀0</div>
+                                    <div class="text-xs text-blue-600">Заработок</div>
+                                </div>
+                                <div class="bg-purple-50 rounded-lg p-3 text-center">
+                                    <div class="text-lg font-bold text-purple-700" x-text="getEmployeeStats(selectedEmployee.id).efficiency || 0 + '%'">0%</div>
+                                    <div class="text-xs text-purple-600">Эффективность</div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Дополнительные метрики</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span>Средняя производительность:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).avg_productivity || 0 + ' ед./день'">0 ед./день</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Процент брака:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).defect_rate || 0 + '%'">0%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Отработано часов:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).hours_worked || 0 + ' ч'">0 ч</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Сверхурочные:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).overtime_hours || 0 + ' ч'">0 ч</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Качество работы</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span>Качество продукции:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).quality_score || 0 + '/10'">0/10</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Соблюдение сроков:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).deadline_compliance || 0 + '%'">0%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Инициативность:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).initiative_score || 0 + '/10'">0/10</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Командная работа:</span>
+                                        <span class="font-medium" x-text="getEmployeeStats(selectedEmployee.id).teamwork_score || 0 + '/10'">0/10</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analytics Tab -->
+                        <div x-show="profileTab === 'analytics'" class="space-y-4">
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Производительность за месяц</h4>
+                                <div class="h-32 flex items-end space-x-1">
+                                    <template x-for="(value, index) in getEmployeeStats(selectedEmployee.id).monthly_productivity || Array.from({length: 30}, () => Math.floor(Math.random() * 10))" :key="index">
+                                        <div class="flex-1 bg-gray-200 rounded-t" :style="`height: ${Math.max(value * 2, 4)}px; background: linear-gradient(to top, ${value > 7 ? '#10B981' : value > 4 ? '#F59E0B' : '#EF4444'}, ${value > 7 ? '#34D399' : value > 4 ? '#FCD34D' : '#F87171'})`"></div>
+                                    </template>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                    <span>1</span><span>10</span><span>20</span><span>30</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Заработок за 6 месяцев</h4>
+                                <div class="h-32 flex items-end space-x-1">
+                                    <template x-for="(value, index) in getEmployeeStats(selectedEmployee.id).salary_history || [45000, 52000, 48000, 55000, 58000, 62000]" :key="index">
+                                        <div class="flex-1 bg-blue-200 rounded-t" :style="`height: ${Math.max((value / 1000) * 1.5, 4)}px; background: linear-gradient(to top, #3B82F6, #60A5FA)`"></div>
+                                    </template>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                    <span>Янв</span><span>Фев</span><span>Мар</span><span>Апр</span><span>Май</span><span>Июн</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Распределение по типам работ</h4>
+                                <div class="flex items-center justify-center h-32">
+                                    <div class="relative w-28 h-28">
+                                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                                            <circle cx="50" cy="50" r="40" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="37.68" stroke-linecap="round"/>
+                                            <circle cx="50" cy="50" r="40" fill="none" stroke="#ef4444" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="213.52" stroke-linecap="round"/>
+                                        </svg>
+                                        <div class="absolute inset-0 flex items-center justify-center">
+                                            <span class="text-lg font-bold text-gray-700">85%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 gap-2 text-sm mt-3">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                                        <span>Качественные: 85%</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                        <span>Браки: 15%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Тренды и прогнозы</h4>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="flex items-center justify-between p-3 bg-green-50 rounded">
+                                        <span class="text-sm">Производительность</span>
+                                        <div class="flex items-center text-green-600 font-medium">
+                                            <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                                            <span>+12%</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 bg-red-50 rounded">
+                                        <span class="text-sm">Браки</span>
+                                        <div class="flex items-center text-red-600 font-medium">
+                                            <i data-lucide="trending-down" class="w-4 h-4 mr-1"></i>
+                                            <span>-8%</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded">
+                                        <span class="text-sm">Заработок</span>
+                                        <div class="flex items-center text-blue-600 font-medium">
+                                            <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                                            <span>+15%</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 bg-purple-50 rounded">
+                                        <span class="text-sm">Эффективность</span>
+                                        <div class="flex items-center text-purple-600 font-medium">
+                                            <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i>
+                                            <span>+5%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tasks Tab -->
+                        <div x-show="profileTab === 'tasks'" class="space-y-4">
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Задачи сотрудника</h4>
+                                <div class="space-y-2">
+                                    <template x-for="task in selectedEmployee.tasks || []" :key="task.id">
+                                        <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                                            <input type="checkbox" x-model="task.completed" @change="toggleTask(selectedEmployee, task)" class="w-5 h-5 text-blue-600 rounded">
+                                            <span :class="task.completed ? 'line-through text-gray-400' : 'text-gray-900'" x-text="task.text"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex space-x-2 mt-4">
+                                    <input type="text" x-model="newTaskText" placeholder="Новая задача..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <button @click="addTask(selectedEmployee)" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                                        <i data-lucide="plus" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notifications Tab -->
+                        <div x-show="profileTab === 'notifications'" class="space-y-4">
+                            <div class="bg-white border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Уведомления сотрудника</h4>
+                                <template x-if="selectedEmployee && selectedEmployee.notifications && selectedEmployee.notifications.length">
+                                    <div>
+                                        <template x-for="notification in selectedEmployee.notifications" :key="notification.id">
+                                            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-2 rounded">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-medium text-blue-800" x-text="notification.title"></span>
+                                                    <span class="text-xs text-gray-500" x-text="notification.date"></span>
+                                                </div>
+                                                <div class="text-gray-700 mt-1" x-text="notification.text"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!selectedEmployee.notifications || !selectedEmployee.notifications.length">
+                                    <div class="text-gray-400 text-center py-8">Нет уведомлений</div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Documents Tab -->
+                        
+
+                        <!-- Action Buttons -->
+                        <div class="flex space-x-3 pt-6 border-t border-gray-200">
+                            <button @click="openDeleteModal(selectedEmployee)" class="flex-1 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-medium">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-2"></i>
+                                Удалить
+                            </button>
+                            <button @click="closeProfileModal()" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium">
+                                Закрыть
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Delete Confirmation Modal -->
+    <template x-if="showDeleteModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Удалить сотрудника?</h3>
+                    <p class="text-gray-600">Это действие нельзя отменить</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="showDeleteModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                    <button @click="confirmDeleteEmployee()" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Success Modal -->
+    <template x-if="showSuccessModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm text-center">
+                <div class="flex flex-col items-center mb-4">
+                    <i data-lucide="check-circle" class="w-12 h-12 text-green-500 mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Успешно!</h3>
+                    <p class="text-gray-700" x-text="successModalText"></p>
+                </div>
+                <button @click="showSuccessModal = false" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Ок</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Transfer Confirmation Modal -->
+    <template x-if="showTransferModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg" @click.self="showTransferModal = false">
+            <div class="bg-white rounded-xl p-6 w-full max-w-md">
+                <div class="text-center mb-4">
+                    <i data-lucide="arrow-left-right" class="w-12 h-12 text-blue-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Перевести сотрудника</h3>
+                    <p class="text-gray-600">Выберите цех, в который хотите перевести сотрудника.</p>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Цех назначения</label>
+                    <select x-model="selectedTransferWorkshopId" @change="selectTransferWorkshop(selectedTransferWorkshopId)" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <template x-for="workshop in allWorkshops" :key="workshop.id">
+                            <option :value="workshop.id" x-text="workshop.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <input type="text" x-model="transferSearch" placeholder="Поиск сотрудника..." class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div class="max-h-48 overflow-y-auto mb-4">
+                    <template x-for="employee in filteredTransferEmployees" :key="employee.id">
+                        <button @click="openTransferConfirm(employee)" class="flex items-center justify-between w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg mb-2 hover:bg-blue-50 transition">
+                            <span class="text-base text-gray-900" x-text="employee.full_name"></span>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                        </button>
+                    </template>
+                    <template x-if="filteredTransferEmployees.length === 0">
+                        <div class="text-gray-400 text-center py-4">Нет сотрудников</div>
+                    </template>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="showTransferModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </template>
+    <!-- Confirm Transfer Modal -->
+    <template x-if="showConfirmModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <i data-lucide="user" class="w-12 h-12 text-blue-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Подтвердить перевод</h3>
+                    <p class="text-gray-600">Вы уверены, что хотите перевести сотрудника <span class="font-bold" x-text="selectedEmployee?.full_name"></span> в выбранный цех?</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="closeConfirmModal()" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                    <button @click="transferEmployee()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg">Перевести</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Transfer Employee Modal (New) -->
+    <template x-if="showAddTransferModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="closeAddTransferModal()">
+            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Перевести сотрудника</h2>
+                    <button @click="closeAddTransferModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Из цеха</label>
+                        <select x-model="transferFromWorkshopId" @change="loadTransferFromEmployees()" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Выберите цех</option>
+                            <template x-for="workshop in allWorkshops" :key="workshop.id">
+                                <option :value="workshop.id" x-text="workshop.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <template x-if="transferFromWorkshopId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Сотрудник</label>
+                            <select x-model="transferEmployeeId" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Выберите сотрудника</option>
+                                <template x-for="employee in transferFromEmployees" :key="employee.id">
+                                    <option :value="employee.id" x-text="employee.full_name || employee.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">В цех</label>
+                        <select x-model="transferToWorkshopId" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Выберите цех</option>
+                            <template x-for="workshop in userWorkshopList" :key="workshop.id">
+                                <option :value="workshop.id" x-text="workshop.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" @click="closeAddTransferModal()" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                        <button type="button" @click="openConfirmTransferModal()" :disabled="!transferFromWorkshopId || !transferEmployeeId || !transferToWorkshopId" class="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50">Добавить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    <!-- Confirm Transfer Modal (New) -->
+    <template x-if="showConfirmTransferModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <i data-lucide="user" class="w-12 h-12 text-blue-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Подтвердить перевод</h3>
+                    <p class="text-gray-600">
+                        Вы уверены, что хотите перевести сотрудника <span class="font-bold" x-text="getTransferEmployeeName()"></span><br>
+                        из цеха <span class="font-bold" x-text="getWorkshopName(transferFromWorkshopId)"></span><br>
+                        в цех <span class="font-bold" x-text="getWorkshopName(transferToWorkshopId)"></span>?
+                    </p>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="closeConfirmTransferModal()" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Нет</button>
+                    <button @click="confirmTransferEmployee()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg">Да</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+    function mobileEmployees() {
+        return {
+            loading: true,
+            employeesByWorkshop: {}, // {workshopId: [employees]}
+            userWorkshopList: window.userWorkshopList || [],
+            userWorkshopIds: window.userWorkshopIds || [],
+            selectedWorkshopId: null,
+            searchTerm: '',
+            showAddEmployeeModal: false,
+            showProfileModal: false,
+            showDeleteModal: false,
+            showSuccessModal: false,
+            showTransferModal: false,
+            showConfirmModal: false,
+            showAddTransferModal: false,
+            showConfirmTransferModal: false,
+            selectedEmployee: null,
+            profileTab: 'info',
+            newTaskText: '',
+            successModalText: '',
+            transferSearch: '',
+            allWorkshops: [],
+            selectedTransferWorkshopId: null,
+            transferEmployees: [],
+            targetWorkshopId: null,
+            formData: {
+                full_name: '',
+                role: 'worker',
+                phone: '',
+                email: '',
+                workshop: ''
+            },
+            transferFromWorkshopId: '',
+            transferToWorkshopId: '',
+            transferEmployeeId: '',
+            transferFromEmployees: [],
+            roles: {
+                worker: { label: 'Сотрудник', color: 'bg-green-100 text-green-800' },
+                admin: { label: 'Администратор', color: 'bg-gray-100 text-gray-800' },
+                accountant: { label: 'Бухгалтер', color: 'bg-gray-100 text-gray-800' },
+            },
+            async init() {
+                if (this.userWorkshopList.length > 0) {
+                    this.selectedWorkshopId = this.userWorkshopList[0].id;
+                }
+                await this.loadAllEmployees();
+                lucide.createIcons();
+            },
+            async loadAllEmployees() {
+                this.loading = true;
+                this.employeesByWorkshop = {};
+                for (const w of this.userWorkshopList) {
+                    try {
+                        const response = await fetch(`/employees/api/employees/by_workshop/?workshop_id=${w.id}`);
+                        const data = await response.json();
+                        this.employeesByWorkshop[w.id] = Array.isArray(data) ? data : (data.results || data.employees || []);
+                    } catch (e) {
+                        this.employeesByWorkshop[w.id] = [];
+                    }
+                }
+                this.loading = false;
+            },
+            selectWorkshop(workshopId) {
+                this.selectedWorkshopId = workshopId;
+            },
+            filteredEmployees(workshopId) {
+                const searchLower = this.searchTerm.toLowerCase();
+                const emps = this.employeesByWorkshop[workshopId] || [];
+                return emps.filter(employee => {
+                    // Унификация: поддержка и name, и full_name
+                    const name = employee.full_name || employee.name || '';
+                    return (
+                        name.toLowerCase().includes(searchLower) ||
+                        (employee.phone || '').includes(this.searchTerm) ||
+                        (employee.email || '').toLowerCase().includes(searchLower)
+                    );
+                });
+            },
+            getInitials(name) {
+                if (!name) return '';
+                return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            },
+            getWorkshopName(id) {
+                const w = this.userWorkshopList.find(w => String(w.id) === String(id));
+                return w ? (w.name || w.title || `Цех #${id}`) : (id ? `Цех #${id}` : '—');
+            },
+            getRoleLabel(role) {
+                return this.roles[role]?.label || role;
+            },
+            getRoleClass(role) {
+                return this.roles[role]?.color || 'bg-gray-100 text-gray-800';
+            },
+            getEfficiencyColor(efficiency) {
+                if (efficiency >= 90) return 'bg-green-500';
+                if (efficiency >= 75) return 'bg-blue-500';
+                if (efficiency >= 60) return 'bg-yellow-500';
+                return 'bg-red-500';
+            },
+            formatCurrency(value) {
+                return new Intl.NumberFormat('ru-RU', { 
+                    style: 'currency', 
+                    currency: 'RUB',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(value);
+            },
+            getEmployeeStats(employeeId) {
+                return {
+                    completed_works: Math.floor(Math.random() * 50) + 20,
+                    defects: Math.floor(Math.random() * 10) + 1,
+                    monthly_salary: Math.floor(Math.random() * 30000) + 40000,
+                    efficiency: Math.floor(Math.random() * 30) + 70,
+                    avg_productivity: Math.floor(Math.random() * 10) + 5,
+                    defect_rate: Math.floor(Math.random() * 10) + 5,
+                    hours_worked: Math.floor(Math.random() * 40) + 30,
+                    overtime_hours: Math.floor(Math.random() * 10) + 5,
+                    quality_score: Math.floor(Math.random() * 10) + 8,
+                    deadline_compliance: Math.floor(Math.random() * 10) + 90,
+                    initiative_score: Math.floor(Math.random() * 10) + 8,
+                    teamwork_score: Math.floor(Math.random() * 10) + 9,
+                    monthly_productivity: Array.from({length: 30}, () => Math.floor(Math.random() * 10)),
+                    salary_history: [45000, 52000, 48000, 55000, 58000, 62000]
+                };
+            },
+            getAverageEfficiency() {
+                if (this.filteredEmployees(this.selectedWorkshopId).length === 0) return 0;
+                const total = this.filteredEmployees(this.selectedWorkshopId).reduce((sum, emp) => sum + (this.getEmployeeStats(emp.id).efficiency || 0), 0);
+                return Math.round(total / this.filteredEmployees(this.selectedWorkshopId).length);
+            },
+            openEmployeeProfile(employee) {
+                this.selectedEmployee = employee;
+                this.profileTab = 'info';
+                this.showProfileModal = true;
+                setTimeout(() => {
+                    lucide.createIcons();
+                }, 100);
+            },
+            closeProfileModal() {
+                this.showProfileModal = false;
+                this.selectedEmployee = null;
+                this.newTaskText = '';
+            },
+            openDeleteModal(employee) {
+                this.selectedEmployee = employee;
+                this.showDeleteModal = true;
+            },
+            async addEmployee() {
+                if (!this.formData.full_name || !this.formData.phone || !this.formData.email) {
+                    this.successModalText = 'Пожалуйста, заполните обязательные поля';
+                    this.showSuccessModal = true;
+                    return;
+                }
+                try {
+                    const response = await fetch('/employees/api/employees/', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'X-CSRFToken': this.getCsrfToken() 
+                        },
+                        body: JSON.stringify(this.formData)
+                    });
+                    if (response.ok) {
+                        this.showAddEmployeeModal = false;
+                        this.resetForm();
+                        await this.loadAllEmployees();
+                        this.successModalText = 'Сотрудник успешно добавлен!';
+                        this.showSuccessModal = true;
+                    } else {
+                        const data = await response.json();
+                        this.successModalText = 'Ошибка: ' + (data.detail || JSON.stringify(data));
+                        this.showSuccessModal = true;
+                    }
+                } catch (error) {
+                    this.successModalText = 'Ошибка сохранения сотрудника';
+                    this.showSuccessModal = true;
+                }
+            },
+            async confirmDeleteEmployee() {
+                if (!this.selectedEmployee) return;
+                try {
+                    const response = await fetch(`/employees/api/employees/${this.selectedEmployee.id}/`, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRFToken': this.getCsrfToken() }
+                    });
+                    if (response.ok) {
+                        this.showDeleteModal = false;
+                        this.closeProfileModal();
+                        await this.loadAllEmployees();
+                        this.successModalText = 'Сотрудник успешно удален!';
+                        this.showSuccessModal = true;
+                    } else {
+                        const data = await response.json();
+                        this.successModalText = 'Ошибка удаления: ' + (data.detail || JSON.stringify(data));
+                        this.showSuccessModal = true;
+                    }
+                } catch (error) {
+                    this.successModalText = 'Ошибка удаления сотрудника';
+                    this.showSuccessModal = true;
+                }
+            },
+            async toggleTask(employee, task) {
+                task.completed = !task.completed;
+            },
+            async addTask(employee) {
+                if (!this.newTaskText.trim()) return;
+                const newTask = {
+                    id: Date.now(),
+                    text: this.newTaskText.trim(),
+                    completed: false
+                };
+                if (!employee.tasks) employee.tasks = [];
+                employee.tasks.push(newTask);
+                this.newTaskText = '';
+            },
+            resetForm() {
+                this.formData = {
+                    full_name: '',
+                    role: 'worker',
+                    phone: '',
+                    email: '',
+                    workshop: ''
+                };
+            },
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            },
+            // --- Transfer Modal Logic ---
+            async openTransferModal() {
+                this.showTransferModal = true;
+                this.transferSearch = '';
+                await this.loadAllWorkshops();
+                if (this.userWorkshopList.length > 0) {
+                    this.selectTransferWorkshop(this.userWorkshopList[0].id);
+                }
+            },
+            async loadAllWorkshops() {
+                try {
+                    const response = await fetch('/employees/api/all_workshops/');
+                    this.allWorkshops = await response.json();
+                } catch (e) {
+                    this.allWorkshops = [];
+                }
+            },
+            async selectTransferWorkshop(workshopId) {
+                this.selectedTransferWorkshopId = workshopId;
+                await this.loadTransferEmployees(workshopId);
+            },
+            async loadTransferEmployees(workshopId) {
+                try {
+                    const response = await fetch(`/employees/api/employees/all_by_workshop/?workshop_id=${workshopId}`);
+                    this.transferEmployees = await response.json();
+                } catch (e) {
+                    this.transferEmployees = [];
+                }
+            },
+            get filteredTransferEmployees() {
+                const search = this.transferSearch.toLowerCase();
+                return this.transferEmployees.filter(e =>
+                    e.role !== 'master' &&
+                    (((e.full_name || e.name || '').toLowerCase().includes(search)) ||
+                    (e.phone || '').includes(this.transferSearch) ||
+                    (e.email || '').toLowerCase().includes(search))
+                );
+            },
+            openTransferConfirm(employee) {
+                this.selectedEmployee = employee;
+                this.showConfirmModal = true;
+            },
+            closeConfirmModal() {
+                this.showConfirmModal = false;
+                this.selectedEmployee = null;
+            },
+            async transferEmployee() {
+                if (!this.selectedEmployee || !this.selectedTransferWorkshopId) return;
+                try {
+                    const response = await fetch(`/employees/api/employees/${this.selectedEmployee.id}/`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({ workshop: this.selectedTransferWorkshopId })
+                    });
+                    if (response.ok) {
+                        this.closeConfirmModal();
+                        this.showTransferModal = false;
+                        await this.loadAllEmployees();
+                        await this.loadTransferEmployees(this.selectedTransferWorkshopId);
+                        this.successModalText = 'Сотрудник успешно переведен!';
+                        this.showSuccessModal = true;
+                    } else {
+                        this.successModalText = 'Ошибка при переводе сотрудника';
+                        this.showSuccessModal = true;
+                    }
+                } catch (e) {
+                    this.successModalText = 'Ошибка при переводе сотрудника';
+                    this.showSuccessModal = true;
+                }
+            },
+            reinitializeIcons() {
+                setTimeout(() => {
+                    lucide.createIcons();
+                }, 50);
+            },
+            async openAddTransferModal() {
+                this.showAddTransferModal = true;
+                this.showConfirmTransferModal = false;
+                this.transferFromWorkshopId = '';
+                this.transferToWorkshopId = '';
+                this.transferEmployeeId = '';
+                this.transferFromEmployees = [];
+                await this.loadAllWorkshops();
+            },
+            closeAddTransferModal() {
+                this.showAddTransferModal = false;
+                this.showConfirmTransferModal = false;
+            },
+            async loadTransferFromEmployees() {
+                if (!this.transferFromWorkshopId) {
+                    this.transferFromEmployees = [];
+                    return;
+                }
+                try {
+                    const response = await fetch(`/employees/api/employees/all_by_workshop/?workshop_id=${this.transferFromWorkshopId}`);
+                    const all = await response.json();
+                    this.transferFromEmployees = (Array.isArray(all) ? all : (all.results || all.employees || [])).filter(e => e.role === 'worker');
+                } catch (e) {
+                    this.transferFromEmployees = [];
+                }
+            },
+            openConfirmTransferModal() {
+                this.showConfirmTransferModal = true;
+            },
+            closeConfirmTransferModal() {
+                this.showConfirmTransferModal = false;
+            },
+            getTransferEmployeeName() {
+                const emp = this.transferFromEmployees.find(e => String(e.id) === String(this.transferEmployeeId));
+                return emp ? (emp.full_name || emp.name) : '';
+            },
+            async confirmTransferEmployee() {
+                const empId = this.transferEmployeeId;
+                const toWorkshop = this.transferToWorkshopId;
+                if (!empId || !toWorkshop) return;
+                try {
+                    const response = await fetch(`/employees/api/employees/${empId}/`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({ workshop: toWorkshop })
+                    });
+                    if (response.ok) {
+                        this.showAddTransferModal = false;
+                        this.showConfirmTransferModal = false;
+                        await this.loadAllEmployees();
+                        this.successModalText = 'Сотрудник успешно переведен!';
+                        this.showSuccessModal = true;
+                    } else {
+                        this.successModalText = 'Ошибка при переводе сотрудника';
+                        this.showSuccessModal = true;
+                    }
+                } catch (e) {
+                    this.successModalText = 'Ошибка при переводе сотрудника';
+                    this.showSuccessModal = true;
+                }
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html> 
