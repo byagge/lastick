@@ -29,9 +29,8 @@
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-    {% include 'partials/app_header.html' %}
-    {% include 'partials/app_sidebar.html' %}
-    
+{% include 'partials/app_header.html' %}
+{% include 'partials/app_sidebar.html' %}
     <!-- Main Content (Desktop split view) -->
     <main class="flex-1 overflow-hidden ml-64 p-6 pt-28" x-data="ordersData()" x-init="init()" @keydown.window="handleKeydown($event)">
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 flex items-center justify-between">

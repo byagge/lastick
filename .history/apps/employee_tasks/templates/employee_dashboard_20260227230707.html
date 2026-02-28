@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="employeeDashboardPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Smart Factory">
+    <title>Dashboard сотрудника</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .nav-active { color: #0f172a; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15, 23, 42, 0.1); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .glass { background: rgba(255,255,255,0.82); backdrop-filter: blur(12px); }
+        .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        [x-cloak] { display: none !important; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200 flex items-center justify-between px-3 h-14">
+        <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                <span class="text-white font-bold text-lg">S</span>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500">Smart Factory</div>
+                <span class="text-base font-semibold text-gray-900">Dashboard</span>
+            </div>
+        </div>
+        <div class="text-xs text-gray-500" x-text="employeeLabel"></div>
+    </header>
+
+    <main class="flex-1 pt-16 pb-20 px-3 w-full max-w-md mx-auto">
+        <template x-if="loading">
+            <div class="space-y-3 animate-pulse">
+                <div class="h-24 rounded-2xl skeleton"></div>
+                <div class="h-40 rounded-2xl skeleton"></div>
+                <div class="h-56 rounded-2xl skeleton"></div>
+            </div>
+        </template>
+
+        <template x-if="!loading">
+            <div x-cloak>
+                <section class="card bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-2xl p-4 text-white mb-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs opacity-80">Баланс</p>
+                            <p class="text-2xl font-bold mt-1" x-text="formatMoney(employee?.balance || 0)"></p>
+                            <p class="text-xs opacity-70 mt-1" x-text="workshopLabel"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs opacity-80">Чистый доход</p>
+                            <p class="text-lg font-semibold" x-text="formatMoney(overview.total_net_earnings || 0)"></p>
+                            <div class="inline-flex items-center text-xs opacity-80 mt-1">
+                                <i data-lucide="bar-chart-3" class="w-3 h-3 mr-1"></i>
+                                <span>За все время</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-4">
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Работы</p>
+                            <p class="text-base font-semibold" x-text="tasks.length"></p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Выполнено</p>
+                            <p class="text-base font-semibold" x-text="tasksSummary().completed"></p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-xs opacity-80">Брак</p>
+                            <p class="text-base font-semibold" x-text="tasksSummary().defects"></p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-gray-900">Функции</h2>
+                        <span class="text-xs text-gray-500">Быстрый доступ</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <a href="/employee_tasks/tasks/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Работы</p>
+                                    <p class="text-base font-semibold text-gray-900" x-text="tasks.length"></p>
+                                </div>
+                                <i data-lucide="check-circle" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Задачи и детали этапов</p>
+                        </a>
+                        <a href="/employee_tasks/orders/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Заказы</p>
+                                    <p class="text-base font-semibold text-gray-900">Список</p>
+                                </div>
+                                <i data-lucide="package" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Запросы и статусы</p>
+                        </a>
+                        <a href="/employee_tasks/stats/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Статистика</p>
+                                    <p class="text-base font-semibold text-gray-900" x-text="formatMoney(overview.total_earnings || 0)"></p>
+                                </div>
+                                <i data-lucide="bar-chart-2" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Доходы и прогресс</p>
+                        </a>
+                        <a href="/employee_tasks/defects/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Дефекты</p>
+                                    <p class="text-base font-semibold text-gray-900" x-text="tasksSummary().defects"></p>
+                                </div>
+                                <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Контроль брака</p>
+                        </a>
+                        <a href="/inventory/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Склад</p>
+                                    <p class="text-base font-semibold text-gray-900" x-text="materialsStats.totalItems || 0"></p>
+                                </div>
+                                <i data-lucide="warehouse" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Остатки и цена</p>
+                        </a>
+                        <a href="/employee_tasks/employee_info/" class="card bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-500">Профиль</p>
+                                    <p class="text-base font-semibold text-gray-900">Данные</p>
+                                </div>
+                                <i data-lucide="user" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2">Документы и график</p>
+                        </a>
+                    </div>
+                </section>
+
+                <section class="card bg-white rounded-2xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-gray-900">Склад и материалы</h2>
+                        <span class="text-xs text-gray-500">Доступность</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-gray-50 rounded-lg p-2 text-center">
+                            <div class="text-sm font-semibold text-gray-900" x-text="materialsStats.totalItems || 0"></div>
+                            <div class="text-[11px] text-gray-500">Позиций</div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-2 text-center">
+                            <div class="text-sm font-semibold text-gray-900" x-text="materialsStats.lowStockCount || 0"></div>
+                            <div class="text-[11px] text-gray-500">Низкий остаток</div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-2 text-center">
+                            <div class="text-sm font-semibold text-gray-900" x-text="formatMoney(materialsStats.totalValue || 0)"></div>
+                            <div class="text-[11px] text-gray-500">Сумма</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+                            <span>Мой баланс материалов</span>
+                            <span x-text="`Позиций: ${materialBalances.length}`"></span>
+                        </div>
+                        <template x-if="materialBalances.length === 0">
+                            <p class="text-xs text-gray-400">Баланс материалов отсутствует.</p>
+                        </template>
+                        <div class="space-y-2" x-show="materialBalances.length > 0">
+                            <template x-for="balance in materialBalances.slice(0, 3)" :key="balance.material_id">
+                                <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                                    <span class="text-gray-700" x-text="balance.material_name"></span>
+                                    <span class="text-gray-900 font-medium" x-text="`${balance.quantity} ${balance.unit || ''}`"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card bg-white rounded-2xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-gray-900">График работ</h2>
+                        <span class="text-xs text-gray-500">Последние 7 дней</span>
+                    </div>
+                    <div class="flex items-end space-x-2 h-28">
+                        <template x-for="point in weeklyNetSeries()" :key="point.label">
+                            <div class="flex flex-col items-center flex-1">
+                                <div class="w-full bg-gray-100 rounded-lg overflow-hidden flex items-end" style="height: 96px;">
+                                    <div class="w-full bg-gray-900" :style="`height: ${point.height}px`"></div>
+                                </div>
+                                <div class="text-[10px] text-gray-500 mt-1" x-text="point.label"></div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-3" x-text="`Доход за 7 дней: ${formatMoney(weeklyNetTotal())}`"></div>
+                </section>
+
+                <section class="card bg-white rounded-2xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-gray-900">Статистика и показатели</h2>
+                        <span class="text-xs text-gray-500">Сводка</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Начислено</p>
+                            <p class="text-base font-semibold text-gray-900" x-text="formatMoney(overview.total_earnings || 0)"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Штрафы</p>
+                            <p class="text-base font-semibold text-gray-900" x-text="formatMoney(overview.total_penalties || 0)"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Чистый доход</p>
+                            <p class="text-base font-semibold text-gray-900" x-text="formatMoney(overview.total_net_earnings || 0)"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Выполнено</p>
+                            <p class="text-base font-semibold text-gray-900" x-text="`${overview.completed_tasks || 0}/${overview.total_tasks || 0}`"></p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </template>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 nav-bar h-14 flex items-center justify-around text-xs">
+        <a href="/employee_tasks/dashboard/" class="flex flex-col items-center nav-active">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span>Задачи</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-gray-900 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="bar-chart" class="w-5 h-5"></i>
+            <span>Статистика</span>
+        </a>
+        <a href="/accounts/profile/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span>Профиль</span>
+        </a>
+    </nav>
+
+    <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
+    <script>
+      window.user_id = JSON.parse(document.getElementById('user-id').textContent);
+    </script>
+    <script>
+    function employeeDashboardPage() {
+        return {
+            loading: true,
+            employee: null,
+            tasks: [],
+            overview: { total_earnings: 0, total_penalties: 0, total_net_earnings: 0, total_tasks: 0, completed_tasks: 0 },
+            materialsStats: { totalItems: 0, lowStockCount: 0, totalValue: 0, avgPrice: 0 },
+            materialBalances: [],
+            workshopLabel: 'Цех не указан',
+            employeeLabel: '',
+            async init() {
+                await Promise.all([
+                    this.loadEmployee(),
+                    this.loadTasks(),
+                    this.loadOverview(),
+                    this.loadMaterialsStats(),
+                    this.loadMaterialBalances(),
+                ]);
+                this.loading = false;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            async loadEmployee() {
+                if (!window.user_id) return;
+                const resp = await fetch(`/employee_tasks/api/employee-full-info/${window.user_id}/`);
+                if (!resp.ok) return;
+                this.employee = await resp.json();
+                this.workshopLabel = this.employee?.workshop_name ? `Цех: ${this.employee.workshop_name}` : 'Цех не указан';
+                const name = this.employee?.full_name || this.employee?.name || this.employee?.username || '';
+                this.employeeLabel = name ? `Привет, ${name.split(' ')[0]}` : '';
+            },
+            async loadTasks() {
+                if (!window.user_id) return;
+                const resp = await fetch(`/employee_tasks/api/employee-tasks/?employee=${window.user_id}`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const items = (data.results || data) || [];
+                this.tasks = items;
+            },
+            async loadOverview() {
+                if (!window.user_id) return;
+                const resp = await fetch(`/employee_tasks/api/earnings/employee/${window.user_id}/`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                this.overview = data.overview || this.overview;
+            },
+            async loadMaterialsStats() {
+                const resp = await fetch('/inventory/api/materials/stats/');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                this.materialsStats = data.data || this.materialsStats;
+            },
+            async loadMaterialBalances() {
+                const resp = await fetch('/inventory/api/materials/balances/');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                this.materialBalances = data.data || [];
+            },
+            tasksSummary() {
+                const completed = this.tasks.filter(task => Number(task.completed_quantity || 0) >= Number(task.quantity || 0)).length;
+                const defects = this.tasks.reduce((sum, task) => sum + Number(task.defective_quantity || 0), 0);
+                return {
+                    completed,
+                    defects
+                };
+            },
+            weeklyNetSeries() {
+                const days = 7;
+                const now = new Date();
+                const buckets = [];
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date(now);
+                    d.setDate(now.getDate() - i);
+                    buckets.push({
+                        date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+                        label: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+                        value: 0,
+                    });
+                }
+                this.tasks.forEach(task => {
+                    const raw = task.completed_at || task.created_at;
+                    if (!raw) return;
+                    const date = new Date(raw);
+                    const key = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+                    buckets.forEach(bucket => {
+                        if (bucket.date.getTime() === key) {
+                            bucket.value += Number(task.net_earnings || 0);
+                        }
+                    });
+                });
+                const max = Math.max(1, ...buckets.map(b => b.value));
+                return buckets.map(bucket => ({
+                    label: bucket.label,
+                    value: bucket.value,
+                    height: Math.round((bucket.value / max) * 96),
+                }));
+            },
+            weeklyNetTotal() {
+                return this.weeklyNetSeries().reduce((sum, item) => sum + item.value, 0);
+            },
+            formatMoney(value) {
+                const num = Number(value || 0);
+                return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html>

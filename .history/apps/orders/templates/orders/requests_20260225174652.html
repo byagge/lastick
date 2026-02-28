@@ -66,8 +66,134 @@
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-    {% include 'partials/app_header.html' %}
-    {% include 'partials/app_sidebar.html' %}
+    <!-- Header -->
+    <header style="position:fixed; top:0; left:0; right:0; z-index:30; background:rgba(255,255,255,0.78); backdrop-filter:blur(12px); border-bottom:1px solid #e5e7eb; margin:0;">
+        <div style="display:flex; align-items:center; justify-content:space-between; height:56px; padding:0 24px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:40px; height:40px; background:#111827; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(15,23,42,0.15);">
+                    <span style="color:#fff; font-weight:bold; font-size:20px;">S</span>
+                </div>
+                <span style="font-size:20px; font-weight:600; color:#111827;">Заявки</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px;">
+                <a href="/notifications/" style="color:#4b5563;">
+                    <i data-lucide="bell" style="width:20px; height:20px;"></i>
+                </a>
+                <a href="/settings/" style="color:#4b5563;">
+                    <i data-lucide="settings" style="width:20px; height:20px;"></i>
+                </a>
+                <div style="width:32px; height:32px; background:#111827; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                    <span style="color:#fff; font-size:14px;">{{ user.username|first|upper }}</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar (оставляем финансовое меню, страница теперь логически относится к заявкам/заказам) -->
+    <aside class="w-64 bg-white border-r border-gray-200 p-4 space-y-6 fixed left-0 top-20 bottom-0 overflow-y-auto scrollbar-none z-20" style="scrollbar-width: none; -ms-overflow-style: none;">
+        <!-- Навигация -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Финансы</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'finance:dashboard' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if request.resolver_match.url_name == 'dashboard' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="home" class="w-5 h-5"></i>
+                    <span>Дашборд</span>
+                </a>
+                <a href="{% url 'finance:expenses' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'expense' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="minus-circle" class="w-5 h-5"></i>
+                    <span>Расходы</span>
+                </a>
+                <a href="{% url 'finance:incomes' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'income' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    <span>Доходы</span>
+                </a>
+                <a href="{% url 'finance:money_movements' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'money' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
+                    <span>Движение денег</span>
+                </a>
+                <a href="{% url 'finance:debts' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'debt' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                    <span>Долги</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Бухгалтерия -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Бухгалтерия</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'finance:accounts' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'account' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="book-open" class="w-5 h-5"></i>
+                    <span>План счетов</span>
+                </a>
+                <a href="{% url 'finance:analytical_accounts' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'analytical_account' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="layers" class="w-5 h-5"></i>
+                    <span>Аналитические счета</span>
+                </a>
+                <a href="{% url 'finance:journal_entries' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'journal' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                    <span>Журнал операций</span>
+                </a>
+                <a href="{% url 'finance:standard_operations' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'standard_operation' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+                    <span>Типовые операции</span>
+                </a>
+                <a href="{% url 'finance:account_correspondences' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'correspondence' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
+                    <span>Корреспонденции</span>
+                </a>
+                <a href="{% url 'finance:trial_balance' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'trial_balance' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="calculator" class="w-5 h-5"></i>
+                    <span>Оборотно-сальдовая</span>
+                </a>
+                <a href="{% url 'finance:financial_periods' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'financial_period' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="calendar" class="w-5 h-5"></i>
+                    <span>Финансовые периоды</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Справочники -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Справочники</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'finance:expense_categories' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'category' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                    <span>Категории расходов</span>
+                </a>
+                <a href="{% url 'finance:suppliers' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'supplier' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="truck" class="w-5 h-5"></i>
+                    <span>Поставщики</span>
+                </a>
+                <a href="{% url 'finance:factory_assets' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'asset' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="building" class="w-5 h-5"></i>
+                    <span>Имущество завода</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Отчетность -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Отчетность</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'finance:financial_reports' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg {% if 'report' in request.resolver_match.url_name %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    <i data-lucide="bar-chart" class="w-5 h-5"></i>
+                    <span>Финансовые отчеты</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Заявки -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Заявки</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'finance:requests' %}" class="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-600">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                    <span>Управление заявками</span>
+                </a>
+            </nav>
+        </div>
+    </aside>
 
     <!-- Main Content (Desktop split view) -->
     <main class="flex-1 overflow-hidden ml-64 p-6 pt-20" x-data="requestsData()" x-init="init()" @keydown.window="handleKeydown($event)">

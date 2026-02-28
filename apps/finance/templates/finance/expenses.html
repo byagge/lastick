@@ -20,6 +20,80 @@
             from { transform: scale(0.98); opacity: 0; }
             to   { transform: scale(1); opacity: 1; }
         }
+        [x-cloak] { display: none !important; }
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+            color: #0f172a;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .form-field input::placeholder,
+        .form-field textarea::placeholder {
+            color: #94a3b8;
+        }
+        .form-field input:focus,
+        .form-field select:focus,
+        .form-field textarea:focus {
+            outline: none;
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.18);
+            background: #ffffff;
+        }
+        .supplier-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+            color: #0f172a;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            cursor: pointer;
+        }
+        .supplier-display:focus,
+        .supplier-display:hover {
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+            background: #ffffff;
+        }
+        .supplier-display.placeholder {
+            color: #94a3b8;
+        }
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+        .quick-chip {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 999px;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.75rem;
+            color: #475569;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+        }
+        .quick-chip:hover {
+            border-color: #1d4ed8;
+            color: #1d4ed8;
+            background: #eff6ff;
+        }
+        .supplier-window select {
+            height: 220px;
+            padding-top: 0.4rem;
+            padding-bottom: 0.4rem;
+        }
         .bg-blue-600 { background-color: #0e121a !important; }
         .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
         .text-blue-600 { color: #0e121a !important; }
@@ -40,7 +114,7 @@
                     <p class="text-gray-600 mt-2">Единый реестр расходов с аналитикой, фильтрами и быстрыми действиями.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3 mt-4 lg:mt-0">
-                    <a href="{% url 'finance:expense_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                    <a href="{% url 'finance:expense_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2" @click.prevent="openCreateModal()">
                         <i data-lucide="plus" class="w-4 h-4"></i>
                         <span>Новый расход</span>
                     </a>
@@ -214,13 +288,25 @@
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ expense.payment_method|default:'-' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ expense.invoice_number|default:'-' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ expense.created_by.username }}</td>
-                                    <td class="px-4 py-3 text-right text-sm">
-                                        <button class="text-blue-600 hover:text-blue-800 mr-2" @click="openExpenseModal({{ expense.pk }})">
-                                            <i data-lucide="eye" class="w-4 h-4"></i>
-                                        </button>
-                                        <a href="{% url 'finance:expense_edit' expense.pk %}" class="text-gray-600 hover:text-gray-900">
-                                            <i data-lucide="pencil" class="w-4 h-4"></i>
-                                        </a>
+                                    <td class="px-4 py-3 text-sm align-middle">
+                                        <div class="flex items-center justify-center gap-3">
+                                            <button class="text-blue-600 hover:text-blue-800" @click="openExpenseModal({{ expense.pk }})">
+                                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                            </button>
+                                            <a href="{% url 'finance:expense_edit' expense.pk %}" class="text-gray-600 hover:text-gray-900"
+                                           @click.prevent="openEditModal({
+                                               url: '{% url 'finance:expense_edit' expense.pk %}',
+                                               amount: '{{ expense.amount|floatformat:2 }}',
+                                               date: '{{ expense.date|date:"Y-m-d" }}',
+                                               category: '{{ expense.category.id }}',
+                                               supplier: '{{ expense.supplier.id|default:'' }}',
+                                               supplierLabel: '{{ expense.supplier.name|default:''|escapejs }}',
+                                               description: '{{ expense.description|default:''|escapejs }}',
+                                               payment: '{{ expense.payment_method|default:''|escapejs }}'
+                                           })">
+                                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -247,7 +333,7 @@
                     <i data-lucide="info" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Расходов нет</h3>
                     <p class="text-gray-500 mb-4">Добавьте первый расход, чтобы начать учет.</p>
-                    <a href="{% url 'finance:expense_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Новый расход</a>
+                    <a href="{% url 'finance:expense_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" @click.prevent="openCreateModal()">Новый расход</a>
                 </div>
             {% endif %}
         </section>
@@ -275,14 +361,130 @@
         </div>
     </div>
 
+    <div x-show="showCreateModal" class="fixed inset-0 z-50 modal-bg" style="display: none;">
+        <div class="fixed inset-0 flex items-stretch justify-end">
+            <div class="modal-content bg-white w-full max-w-5xl h-full border-l border-gray-200 shadow-2xl rounded-l-2xl overflow-hidden">
+                <div class="flex h-full">
+                    <div class="w-full flex flex-col" :class="showSupplierPanel ? 'lg:w-3/5 border-r border-gray-200' : ''">
+                        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900" x-text="modalTitle"></h3>
+                                <p class="text-sm text-gray-500" x-text="modalSubtitle"></p>
+                            </div>
+                            <button @click="closeCreateModal()" class="text-gray-400 hover:text-gray-600" type="button">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <form method="post" :action="formAction" class="p-6 space-y-5 overflow-y-auto" style="max-height: calc(100vh - 72px);">
+                            {% csrf_token %}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="form-field">
+                                    <label class="block text-sm text-gray-600 mb-1">Категория</label>
+                                    {{ form.category }}
+                                </div>
+                                <div class="form-field">
+                                    <label class="block text-sm text-gray-600 mb-1">Поставщик</label>
+                                    <button type="button" class="supplier-display" :class="{ 'placeholder': !supplierLabel }" @click="openSupplierPanel()">
+                                        <span x-text="supplierLabel || 'Выберите поставщика'"></span>
+                                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                                    </button>
+                                    <div class="hidden">
+                                        {{ form.supplier }}
+                                    </div>
+                                </div>
+                                <div class="form-field">
+                                    <label class="block text-sm text-gray-600 mb-1">Дата расхода</label>
+                                    {{ form.date }}
+                                    <div class="quick-actions">
+                                        <button class="quick-chip" type="button" @click="setDatePreset(0)">Сегодня</button>
+                                        <button class="quick-chip" type="button" @click="setDatePreset(-1)">Вчера</button>
+                                        <button class="quick-chip" type="button" @click="setDatePreset(-7)">-7 дней</button>
+                                        <button class="quick-chip" type="button" @click="setDatePreset(1)">Завтра</button>
+                                    </div>
+                                </div>
+                                <div class="form-field">
+                                    <label class="block text-sm text-gray-600 mb-1">Сумма</label>
+                                    {{ form.amount }}
+                                    <div class="quick-actions">
+                                        <button class="quick-chip" type="button" @click="setAmountPreset('100')">100</button>
+                                        <button class="quick-chip" type="button" @click="setAmountPreset('500')">500</button>
+                                        <button class="quick-chip" type="button" @click="setAmountPreset('1000')">1 000</button>
+                                        <button class="quick-chip" type="button" @click="setAmountPreset('5000')">5 000</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-field">
+                                <label class="block text-sm text-gray-600 mb-1">Описание</label>
+                                {{ form.description }}
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="form-field">
+                                    <label class="block text-sm text-gray-600 mb-1">Способ оплаты</label>
+                                    {{ form.payment_method }}
+                                    <div class="quick-actions">
+                                        <button class="quick-chip" type="button" @click="setPaymentPreset('МБанк')">МБанк</button>
+                                        <button class="quick-chip" type="button" @click="setPaymentPreset('Наличные')">Наличные</button>
+                                        <button class="quick-chip" type="button" @click="setPaymentPreset('Карта')">Карта</button>
+                                        <button class="quick-chip" type="button" @click="setPaymentPreset('Безнал')">Безнал</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+                                <div class="text-xs text-gray-500">Последнее обновление формы: <span x-text="lastTouched"></span></div>
+                                <div class="flex items-center gap-3">
+                                    <button @click="closeCreateModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" type="button">Отмена</button>
+                                    <button type="submit" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700" x-text="submitLabel"></button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <aside class="lg:w-2/5 flex-col bg-gray-50" x-show="showSupplierPanel" x-cloak style="display: none;">
+                        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-900">Выбор поставщика</h4>
+                                <p class="text-xs text-gray-500 mt-1">Нажмите на поставщика — он попадет в форму.</p>
+                            </div>
+                            <button type="button" class="text-gray-400 hover:text-gray-600" @click="closeSupplierPanel()">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <label class="block text-xs text-gray-500 mb-2">Поиск</label>
+                            <input id="supplierSearch" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Введите название" @input="filterSuppliers($event.target.value)">
+                        </div>
+                        <div class="flex-1 overflow-y-auto">
+                            {% for supplier in suppliers %}
+                                <button type="button" class="w-full text-left px-6 py-3 border-b border-gray-200 hover:bg-white text-sm supplier-item"
+                                        data-supplier-id="{{ supplier.id }}" data-supplier-name="{{ supplier.name|lower }}"
+                                        @click="setSupplier('{{ supplier.id }}', '{{ supplier.name|escapejs }}')">
+                                    {{ supplier.name }}
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function expensesPage() {
             return {
                 showExpenseModal: false,
                 selectedExpenseId: null,
+                showCreateModal: false,
+                lastTouched: new Date().toLocaleString('ru-RU'),
+                showSupplierPanel: false,
+                supplierLabel: '',
+                formAction: '{% url "finance:expense_create" %}',
+                modalTitle: 'Новый расход',
+                modalSubtitle: 'Заполните только нужные поля и сохраните.',
+                submitLabel: 'Сохранить расход',
 
                 init() {
                     this.$nextTick(() => lucide.createIcons());
+                    this.syncSupplierLabel();
                 },
                 openExpenseModal(expenseId) {
                     this.selectedExpenseId = expenseId;
@@ -292,6 +494,109 @@
                 closeExpenseModal() {
                     this.showExpenseModal = false;
                     this.selectedExpenseId = null;
+                },
+                openCreateModal() {
+                    this.setCreateMode();
+                    this.resetForm();
+                    this.showCreateModal = true;
+                },
+                closeCreateModal() {
+                    this.showCreateModal = false;
+                },
+                openEditModal(data) {
+                    this.setEditMode(data.url);
+                    this.fillEditForm(data);
+                    this.showCreateModal = true;
+                },
+                setCreateMode() {
+                    this.formAction = '{% url "finance:expense_create" %}';
+                    this.modalTitle = 'Новый расход';
+                    this.modalSubtitle = 'Заполните только нужные поля и сохраните.';
+                    this.submitLabel = 'Сохранить расход';
+                    this.showSupplierPanel = false;
+                },
+                setEditMode(url) {
+                    this.formAction = url;
+                    this.modalTitle = 'Редактирование расхода';
+                    this.modalSubtitle = 'Обновите данные и сохраните изменения.';
+                    this.submitLabel = 'Сохранить изменения';
+                    this.showSupplierPanel = false;
+                },
+                resetForm() {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    this.setFieldValue('amount', '');
+                    this.setFieldValue('date', `${yyyy}-${mm}-${dd}`);
+                    this.setFieldValue('category', '');
+                    this.setFieldValue('supplier', '');
+                    this.setFieldValue('description', '');
+                    this.setFieldValue('payment_method', '');
+                    this.supplierLabel = '';
+                    this.lastTouched = new Date().toLocaleString('ru-RU');
+                },
+                fillEditForm(data) {
+                    this.setFieldValue('amount', data.amount || '');
+                    this.setFieldValue('date', data.date || '');
+                    this.setFieldValue('category', data.category || '');
+                    this.setFieldValue('supplier', data.supplier || '');
+                    this.setFieldValue('description', data.description || '');
+                    this.setFieldValue('payment_method', data.payment || '');
+                    this.supplierLabel = data.supplierLabel || '';
+                    this.lastTouched = new Date().toLocaleString('ru-RU');
+                },
+                openSupplierPanel() {
+                    this.showSupplierPanel = true;
+                    this.$nextTick(() => {
+                        const search = document.getElementById('supplierSearch');
+                        if (search) search.focus();
+                    });
+                },
+                closeSupplierPanel() {
+                    this.showSupplierPanel = false;
+                },
+                getField(name) {
+                    return document.querySelector(`[name="${name}"]`);
+                },
+                setFieldValue(name, value) {
+                    const el = this.getField(name);
+                    if (!el) return;
+                    el.value = value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                setDatePreset(offsetDays) {
+                    const date = new Date();
+                    date.setDate(date.getDate() + offsetDays);
+                    const yyyy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    this.setFieldValue('date', `${yyyy}-${mm}-${dd}`);
+                },
+                setAmountPreset(value) {
+                    this.setFieldValue('amount', value);
+                },
+                setPaymentPreset(value) {
+                    this.setFieldValue('payment_method', value);
+                },
+                setSupplier(value, label) {
+                    this.setFieldValue('supplier', value);
+                    this.supplierLabel = label || '';
+                    this.closeSupplierPanel();
+                },
+                syncSupplierLabel() {
+                    const el = this.getField('supplier');
+                    if (!el) return;
+                    const selected = el.selectedOptions && el.selectedOptions[0];
+                    this.supplierLabel = selected && selected.value ? selected.text : '';
+                },
+                filterSuppliers(query) {
+                    const needle = (query || '').toLowerCase();
+                    document.querySelectorAll('.supplier-item').forEach((item) => {
+                        const name = item.getAttribute('data-supplier-name') || '';
+                        item.style.display = name.includes(needle) ? '' : 'none';
+                    });
                 },
                 async loadExpenseDetails() {
                     if (!this.selectedExpenseId) return;

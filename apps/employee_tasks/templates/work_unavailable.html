@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="lastick">
+    <title>Работа недоступна</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background:
+                radial-gradient(circle at 15% 10%, rgba(148,163,184,0.18), transparent 45%),
+                radial-gradient(circle at 85% 20%, rgba(59,130,246,0.12), transparent 42%),
+                linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%);
+        }
+        .app-icon {
+            background: linear-gradient(135deg, #0f172a 0%, #1f2937 55%, #111827 100%);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center px-4" style="font-family: system-ui, -apple-system, sans-serif;">
+    <div class="w-full max-w-md text-center">
+        <div class="mx-auto w-20 h-20 mb-6 rounded-2xl app-icon flex items-center justify-center">
+            <i data-lucide="shield-alert" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Работа недоступна</h1>
+        <p class="text-sm text-gray-600 mb-5">
+            Сейчас доступ к рабочим функциям приостановлен. Загляните чуть позже — мы всё вернем.
+        </p>
+        <div class="flex items-center justify-center space-x-2 text-xs text-gray-500 mb-6">
+            <span class="px-3 py-1 rounded-full bg-white/70 border border-gray-200">Проверьте смену</span>
+            <span class="px-3 py-1 rounded-full bg-white/70 border border-gray-200">Напишите мастеру</span>
+        </div>
+        <a href="/accounts/profile/" class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-lg">
+            Перейти в профиль
+        </a>
+        <p class="text-center text-xs text-gray-400 mt-5">lastick • Доступ ограничен</p>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+          lucide.createIcons();
+      });
+    </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="theme-color" content="#0e121a">
+    <title>Smart Factory - Долги</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #fde68a 100%); font-family: system-ui, -apple-system, sans-serif; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15,23,42,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .badge { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 600; }
+        .badge.payable { background: #fef3c7; color: #b45309; }
+        .badge.receivable { background: #dcfce7; color: #15803d; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Долги</span>
+        </div>
+        <a href="{% url 'finance:debt_create' %}" class="text-white bg-gray-900 rounded-full p-2">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </a>
+    </header>
+
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <section class="mb-5">
+            <div class="flex space-x-3 overflow-x-auto pb-2">
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[160px]">
+                    <p class="text-xs text-gray-500">Нам должны</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ receivable_outstanding|floatformat:2 }} KGS</p>
+                </div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[160px]">
+                    <p class="text-xs text-gray-500">Мы должны</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ payable_outstanding|floatformat:2 }} KGS</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-4">
+            <details class="bg-white rounded-xl border border-gray-200">
+                <summary class="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer">Фильтры</summary>
+                <form method="get" class="px-4 pb-4 space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Направление</label>
+                        <select name="direction" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            <option value="">Все</option>
+                            <option value="payable" {% if request.GET.direction == 'payable' %}selected{% endif %}>Мы должны</option>
+                            <option value="receivable" {% if request.GET.direction == 'receivable' %}selected{% endif %}>Нам должны</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Статус</label>
+                        <select name="status" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            <option value="">Все</option>
+                            <option value="open" {% if request.GET.status == 'open' %}selected{% endif %}>Открыт</option>
+                            <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>Частично</option>
+                            <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Закрыт</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg">Применить</button>
+                        <a href="{% url 'finance:debts' %}" class="px-4 py-2 border border-gray-200 rounded-lg text-gray-600">Сброс</a>
+                    </div>
+                </form>
+            </details>
+        </section>
+
+        <section class="space-y-3">
+            {% if debts %}
+                {% for d in debts %}
+                    <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900">{{ d.title }}</p>
+                                <p class="text-xs text-gray-500">{% if d.supplier %}{{ d.supplier.name }}{% else %}{{ d.counterparty_name|default:'-' }}{% endif %}</p>
+                            </div>
+                            <span class="badge {% if d.direction == 'payable' %}payable{% else %}receivable{% endif %}">
+                                {% if d.direction == 'payable' %}Мы должны{% else %}Нам должны{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-600">Остаток: {{ d.outstanding_amount|floatformat:2 }} KGS</span>
+                            <span class="text-xs text-gray-400">{% if d.due_date %}{{ d.due_date|date:"d.m.Y" }}{% else %}-{% endif %}</span>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between text-xs text-gray-400">
+                            <span>Оплачено: {{ d.amount_paid|floatformat:2 }} KGS</span>
+                            <a href="{% url 'finance:debt_detail' d.pk %}" class="text-blue-600">Детали</a>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                {% if is_paginated %}
+                    <div class="flex items-center justify-between pt-2 text-sm">
+                        {% if page_obj.has_previous %}
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-2 bg-white border border-gray-200 rounded-lg">Назад</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                        <span class="text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                        {% if page_obj.has_next %}
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-2 bg-white border border-gray-200 rounded-lg">Вперёд</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-16">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="wallet" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Долгов нет</h3>
+                    <p class="text-gray-500 text-sm">Создайте первый долг и начните учет.</p>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="{% url 'finance:dashboard' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="{% url 'finance:debts' %}" class="flex flex-col items-center text-gray-900">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+            <span class="text-xs">Долги</span>
+        </a>
+        <a href="{% url 'finance:expenses' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="minus-circle" class="w-5 h-5"></i>
+            <span class="text-xs">Расходы</span>
+        </a>
+        <a href="{% url 'finance:incomes' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span class="text-xs">Доходы</span>
+        </a>
+    </nav>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

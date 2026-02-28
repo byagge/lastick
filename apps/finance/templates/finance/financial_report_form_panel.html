@@ -1,0 +1,37 @@
+<form method="post" action="{% if report %}{% url 'finance:financial_report_edit' report.pk %}{% else %}{% url 'finance:financial_report_create' %}{% endif %}?partial=1" class="space-y-5" onsubmit="return window.submitReportForm(event, this);">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-field">
+            <label class="block text-sm text-gray-600 mb-1">Название</label>
+            <input type="text" name="title" placeholder="Отчет за период" value="{% if report %}{{ report.title }}{% endif %}">
+        </div>
+        <div class="form-field">
+            <label class="block text-sm text-gray-600 mb-1">Тип отчета</label>
+            {{ form.report_type }}
+            <div class="quick-actions">
+                <button class="quick-chip" type="button" onclick="window.setReportField('report_type','monthly')">Месяц</button>
+                <button class="quick-chip" type="button" onclick="window.setReportField('report_type','quarterly')">Квартал</button>
+                <button class="quick-chip" type="button" onclick="window.setReportField('report_type','yearly')">Год</button>
+                <button class="quick-chip" type="button" onclick="window.setReportField('report_type','custom')">Произвольный</button>
+            </div>
+        </div>
+        <div class="form-field">
+            <label class="block text-sm text-gray-600 mb-1">Дата начала</label>
+            <input type="date" name="start_date" value="{% if report %}{{ report.start_date|date:'Y-m-d' }}{% endif %}">
+        </div>
+        <div class="form-field">
+            <label class="block text-sm text-gray-600 mb-1">Дата окончания</label>
+            <input type="date" name="end_date" value="{% if report %}{{ report.end_date|date:'Y-m-d' }}{% endif %}">
+        </div>
+    </div>
+    <div class="quick-actions">
+        <button class="quick-chip" type="button" onclick="window.setReportRange('month')">Этот месяц</button>
+        <button class="quick-chip" type="button" onclick="window.setReportRange('quarter')">Этот квартал</button>
+        <button class="quick-chip" type="button" onclick="window.setReportRange('year')">Этот год</button>
+    </div>
+    <div class="flex items-center justify-end gap-3">
+        <button type="submit" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+            {% if report %}Сохранить изменения{% else %}Сформировать отчет{% endif %}
+        </button>
+    </div>
+</form>

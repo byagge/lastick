@@ -1,188 +1,172 @@
-{% extends 'finance/base.html' %}
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Smart Factory - Новый отчет</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+            color: #0f172a;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .form-field input::placeholder,
+        .form-field textarea::placeholder {
+            color: #94a3b8;
+        }
+        .form-field input:focus,
+        .form-field select:focus,
+        .form-field textarea:focus {
+            outline: none;
+            border-color: #0f172a;
+            box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.18);
+            background: #ffffff;
+        }
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+        .quick-chip {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 999px;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.75rem;
+            color: #475569;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+        }
+        .quick-chip:hover {
+            border-color: #0f172a;
+            color: #0f172a;
+            background: #f1f5f9;
+        }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+    </style>
+</head>
+<body class="min-h-screen" x-data="reportCreatePage()" x-init="init()">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
 
-{% block title %}{% if form.instance.pk %}Редактирование отчета{% else %}Новый отчет{% endif %} - Финансовая система{% endblock %}
-
-{% block content %}
-<!-- Header -->
-<div class="flex justify-between items-center mb-8">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            {% if form.instance.pk %}Редактирование отчета{% else %}Новый финансовый отчет{% endif %}
-        </h1>
-        <p class="text-gray-600">
-            {% if form.instance.pk %}
-                Измените параметры отчета
-            {% else %}
-                Создайте новый финансовый отчет
-            {% endif %}
-        </p>
-    </div>
-    <a href="{% url 'finance:financial_reports' %}" class="btn btn-secondary flex items-center space-x-2">
-        <i data-lucide="arrow-left" class="w-4 h-4"></i>
-        <span>Назад к отчетам</span>
-    </a>
-</div>
-
-<!-- Форма отчета -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-            <i data-lucide="file-text" class="w-5 h-5 mr-2 text-blue-600"></i>
-            {% if form.instance.pk %}Редактирование отчета{% else %}Создание отчета{% endif %}
-        </h3>
-    </div>
-    
-    <form method="post" class="p-6 space-y-6">
-        {% csrf_token %}
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Тип отчета -->
-            <div class="form-group">
-                <label for="{{ form.report_type.id_for_label }}" class="form-label">
-                    Тип отчета *
-                </label>
-                {{ form.report_type }}
-                {% if form.report_type.errors %}
-                    <p class="errorlist">{{ form.report_type.errors.0 }}</p>
-                {% endif %}
+    <main class="flex-1 overflow-auto ml-64 p-6 pt-28">
+        <section class="glass rounded-2xl border border-gray-200 p-6 mb-6">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-widest text-gray-400">Финансы / Отчеты</p>
+                    <h1 class="text-2xl font-bold text-gray-900 mt-1">Создать отчет</h1>
+                    <p class="text-gray-600 mt-2">Заполните период и тип отчета для расчета показателей.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-4 lg:mt-0">
+                    <a href="{% url 'finance:financial_reports' %}" class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700">К списку</a>
+                </div>
             </div>
-            
-            <!-- Название отчета -->
-            <div class="form-group">
-                <label for="report_title" class="form-label">
-                    Название отчета *
-                </label>
-                <input type="text" name="title" id="report_title" class="form-control" 
-                       placeholder="Например: Отчет за январь 2024" required>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Дата начала -->
-            <div class="form-group">
-                <label for="start_date" class="form-label">
-                    Дата начала периода *
-                </label>
-                <input type="date" name="start_date" id="start_date" class="form-control" required>
-            </div>
-            
-            <!-- Дата окончания -->
-            <div class="form-group">
-                <label for="end_date" class="form-label">
-                    Дата окончания периода *
-                </label>
-                <input type="date" name="end_date" id="end_date" class="form-control" required>
-            </div>
-        </div>
-        
-        <!-- Кнопки -->
-        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <a href="{% url 'finance:financial_reports' %}" class="btn btn-secondary">
-                Отмена
-            </a>
-            <button type="submit" class="btn btn-primary">
-                {% if form.instance.pk %}Сохранить изменения{% else %}Создать отчет{% endif %}
-            </button>
-        </div>
-    </form>
-</div>
+        </section>
 
-<!-- Информация о типах отчетов -->
-<div class="bg-blue-50 rounded-xl p-6 mt-6 border border-blue-200">
-    <h4 class="text-lg font-semibold text-blue-900 mb-4 flex items-center">
-        <i data-lucide="info" class="w-5 h-5 mr-2"></i>
-        Типы финансовых отчетов
-    </h4>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-            <h5 class="font-medium text-blue-800">Месячный отчет</h5>
-            <p class="text-blue-700 text-sm">Детальный анализ доходов и расходов за месяц</p>
-        </div>
-        <div>
-            <h5 class="font-medium text-blue-800">Квартальный отчет</h5>
-            <p class="text-blue-700 text-sm">Сводка финансовых показателей за квартал</p>
-        </div>
-        <div>
-            <h5 class="font-medium text-blue-800">Годовой отчет</h5>
-            <p class="text-blue-700 text-sm">Полный финансовый анализ за год</p>
-        </div>
-        <div>
-            <h5 class="font-medium text-blue-800">Произвольный период</h5>
-            <p class="text-blue-700 text-sm">Отчет за выбранный период времени</p>
-        </div>
-    </div>
-</div>
-{% endblock %}
+        <section class="bg-white rounded-2xl border border-gray-200 p-6">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-field">
+                        <label class="block text-sm text-gray-600 mb-1">Название</label>
+                        <input type="text" name="title" placeholder="Отчет за период" value="{{ report.title|default:'' }}">
+                    </div>
+                    <div class="form-field">
+                        <label class="block text-sm text-gray-600 mb-1">Тип отчета</label>
+                        {{ form.report_type }}
+                        <div class="quick-actions">
+                            <button class="quick-chip" type="button" @click="setReportType('monthly')">Месяц</button>
+                            <button class="quick-chip" type="button" @click="setReportType('quarterly')">Квартал</button>
+                            <button class="quick-chip" type="button" @click="setReportType('yearly')">Год</button>
+                            <button class="quick-chip" type="button" @click="setReportType('custom')">Произвольный</button>
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label class="block text-sm text-gray-600 mb-1">Дата начала</label>
+                        <input type="date" name="start_date" value="{{ report.start_date|default:'' }}">
+                    </div>
+                    <div class="form-field">
+                        <label class="block text-sm text-gray-600 mb-1">Дата окончания</label>
+                        <input type="date" name="end_date" value="{{ report.end_date|default:'' }}">
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-chip" type="button" @click="setRangePreset('month')">Этот месяц</button>
+                    <button class="quick-chip" type="button" @click="setRangePreset('quarter')">Этот квартал</button>
+                    <button class="quick-chip" type="button" @click="setRangePreset('year')">Этот год</button>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="text-xs text-gray-500">Последнее обновление: <span x-text="lastTouched"></span></div>
+                    <div class="flex items-center gap-3">
+                        <a href="{% url 'finance:financial_reports' %}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Отмена</a>
+                        <button type="submit" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Сформировать отчет</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+    </main>
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const reportTypeSelect = document.getElementById('{{ form.report_type.id_for_label }}');
-    const startDateField = document.getElementById('start_date');
-    const endDateField = document.getElementById('end_date');
-    
-    // Устанавливаем текущую дату
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Автоматически устанавливаем даты в зависимости от типа отчета
-    if (reportTypeSelect && startDateField && endDateField) {
-        function setDateRange() {
-            const reportType = reportTypeSelect.value;
-            const currentDate = new Date();
-            
-            switch (reportType) {
-                case 'monthly':
-                    // Текущий месяц
-                    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-                    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-                    startDateField.value = firstDay.toISOString().split('T')[0];
-                    endDateField.value = lastDay.toISOString().split('T')[0];
-                    break;
-                case 'quarterly':
-                    // Текущий квартал
-                    const quarter = Math.floor(currentDate.getMonth() / 3);
-                    const quarterStart = new Date(currentDate.getFullYear(), quarter * 3, 1);
-                    const quarterEnd = new Date(currentDate.getFullYear(), (quarter + 1) * 3, 0);
-                    startDateField.value = quarterStart.toISOString().split('T')[0];
-                    endDateField.value = quarterEnd.toISOString().split('T')[0];
-                    break;
-                case 'yearly':
-                    // Текущий год
-                    const yearStart = new Date(currentDate.getFullYear(), 0, 1);
-                    const yearEnd = new Date(currentDate.getFullYear(), 11, 31);
-                    startDateField.value = yearStart.toISOString().split('T')[0];
-                    endDateField.value = yearEnd.toISOString().split('T')[0];
-                    break;
-                case 'custom':
-                    // Произвольный период - устанавливаем текущий месяц по умолчанию
-                    const firstDayCustom = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-                    const lastDayCustom = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-                    startDateField.value = firstDayCustom.toISOString().split('T')[0];
-                    endDateField.value = lastDayCustom.toISOString().split('T')[0];
-                    break;
+    <script>
+        function reportCreatePage() {
+            return {
+                lastTouched: new Date().toLocaleString('ru-RU'),
+
+                init() {
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                setFieldValue(name, value) {
+                    const el = document.querySelector(`[name="${name}"]`);
+                    if (!el) return;
+                    el.value = value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                setReportType(value) {
+                    this.setFieldValue('report_type', value);
+                },
+                setRangePreset(range) {
+                    const now = new Date();
+                    let start;
+                    let end;
+                    if (range === 'month') {
+                        start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    } else if (range === 'quarter') {
+                        const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+                        start = new Date(now.getFullYear(), quarterStartMonth, 1);
+                        end = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+                    } else {
+                        start = new Date(now.getFullYear(), 0, 1);
+                        end = new Date(now.getFullYear(), 11, 31);
+                    }
+                    const format = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    this.setFieldValue('start_date', format(start));
+                    this.setFieldValue('end_date', format(end));
+                    this.lastTouched = new Date().toLocaleString('ru-RU');
+                }
             }
         }
-        
-        reportTypeSelect.addEventListener('change', setDateRange);
-        setDateRange(); // Инициализация при загрузке
-    }
-    
-    // Валидация дат
-    if (startDateField && endDateField) {
-        function validateDates() {
-            const startDate = new Date(startDateField.value);
-            const endDate = new Date(endDateField.value);
-            
-            if (startDate > endDate) {
-                endDateField.setCustomValidity('Дата окончания не может быть раньше даты начала');
-            } else {
-                endDateField.setCustomValidity('');
-            }
-        }
-        
-        startDateField.addEventListener('change', validateDates);
-        endDateField.addEventListener('change', validateDates);
-    }
-});
-</script>
-{% endblock %} 
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('reportCreatePage', reportCreatePage);
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

@@ -285,7 +285,7 @@
                                        x-model.number="packagingProduced"
                                        placeholder="Введите количество"
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                                <button @click="sendPackagingReport"
+                                <button @click="showPackagingConfirmModal = true"
                                         :class="{'btn-loading': packagingSubmitState === 'loading'}"
                                         class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
                                     <template x-if="packagingSubmitState === 'loading'">
@@ -307,6 +307,25 @@
                                 </div>
                             </div>
                         </template>
+                        <!-- Модальное окно для подтверждения отправки отчета -->
+                        <div x-show="showPackagingConfirmModal" 
+                             x-transition 
+                             class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                            <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+                                <h2 class="text-lg font-bold mb-2">Подтвердите отправку</h2>
+                                <p class="text-sm text-gray-700 mb-4">Вы уверены, что хотите отправить отчет о доработке на <span class="font-semibold" x-text="packagingProduced"></span> ед./кг?</p>
+                                <div class="flex justify-end gap-3">
+                                    <button @click="showPackagingConfirmModal = false"
+                                            class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm font-medium">
+                                        Отмена
+                                    </button>
+                                    <button @click="showPackagingConfirmModal = false; sendPackagingReport();"
+                                            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">
+                                        Подтвердить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Статистика после отправки -->
                         <template x-if="packagingSummary">

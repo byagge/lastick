@@ -42,6 +42,7 @@ urlpatterns = [
     # Доходы
     path('incomes/', views.incomes, name='incomes'),
     path('incomes/create/', views.income_create, name='income_create'),
+    path('incomes/<int:pk>/edit/', views.income_edit, name='income_edit'),
     path('incomes/<int:pk>/details/', views.income_details, name='income_details'),
     
     # Имущество завода

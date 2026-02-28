@@ -404,6 +404,7 @@ def build_expenses_context(request):
 	query_string = query_params.urlencode()
 	categories = ExpenseCategory.objects.all()
 	suppliers = Supplier.objects.all()
+	form = ExpenseForm()
 	return {
 		'expenses': page_obj.object_list,
 		'categories': categories,
@@ -416,6 +417,7 @@ def build_expenses_context(request):
 		'page_obj': page_obj,
 		'is_paginated': page_obj.paginator.num_pages > 1,
 		'query_string': query_string,
+		'form': form,
 	}
 
 
@@ -498,12 +500,16 @@ def incomes(request):
 	query_params.pop('page', None)
 	query_string = query_params.urlencode()
 	income_types = Income.INCOME_TYPES
-	return render(request, 'finance/incomes.html', {
+	user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+	is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+	template = 'finance/incomes_mobile.html' if is_mobile else 'finance/incomes.html'
+	return render(request, template, {
 		'incomes': page_obj.object_list,
 		'page_obj': page_obj,
 		'is_paginated': page_obj.paginator.num_pages > 1,
 		'query_string': query_string,
 		'income_types': income_types,
+		'form': IncomeForm(),
 		'total_income': total_income,
 		'income_count': income_count,
 		'avg_income': avg_income,
@@ -525,6 +531,21 @@ def income_create(request):
 		form = IncomeForm()
 	
 	return render(request, 'finance/income_form.html', {'form': form, 'title': 'Новый доход'})
+
+# ==================== ДОХОДЫ: РЕДАКТИРОВАНИЕ ====================
+@login_required
+def income_edit(request, pk):
+	"""Редактирование дохода"""
+	income = get_object_or_404(Income, pk=pk)
+	if request.method == 'POST':
+		form = IncomeForm(request.POST, instance=income)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Доход обновлен.')
+			return redirect('finance:incomes')
+	else:
+		form = IncomeForm(instance=income)
+	return render(request, 'finance/income_form.html', {'form': form, 'title': 'Редактирование дохода'})
 
 # ==================== ИМУЩЕСТВО ЗАВОДА ====================
 @login_required
@@ -651,6 +672,7 @@ def financial_reports(request):
 		'reports': page_obj.object_list,
 		'page_obj': page_obj,
 		'is_paginated': page_obj.paginator.num_pages > 1,
+		'form': FinancialReportForm(),
 		'total_income': total_income,
 		'total_expenses': total_expenses,
 		'total_profit': net_profit,
@@ -658,30 +680,34 @@ def financial_reports(request):
 		'latest_report': latest_report,
 		'query_string': query_string,
 	}
-	return render(request, 'finance/financial_reports.html', context)
+	user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+	is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+	template = 'finance/financial_reports_mobile.html' if is_mobile else 'finance/financial_reports.html'
+	return render(request, template, context)
 
 @login_required
 def financial_report_create(request):
-	"""Создание нового финансового отчета"""
+	# Create financial report
 	if request.method == 'POST':
 		form = FinancialReportForm(request.POST)
 		if form.is_valid():
 			report = form.save(commit=False)
 			report.created_by = request.user
-			
-			# Получаем дополнительные поля из формы
 			report.title = request.POST.get('title', '')
 			report.start_date = request.POST.get('start_date')
 			report.end_date = request.POST.get('end_date')
-			
 			report.save()
-			report.calculate_totals()  # Рассчитываем показатели
-			messages.success(request, 'Финансовый отчет успешно создан!')
+			report.calculate_totals()
+			messages.success(request, 'Report created.')
+			if request.GET.get('partial') == '1':
+				context = build_financial_report_context(report)
+				return render(request, 'finance/financial_report_detail_panel.html', context)
 			return redirect('finance:financial_reports')
 	else:
 		form = FinancialReportForm()
-	
-	return render(request, 'finance/financial_report_form.html', {'form': form, 'title': 'Новый отчет'})
+	if request.GET.get('partial') == '1':
+		return render(request, 'finance/financial_report_form_panel.html', {'form': form, 'report': None})
+	return render(request, 'finance/financial_report_form.html', {'form': form, 'title': 'New report'})
 
 @login_required
 def financial_report_export_excel(request, pk):
@@ -725,16 +751,13 @@ def financial_report_export_excel(request, pk):
 	return response
 
 # Уточним детальный отчет: добавим разбивки и топы
-@login_required
-def financial_report_detail(request, pk):
-	report = get_object_or_404(FinancialReport, pk=pk)
+def build_financial_report_context(report):
 	profit_margin_pct = None
 	if report.total_income and report.total_income != 0:
 		try:
 			profit_margin_pct = (report.net_income / report.total_income) * 100
 		except Exception:
 			profit_margin_pct = None
-	# Подробная аналитика
 	incomes_qs = Income.objects.filter(date__range=[report.start_date, report.end_date])
 	expenses_qs = Expense.objects.filter(date__range=[report.start_date, report.end_date])
 	from django.db.models import Count
@@ -742,10 +765,9 @@ def financial_report_detail(request, pk):
 	expense_by_category = list(expenses_qs.values('category__name').annotate(total=Sum('amount'), cnt=Count('id')).order_by('-total'))
 	top_incomes = incomes_qs.order_by('-amount')[:10]
 	top_expenses = expenses_qs.order_by('-amount')[:10]
-	# Динамика по дням
 	daily_income = list(incomes_qs.values('date').annotate(total=Sum('amount')).order_by('date'))
 	daily_expenses = list(expenses_qs.values('date').annotate(total=Sum('amount')).order_by('date'))
-	context = {
+	return {
 		'report': report,
 		'profit_margin_pct': profit_margin_pct,
 		'income_by_type': income_by_type,
@@ -755,6 +777,14 @@ def financial_report_detail(request, pk):
 		'daily_income': daily_income,
 		'daily_expenses': daily_expenses,
 	}
+
+
+@login_required
+def financial_report_detail(request, pk):
+	report = get_object_or_404(FinancialReport, pk=pk)
+	context = build_financial_report_context(report)
+	if request.GET.get('partial') == '1':
+		return render(request, 'finance/financial_report_detail_panel.html', context)
 	return render(request, 'finance/financial_report_detail.html', context)
 
 @login_required
@@ -769,10 +799,15 @@ def financial_report_edit(request, pk):
 			report.end_date = request.POST.get('end_date') or report.end_date
 			report.save()
 			report.calculate_totals()
-			messages.success(request, 'Отчет обновлен')
+			messages.success(request, 'Report updated.')
+			if request.GET.get('partial') == '1':
+				context = build_financial_report_context(report)
+				return render(request, 'finance/financial_report_detail_panel.html', context)
 			return redirect('finance:financial_reports')
 	else:
 		form = FinancialReportForm(instance=report)
+	if request.GET.get('partial') == '1':
+		return render(request, 'finance/financial_report_form_panel.html', {'form': form, 'report': report})
 	return render(request, 'finance/financial_report_form.html', {'form': form, 'report': report})
 
 @login_required
@@ -780,9 +815,11 @@ def financial_report_delete(request, pk):
 	report = get_object_or_404(FinancialReport, pk=pk)
 	if request.method == 'POST':
 		report.delete()
-		messages.success(request, 'Отчет удален')
+		messages.success(request, 'Report deleted.')
+		if request.GET.get('partial') == '1':
+			return JsonResponse({'status': 'ok'})
 		return redirect('finance:financial_reports')
-	return render(request, 'finance/confirm_delete.html', {'object': report, 'title': 'Удалить отчет'})
+	return render(request, 'finance/confirm_delete.html', {'object': report, 'title': 'Delete report'})
 
 @login_required
 def financial_report_export_csv(request, pk):
@@ -936,11 +973,31 @@ def debts(request):
     query_params = request.GET.copy()
     query_params.pop('page', None)
     query_string = query_params.urlencode()
-    return render(request, 'finance/debts.html', {
+    receivable_debts = debts_qs.filter(direction='receivable')
+    payable_debts = debts_qs.filter(direction='payable')
+    receivable_original = receivable_debts.aggregate(total=Sum('original_amount'))['total'] or Decimal('0.00')
+    receivable_paid = receivable_debts.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+    receivable_outstanding = receivable_original - receivable_paid
+    payable_original = payable_debts.aggregate(total=Sum('original_amount'))['total'] or Decimal('0.00')
+    payable_paid = payable_debts.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+    payable_outstanding = payable_original - payable_paid
+    user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+    is_mobile = any(m in user_agent for m in ['android', 'iphone', 'ipad', 'mobile'])
+    template = 'finance/debts_mobile.html' if is_mobile else 'finance/debts.html'
+    return render(request, template, {
         'debts': page_obj.object_list,
+        'receivable_debts': receivable_debts,
+        'payable_debts': payable_debts,
         'page_obj': page_obj,
         'is_paginated': page_obj.paginator.num_pages > 1,
         'query_string': query_string,
+        'form': DebtForm(),
+        'receivable_original': receivable_original,
+        'receivable_paid': receivable_paid,
+        'receivable_outstanding': receivable_outstanding,
+        'payable_original': payable_original,
+        'payable_paid': payable_paid,
+        'payable_outstanding': payable_outstanding,
         'total_original': total_original,
         'total_paid': total_paid,
         'total_outstanding': total_outstanding,
@@ -967,6 +1024,12 @@ def debt_detail(request, pk):
     debt = get_object_or_404(Debt, pk=pk)
     payments = debt.payments.select_related('created_by').all().order_by('-date', '-id')
     payment_form = DebtPaymentForm()
+    if request.GET.get('partial') == '1':
+        return render(request, 'finance/debt_detail_panel.html', {
+            'debt': debt,
+            'payments': payments,
+            'payment_form': payment_form,
+        })
     return render(request, 'finance/debt_detail.html', {'debt': debt, 'payments': payments, 'payment_form': payment_form})
 
 @login_required
@@ -978,13 +1041,27 @@ def debt_add_payment(request, pk):
             payment = form.save(commit=False)
             payment.debt = debt
             payment.created_by = request.user
-            # Валидация: нельзя оплатить больше остатка
+            # Overpayment guard
             if payment.amount > debt.outstanding_amount:
-                messages.error(request, 'Сумма оплаты превышает остаток долга')
+                messages.error(request, '????? ??????? ????????? ??????? ?????.')
             else:
                 payment.save()
-                messages.success(request, 'Оплата добавлена!')
+                messages.success(request, '?????? ????????.')
+                if request.GET.get('partial') == '1':
+                    payments = debt.payments.select_related('created_by').all().order_by('-date', '-id')
+                    return render(request, 'finance/debt_detail_panel.html', {
+                        'debt': debt,
+                        'payments': payments,
+                        'payment_form': DebtPaymentForm(),
+                    })
                 return redirect('finance:debt_detail', pk=debt.pk)
+        if request.GET.get('partial') == '1':
+            payments = debt.payments.select_related('created_by').all().order_by('-date', '-id')
+            return render(request, 'finance/debt_detail_panel.html', {
+                'debt': debt,
+                'payments': payments,
+                'payment_form': form,
+            })
     return redirect('finance:debt_detail', pk=debt.pk)
 
 @login_required
