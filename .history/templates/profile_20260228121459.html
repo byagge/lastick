@@ -16,10 +16,6 @@
     <header class="fixed top-0 left-0 right-0 z-20 glass border-b border-gray-200">
         <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <!-- Back button -->
-                <button onclick="history.back()" class="mr-2 rounded-lg bg-gray-100 hover:bg-gray-200 p-2 transition">
-                    <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
-                </button>
                 <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
                     <i data-lucide="user" class="w-6 h-6 text-white"></i>
                 </div>
@@ -106,6 +102,10 @@
             </section>
         </div>
     </main>
+
+    {% with employee_menu_active='work' %}
+        {% include 'employee_bottom_menu.html' %}
+    {% endwith %}
 
     <script>document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
 </body>

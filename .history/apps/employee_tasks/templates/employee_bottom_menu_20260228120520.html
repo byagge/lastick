@@ -1,0 +1,52 @@
+<div x-data="{ employeeMoreOpen: false }">
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full shadow-lg">
+        <a href="/dashboard/" class="flex flex-col items-center {% if employee_menu_active == 'home' %}nav-active{% else %}text-gray-500{% endif %}">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">&#1043;&#1083;&#1072;&#1074;&#1085;&#1072;&#1103;</span>
+        </a>
+        <a href="/employee_tasks/orders/" class="flex flex-col items-center {% if employee_menu_active == 'orders' %}nav-active{% else %}text-gray-500{% endif %}">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+            <span class="text-xs">&#1047;&#1072;&#1082;&#1072;&#1079;&#1099;</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center {% if employee_menu_active == 'work' %}nav-active{% else %}text-gray-500{% endif %}">
+            <i data-lucide="briefcase" class="w-5 h-5"></i>
+            <span class="text-xs">&#1056;&#1072;&#1073;&#1086;&#1090;&#1072;</span>
+        </a>
+        <button type="button" @click="employeeMoreOpen = true" class="flex flex-col items-center text-gray-500 focus:outline-none">
+            <i data-lucide="more-horizontal" class="w-5 h-5"></i>
+            <span class="text-xs">&#1044;&#1088;&#1091;&#1075;&#1086;&#1077;</span>
+        </button>
+    </nav>
+
+    <div x-show="employeeMoreOpen" x-transition class="fixed inset-0 z-50 flex items-end justify-center bg-black bg-opacity-40" @click.self="employeeMoreOpen = false">
+        <div class="bg-white rounded-t-2xl w-full max-w-md p-5" style="max-height: 85vh; max-height: 85dvh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-semibold text-gray-900">&#1044;&#1088;&#1091;&#1075;&#1086;&#1077;</h2>
+                <button type="button" @click="employeeMoreOpen = false" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <a href="/settings/" class="flex items-center space-x-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                    <i data-lucide="settings" class="w-5 h-5 text-gray-600"></i>
+                    <span class="text-sm text-gray-700">&#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080;</span>
+                </a>
+                <a href="/accounts/profile/" class="flex items-center space-x-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                    <i data-lucide="user" class="w-5 h-5 text-gray-600"></i>
+                    <span class="text-sm text-gray-700">&#1055;&#1088;&#1086;&#1092;&#1080;&#1083;&#1100;</span>
+                </a>
+                <a href="/inventory/" class="flex items-center space-x-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                    <i data-lucide="archive" class="w-5 h-5 text-gray-600"></i>
+                    <span class="text-sm text-gray-700">&#1057;&#1082;&#1083;&#1072;&#1076;</span>
+                </a>
+                <a href="/employee_tasks/stats/" class="flex items-center space-x-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                    <i data-lucide="bar-chart" class="w-5 h-5 text-gray-600"></i>
+                    <span class="text-sm text-gray-700">&#1057;&#1090;&#1072;&#1090;&#1080;&#1089;&#1090;&#1080;&#1082;&#1072;</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -254,9 +254,27 @@
         </template>
     </main>
 
-    {% with employee_menu_active='stats' %}
-        {% include 'employee_bottom_menu.html' %}
-    {% endwith %}
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 nav-bar h-14 flex items-center justify-around text-xs">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span>Задачи</span>
+        </a>
+        <a href="/notifications/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span>Уведомления</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-gray-900 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center nav-active">
+            <i data-lucide="bar-chart" class="w-5 h-5"></i>
+            <span>Статистика</span>
+        </a>
+        <a href="/accounts/profile/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span>Профиль</span>
+        </a>
+    </nav>
 
     <script id="user-id" type="application/json">{{ request.user.id|default:'null' }}</script>
     <script>

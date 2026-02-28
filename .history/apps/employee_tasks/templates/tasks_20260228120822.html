@@ -366,9 +366,28 @@
         </div>
     </div>
 
-{% with employee_menu_active='work' %}
-    {% include 'employee_bottom_menu.html' %}
-{% endwith %}
+    <!-- Bottom Navigation -->
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 w-full">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center nav-active">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/notifications/" class="flex flex-col items-center">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span class="text-xs">Уведомления</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center">
+            <i data-lucide="bar-chart" class="w-5 h-5"></i>
+            <span class="text-xs">Статистика</span>
+        </a>
+        <a href="/accounts/profile/" class="flex flex-col items-center">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-xs">Профиль</span>
+        </a>
+    </nav>
 
     <script>
     function employeeTasksPage() {

@@ -16,6 +16,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.08); }
         .stat-card { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%); backdrop-filter: blur(10px); }
         .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -69,37 +72,12 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="min-h-screen">
 <div x-data="smartFactoryDashboard()" x-init="init()">
-        <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-40" :class="sidebarOpen ? 'lg:left-72' : 'lg:left-0'">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
-                    <!-- Sidebar Toggle Button -->
-                    <button @click="toggleSidebar()" class="mr-4 p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                        <i data-lucide="menu" class="w-5 h-5 text-gray-600 sidebar-toggle" :class="sidebarOpen ? 'rotated' : ''"></i>
-                    </button>
-                    
-                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                        <span class="text-white font-bold text-xl">S</span>
-              </div>
-                    <h1 class="text-2xl font-bold text-gray-900">Smart Factory</h1>
-            </div>
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-sm text-gray-600">Пользователь:</span>
-                        <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                            <span class="text-white text-sm font-medium" x-text="(overview.user_name || 'П').charAt(0).toUpperCase()"></span>
-                        </div>
-                    </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
 {% if request.session.impersonator_id %}
-    <div class="bg-yellow-100 border-b border-yellow-200 fixed top-16 left-0 right-0 z-30" :class="sidebarOpen ? 'lg:left-72' : 'lg:left-0'">
+    <div class="bg-yellow-100 border-b border-yellow-200 fixed top-16 left-0 right-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
             <div class="text-center text-yellow-800 text-sm">
     Режим имперсонации. <a href="{% url 'release_impersonation' %}" class="underline font-semibold">Вернуться</a>
@@ -107,125 +85,10 @@
         </div>
 </div>
 {% endif %}
+<!-- Main Content -->
+    <main class="flex-1 overflow-auto ml-64 p-6 pt-28">
 
-        <!-- Sidebar -->
-    <aside class="sidebar fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50" :class="sidebarOpen ? '' : 'sidebar-hidden'">
-        <div class="p-6">
-            <!-- Logo Section -->
-            <div class="flex items-center mb-8">
-                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                    <span class="text-white font-bold text-xl">S</span>
-                </div>
-            <div>
-                    <h2 class="text-lg font-bold text-gray-900">Smart Factory</h2>
-                    <p class="text-sm text-gray-500">Панель управления</p>
-                </div>
-            </div>
-
-            <!-- Navigation -->
-            <nav class="space-y-2">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Основное меню</h3>
-                
-                <a href="/dashboard/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 active">
-                    <i data-lucide="home" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Главная</span>
-                </a>
-
-                <a href="/orders/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="clipboard-list" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Заказы</span>
-                </a>
-
-                <a href="/clients/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="user-plus" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Клиенты</span>
-                </a>
-
-                <a href="/employees/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="users" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Сотрудники</span>
-                </a>
-
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Производство</h3>
-
-                <a href="/products/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="package" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Товары</span>
-                </a>
-
-                <a href="/services/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="scissors" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Услуги</span>
-                </a>
-
-                <a href="/workshops/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="factory" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Цехи</span>
-                </a>
-
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Склад</h3>
-
-                <a href="/inventory/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="archive" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Материалы</span>
-                </a>
-
-                <a href="/finished_goods/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="package-check" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Готовая продукция</span>
-                </a>
-
-                <a href="/defects/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Брак</span>
-                </a>
-
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Дополнительно</h3>
-
-                <a href="/employee_tasks/defects/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Управление браком</span>
-                </a>
-
-                <a href="/attendance/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="calendar" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Посещаемость</span>
-                </a>
-
-                <a href="/settings/" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50">
-                    <i data-lucide="settings" class="w-5 h-5 text-gray-500"></i>
-                    <span class="font-medium">Настройки</span>
-                    </a>
-                </nav>
-
-            <!-- Quick Stats in Sidebar -->
-            <div class="mt-8 p-4 bg-gray-50 rounded-lg">
-                <h4 class="text-sm font-semibold text-gray-700 mb-3">Быстрая статистика</h4>
-                <div class="space-y-2">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Активные заказы:</span>
-                        <span class="font-medium text-blue-600" x-text="overview.active_orders || 0"></span>
-                        </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Низкий запас:</span>
-                        <span class="font-medium" :class="overview.low_stock_count > 0 ? 'text-red-600' : 'text-green-600'" x-text="overview.low_stock_count || 0"></span>
-                        </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Эффективность:</span>
-                        <span class="font-medium text-green-600" x-text="(overview.avg_efficiency || 0) + '%'"></span>
-                    </div>
-                        </div>
-                        </div>
-                    </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content pt-16" :class="sidebarOpen ? '' : 'expanded'">
-        {% if request.session.impersonator_id %}
-        <div class="pt-16"></div>
-        {% endif %}
-        
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <!-- Page Title -->
             <div class="mb-8">
                 <h2 class="text-3xl font-bold text-gray-900">Аналитика производства</h2>
@@ -929,3 +792,5 @@
     </script>
 </body>
 </html> 
+
+

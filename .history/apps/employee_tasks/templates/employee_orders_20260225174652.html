@@ -113,9 +113,20 @@
         </div>
     </main>
 
-    {% with employee_menu_active='orders' %}
-        {% include 'employee_bottom_menu.html' %}
-    {% endwith %}
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 nav-bar h-14 flex items-center justify-around text-xs">
+        <a href="/employee_tasks/tasks/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            <span>Задачи</span>
+        </a>
+        <a href="/employee_tasks/employee_orders/" class="flex flex-col items-center nav-active">
+            <i data-lucide="list" class="w-5 h-5"></i>
+            <span>Заявки</span>
+        </a>
+        <a href="/employee_tasks/stats/" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+            <span>Статистика</span>
+        </a>
+    </nav>
 
     <div x-show="showRequestModal" x-transition class="fixed inset-0 z-40 flex items-end sheet-bg" @click.self="closeRequestModal()">
         <div class="sheet bg-white w-full max-h-[85vh] overflow-y-auto p-4">
