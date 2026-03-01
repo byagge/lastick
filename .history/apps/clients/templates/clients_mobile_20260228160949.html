@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Factory — Клиенты</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <style>
+        body{background:linear-gradient(180deg,#f8fafc 0%,#eef2f7 55%,#e5e7eb 100%);}
+        .bottom-nav,.mobile-nav{box-shadow:0 -2px 16px 0 rgba(15,23,42,0.1);}
+        .scrollbar-hide::-webkit-scrollbar{display:none;}
+        .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none;}
+        .glass{background:rgba(255,255,255,0.78);backdrop-filter:blur(12px);}
+        .bg-blue-600{background-color:#0e121a!important;}
+        .text-blue-600{color:#0e121a!important;}
+        .bg-blue-100{background-color:#e2e8f0!important;}
+        .bg-blue-50{background-color:#f1f5f9!important;}
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+<div x-data="mobileClients()" class="flex-1 flex flex-col">
+    <!-- Header -->
+    <header class="glass border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+        <span class="font-semibold text-gray-900 text-lg">Клиенты</span>
+        <button @click="showAddModal = true" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 text-white text-xl font-bold focus:outline-none" title="Добавить клиента">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+        </button>
+    </header>
+
+    <!-- Search -->
+    <div class="px-4 py-2 bg-white/80 backdrop-blur sticky top-[56px] z-10 border-b border-gray-200">
+        <input type="text" x-model="search" placeholder="Поиск по имени или телефону..." class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-gray-900 outline-none text-base bg-gray-50" />
+    </div>
+
+    <!-- Client List -->
+    <main class="flex-1 overflow-y-auto scrollbar-hide pb-20">
+        <template x-if="filteredClients.length === 0">
+            <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+                <i data-lucide="users" class="w-16 h-16 mb-4"></i>
+                <div class="text-xl font-semibold mb-2">Нет клиентов</div>
+                <div class="mb-4">Добавьте первого клиента</div>
+            </div>
+        </template>
+        <div class="space-y-2 px-2 pt-2">
+            <template x-for="client in filteredClients" :key="client.id">
+                <div @click="viewClient(client)" class="bg-white rounded-xl p-4 flex items-center space-x-4 shadow hover:bg-gray-50 transition cursor-pointer">
+                    <div class="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center text-white text-xl font-bold">
+                        <span x-text="getInitials(client.name)"></span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-gray-900 text-base truncate" x-text="client.name"></div>
+                        <div class="text-sm text-gray-500 truncate" x-text="client.phone"></div>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    {% include 'partials/bottom_nav_mobile.html' %}
+    <!-- Client Profile Modal -->
+    <div x-show="showProfile" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showProfile = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white rounded-l-2xl p-6 relative overflow-y-auto">
+            <button @click="showProfile = false" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <div class="flex flex-col items-center mb-4">
+                <div class="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold mb-2">
+                    <span x-text="getInitials(profileClient.name)"></span>
+                </div>
+                <div class="font-bold text-xl mb-1" x-text="profileClient.name"></div>
+                <div class="text-gray-500 mb-1" x-text="profileClient.phone"></div>
+                <div class="text-gray-500 mb-1" x-text="profileClient.email"></div>
+                <span :class="getStatusClass(profileClient.status)" class="px-3 py-1 text-sm rounded-full mt-2" x-text="getStatusText(profileClient.status)"></span>
+            </div>
+            <div class="space-y-3 mb-4">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500">Средний чек</span>
+                    <span class="text-gray-900" x-text="formatPrice(profileClient.average_check)"></span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500">Всего потратил</span>
+                    <span class="text-gray-900" x-text="formatPrice(profileClient.total_spent)"></span>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button @click="quickCall(profileClient)" class="flex-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center">
+                    <i data-lucide="phone" class="w-4 h-4 mr-1"></i>
+                    Позвонить
+                </button>
+            </div>
+            <button @click="showProfile = false" class="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold mt-4">Закрыть</button>
+        </div>
+    </div>
+    <!-- Add Client Modal (bottom sheet style) -->
+    <div x-show="showAddModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="showAddModal = false"></div>
+        <div class="fixed right-0 top-0 h-full w-full max-w-md bg-white rounded-l-2xl p-6 pb-8 shadow-xl overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-lg font-bold text-gray-900">Добавить клиента</span>
+                <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-700">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <form @submit.prevent="submitAddClient" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                    <input type="text" x-model="addForm.name" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
+                    <input type="tel" x-model="addForm.phone" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" x-model="addForm.email" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Компания</label>
+                    <input type="text" x-model="addForm.company" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                    <input type="text" x-model="addForm.address" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" @click="showAddModal = false" class="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold">Отмена</button>
+                    <button type="submit" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+function mobileClients() {
+    return {
+        clients: [],
+        search: '',
+        showProfile: false,
+        profileClient: {},
+        showAddModal: false,
+        addForm: { name: '', phone: '', email: '', company: '', address: '' },
+        // removed showMoreMenu and related handlers
+        async init() {
+            await this.loadClients();
+            lucide.createIcons();
+        },
+        async loadClients() {
+            try {
+                const res = await fetch('/clients/api/clients/', { credentials: 'same-origin' });
+                const data = await res.json();
+                this.clients = Array.isArray(data) ? data : (data.results || data.clients || []);
+            } catch (e) { this.clients = []; }
+        },
+        async submitAddClient() {
+            if (!this.addForm.name || !this.addForm.phone) {
+                alert('??????? ??? ? ??????? ???????');
+                return;
+            }
+            const payload = { ...this.addForm };
+            try {
+                const resp = await fetch('/clients/api/clients/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    const created = await resp.json();
+                    this.clients.unshift(created);
+                    this.showAddModal = false;
+                    this.addForm = { name: '', phone: '', email: '', company: '', address: '' };
+                    await this.loadClients();
+                } else {
+                    const message = await this.getErrorMessage(resp, '?????? ?????????? ???????');
+                    alert(message);
+                }
+            } catch (e) {
+                alert('?????? ????');
+            }
+        },
+        get filteredClients() {
+            if (!this.search) return this.clients;
+            const s = this.search.toLowerCase();
+            return this.clients.filter(c => (c.name && c.name.toLowerCase().includes(s)) || (c.phone && c.phone.includes(this.search)));
+        },
+        getInitials(name) {
+            if (!name) return '';
+            return name.split(' ').map(w => w[0]).join('').toUpperCase();
+        },
+        viewClient(client) {
+            this.profileClient = client;
+            this.showProfile = true;
+        },
+        getStatusClass(status) {
+            const classes = {
+                'new': 'bg-blue-100 text-blue-800',
+                'vip': 'bg-green-100 text-green-800',
+                'regular': 'bg-yellow-100 text-yellow-800',
+                'inactive': 'bg-gray-100 text-gray-800'
+            };
+            return classes[status] || classes['new'];
+        },
+        getStatusText(status) {
+            const texts = {
+                'new': 'Новый',
+                'vip': 'VIP',
+                'regular': 'Постоянный',
+                'inactive': 'Неактивный'
+            };
+            return texts[status] || 'Новый';
+        },
+        formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            const now = new Date();
+
+            // Сравниваем только даты, без времени
+            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const diffTime = dateOnly - nowOnly;
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            // Для будущих дат
+            if (diffDays > 0) {
+                if (diffDays === 1) return 'Завтра';
+                if (diffDays <= 7) return `Через ${diffDays} дней`;
+                if (diffDays <= 30) return `Через ${Math.floor(diffDays / 7)} недель`;
+                return date.toLocaleDateString('ru-RU');
+            }
+
+            // Для прошлых дат
+            const absDiffDays = Math.abs(diffDays);
+            if (absDiffDays === 0) return 'Сегодня';
+            if (absDiffDays === 1) return 'Вчера';
+            if (absDiffDays <= 7) return `${absDiffDays} дней назад`;
+            if (absDiffDays <= 30) return `${Math.floor(absDiffDays / 7)} недель назад`;
+            return date.toLocaleDateString('ru-RU');
+        },
+        formatPrice(price) {
+            if (!price) return '⃀ 0';
+            return `⃀ ${parseInt(price).toLocaleString('ru-RU')}`;
+        },
+        quickCall(client) {
+            const phoneNumber = client.phone;
+            
+            // Пытаемся сделать звонок напрямую
+            if ('navigator' in window && 'share' in navigator) {
+                // Для мобильных устройств с поддержкой Web Share API
+                navigator.share({
+                    title: `Звонок клиенту ${client.name}`,
+                    text: `Позвонить клиенту ${client.name}`,
+                    url: `tel:${phoneNumber}`
+                }).catch(() => {
+                    // Fallback - открываем tel: ссылку
+                    window.open(`tel:${phoneNumber}`, '_blank');
+                });
+            } else {
+                // Для десктопных браузеров - копируем номер
+                navigator.clipboard.writeText(phoneNumber).then(() => {
+                    alert(`Номер ${client.name} скопирован в буфер обмена`);
+                }).catch(() => {
+                    // Fallback - показываем номер
+                    alert(`Номер ${client.name}: ${phoneNumber}`);
+                });
+            }
+        },
+        scheduleAppointment(client) {
+            // Редирект на страницу записи с данными клиента
+            const params = new URLSearchParams({
+                client_id: client.id,
+                client_name: client.name,
+                client_phone: client.phone
+            });
+            window.location.href = `/schedules/?${params.toString()}`;
+        },
+        
+        async exportToExcel() {
+            try {
+                // Загружаем библиотеку SheetJS
+                if (typeof XLSX === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                    script.onload = () => this.performExcelExport();
+                    document.head.appendChild(script);
+                } else {
+                    this.performExcelExport();
+                }
+            } catch (error) {
+                console.error('Ошибка экспорта:', error);
+                alert('Ошибка при экспорте в Excel');
+            }
+        },
+
+        performExcelExport() {
+            // Подготавливаем данные для экспорта
+            const data = this.clients.map(client => ({
+                'Имя клиента': client.name,
+                'Телефон': client.phone || 'Не указан',
+                'Email': client.email || 'Не указан',
+                'Компания/Организация': client.company || 'Не указана',
+                'Адрес': client.address || 'Не указан',
+                'Статус': this.getStatusText(client.status || 'new'),
+                'Дата добавления': client.created_at ? new Date(client.created_at).toLocaleDateString('ru-RU') : 'Не указана',
+                'Последнее изменение': client.updated_at ? new Date(client.updated_at).toLocaleDateString('ru-RU') : 'Не указана'
+            }));
+
+            // Создаем рабочую книгу
+            const wb = XLSX.utils.book_new();
+            
+            // Создаем лист с данными
+            const ws = XLSX.utils.json_to_sheet(data);
+
+            // Настраиваем ширину столбцов
+            const colWidths = [
+                { wch: 25 }, // Имя клиента
+                { wch: 18 }, // Телефон
+                { wch: 30 }, // Email
+                { wch: 25 }, // Компания
+                { wch: 35 }, // Адрес
+                { wch: 15 }, // Статус
+                { wch: 18 }, // Дата добавления
+                { wch: 18 }  // Последнее изменение
+            ];
+            ws['!cols'] = colWidths;
+
+            // Добавляем стили для заголовков
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!ws[cellAddress]) continue;
+                
+                ws[cellAddress].s = {
+                    font: { bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "2563EB" } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: {
+                        top: { style: "thin", color: { rgb: "FFFFFF" } },
+                        bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                        left: { style: "thin", color: { rgb: "FFFFFF" } },
+                        right: { style: "thin", color: { rgb: "FFFFFF" } }
+                    }
+                };
+            }
+
+            // Добавляем стили для данных
+            for (let row = 1; row <= range.e.r; row++) {
+                for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    if (!ws[cellAddress]) continue;
+                    
+                    ws[cellAddress].s = {
+                        font: { color: { rgb: "000000" } },
+                        fill: { fgColor: { rgb: row % 2 === 0 ? "F8FAFC" : "FFFFFF" } },
+                        alignment: { vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { rgb: "E2E8F0" } },
+                            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                            left: { style: "thin", color: { rgb: "E2E8F0" } },
+                            right: { style: "thin", color: { rgb: "E2E8F0" } }
+                        }
+                    };
+                }
+            }
+
+            // Добавляем лист в книгу
+            XLSX.utils.book_append_sheet(wb, ws, 'Клиенты');
+
+            // Создаем лист со статистикой
+            const statsData = [
+                { 'Показатель': 'Всего клиентов', 'Значение': this.clients.length },
+                { 'Показатель': 'Новые клиенты', 'Значение': this.clients.filter(c => c.status === 'new').length },
+                { 'Показатель': 'VIP клиенты', 'Значение': this.clients.filter(c => c.status === 'vip').length },
+                { 'Показатель': 'Постоянные клиенты', 'Значение': this.clients.filter(c => c.status === 'regular').length },
+                { 'Показатель': 'Неактивные клиенты', 'Значение': this.clients.filter(c => c.status === 'inactive').length }
+            ];
+            
+            const statsWs = XLSX.utils.json_to_sheet(statsData);
+            statsWs['!cols'] = [{ wch: 25 }, { wch: 20 }];
+            
+            // Стили для статистики
+            const statsRange = XLSX.utils.decode_range(statsWs['!ref']);
+            for (let col = statsRange.s.c; col <= statsRange.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!statsWs[cellAddress]) continue;
+                
+                statsWs[cellAddress].s = {
+                    font: { bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "10B981" } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: {
+                        top: { style: "thin", color: { rgb: "FFFFFF" } },
+                        bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+                        left: { style: "thin", color: { rgb: "FFFFFF" } },
+                        right: { style: "thin", color: { rgb: "FFFFFF" } }
+                    }
+                };
+            }
+
+            XLSX.utils.book_append_sheet(wb, statsWs, 'Статистика');
+
+            // Экспортируем файл
+            const fileName = `Клиенты_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            // Removed this.closeMoreMenu();
+        },
+        getCsrfToken() {
+            const name = 'csrftoken';
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    return decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            }
+            return '';
+        },
+        async getErrorMessage(response, fallback) {
+            const raw = await response.text();
+            if (!raw) return fallback;
+            try {
+                const data = JSON.parse(raw);
+                if (data.detail) return data.detail;
+                if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+                    return data.non_field_errors[0];
+                }
+                const firstKey = Object.keys(data)[0];
+                if (firstKey && Array.isArray(data[firstKey]) && data[firstKey].length > 0) {
+                    return data[firstKey][0];
+                }
+                return fallback;
+            } catch {
+                return raw;
+            }
+        }
+    }
+}
+document.addEventListener('alpine:init', () => {
+    Alpine.data('mobileClients', mobileClients);
+});
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+});
+</script>
+</body>
+</html> 

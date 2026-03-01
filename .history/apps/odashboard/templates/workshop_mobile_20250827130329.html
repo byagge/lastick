@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="masterDashboardMobile" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Панель мастера — Smart Factory</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .stat-card { transition: transform 0.2s ease-in-out; }
+        .stat-card:active { transform: scale(0.98); }
+        .modal-bg { 
+            background: rgba(0,0,0,0.4); 
+            backdrop-filter: blur(8px); 
+            animation: fadeInBg 0.3s; 
+        }
+        .modal-content { 
+            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 20px 20px 0 0;
+            /* Улучшаем скроллинг на iOS */
+            -webkit-overflow-scrolling: touch;
+            max-height: 90vh;
+        }
+        /* Стилизация скроллбара */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 4px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 2px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+        
+        /* Улучшенная стилизация скроллбара для модального окна */
+        .modal-content .overflow-y-auto::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-content .overflow-y-auto::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+        .modal-content .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.6);
+            border-radius: 3px;
+        }
+        .modal-content .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+        }
+        @keyframes fadeInBg {
+            from { background: rgba(0,0,0,0); }
+            to   { background: rgba(0,0,0,0.4); }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to   { transform: translateY(0); }
+        }
+        
+        /* Скрываем иконки, пока Lucide не загружен */
+        [data-lucide]:not(.lucide) {
+            display: none;
+        }
+        
+        /* Показываем иконки после загрузки Lucide */
+        [data-lucide].lucide {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <div>
+                <span 
+                    class="text-lg font-semibold text-gray-900" 
+                    x-text="greeting">
+                </span>
+                <p class="text-xs text-gray-600" x-text="userName || 'Загрузка...'"></p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/notifications/" class="relative inline-flex items-center justify-center" @click="unreadNotifications = 0; try { localStorage.setItem('notifications_last_cleared', String(Date.now())); } catch (e) {}">
+                <i data-lucide="bell" class="w-5 h-5 text-gray-700"></i>
+                <span x-show="unreadNotifications > 0" x-text="unreadNotifications" class="absolute -top-2 -right-3 text-[10px] leading-4 px-1.5 min-w-[16px] text-center rounded-full bg-red-600 text-white"></span>
+            </a>
+            <a href="/services/master/" class="relative inline-flex items-center justify-center" title="Услуги">
+                <i data-lucide="settings" class="w-5 h-5 text-gray-700"></i>
+            </a>
+            <a href="/defects/" class="relative inline-flex items-center justify-center" title="Браки">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-700"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <!-- Loading State -->
+        <template x-if="loading">
+            <div class="text-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p class="mt-2 text-sm text-gray-600">Загрузка статистики...</p>
+            </div>
+        </template>
+
+        <!-- Content -->
+        <template x-if="!loading">
+            <div class="space-y-6">
+                <!-- Общая статистика -->
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">Общая статистика</h2>
+                    
+                    <!-- Основные метрики -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <!-- Количество цехов -->
+                        <div class="card bg-white rounded-xl p-4 stat-card">
+                            <div class="text-center">
+                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                    <i data-lucide="factory" class="w-4 h-4 text-blue-600"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900" x-text="totalStats.total_workshops || 0"></div>
+                                <div class="text-xs text-gray-600">Цехов</div>
+                            </div>
+                        </div>
+
+                        <!-- Количество сотрудников -->
+                        <a href="/employees/">
+                        <div class="card bg-white rounded-xl p-4 stat-card">
+                            <div class="text-center">
+                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                    <i data-lucide="users" class="w-4 h-4 text-green-600"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900" x-text="totalStats.total_employees || 0"></div>
+                                <div class="text-xs text-gray-600">Сотрудников</div>
+                            </div>
+                        </div></a>
+
+                        <!-- Выполнено работ за месяц -->
+                        <div class="card bg-white rounded-xl p-4 stat-card">
+                            <div class="text-center">
+                                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                    <i data-lucide="check-circle" class="w-4 h-4 text-purple-600"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900" x-text="totalStats.month_stats?.completed_works || 0"></div>
+                                <div class="text-xs text-gray-600">Работ за месяц</div>
+                            </div>
+                        </div>
+
+                        <!-- Эффективность -->
+                        <div class="card bg-white rounded-xl p-4 stat-card">
+                            <div class="text-center">
+                                <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                    <i data-lucide="trending-up" class="w-4 h-4 text-yellow-600"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900" x-text="(totalStats.total_stats?.efficiency || 0) + '%'"></div>
+                                <div class="text-xs text-gray-600">Эффективность</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Детальная статистика -->
+                    <div class="space-y-3">
+                        <!-- Статистика за неделю -->
+                        <div class="card bg-white rounded-xl p-4">
+                            <h3 class="text-base font-semibold text-gray-900 mb-3">За неделю</h3>
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                    <div class="text-lg font-bold text-green-600" x-text="totalStats.week_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-red-600" x-text="totalStats.week_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-blue-600" x-text="(totalStats.week_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Статистика за месяц -->
+                        <div class="card bg-white rounded-xl p-4">
+                            <h3 class="text-base font-semibold text-gray-900 mb-3">За месяц</h3>
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                    <div class="text-lg font-bold text-green-600" x-text="totalStats.month_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-red-600" x-text="totalStats.month_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-blue-600" x-text="(totalStats.month_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Общая статистика -->
+                        <div class="card bg-white rounded-xl p-4">
+                            <h3 class="text-base font-semibold text-gray-900 mb-3">Общая</h3>
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                    <div class="text-lg font-bold text-green-600" x-text="totalStats.total_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-red-600" x-text="totalStats.total_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-bold text-blue-600" x-text="(totalStats.total_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Список цехов -->
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">Мои цеха</h2>
+                    
+                    <template x-if="workshops.length === 0">
+                        <div class="text-center py-8">
+                            <i data-lucide="factory" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
+                            <p class="text-sm text-gray-600">У вас пока нет назначенных цехов</p>
+                        </div>
+                    </template>
+
+                    <template x-if="workshops.length > 0">
+                        <div class="space-y-4">
+                            <template x-for="workshop in workshops" :key="workshop.id">
+                                <div class="card bg-white rounded-xl p-4">
+                                    <!-- Заголовок цеха -->
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center space-x-3 cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors" @click="showGeneralStats(workshop)">
+                                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                <i data-lucide="factory" class="w-5 h-5 text-blue-600"></i>
+                                            </div>
+                                            <div>
+                                                <h3 class="font-semibold text-gray-900" x-text="workshop.name"></h3>
+                                                <p class="text-xs text-gray-600" x-text="workshop.description || 'Описание отсутствует'"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Основные метрики цеха -->
+                                    <div class="grid grid-cols-2 gap-3 mb-4">
+                                        <div class="text-center cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors" @click="redirectToEmployees(workshop.id)">
+                                            <div class="text-lg font-bold text-blue-600" x-text="workshop.employees_count"></div>
+                                            <div class="text-xs text-gray-600">Сотрудников</div>
+                                        </div>
+                                        <div class="text-center cursor-pointer hover:bg-green-50 rounded-lg p-2 transition-colors" @click="showEfficiencyDetails(workshop)">
+                                            <div class="text-lg font-bold text-green-600" x-text="(workshop.total_stats?.efficiency || 0) + '%'"></div>
+                                            <div class="text-xs text-gray-600">Эффективность</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Статистика по периодам -->
+                                    <div class="space-y-3">
+                                        <!-- За неделю -->
+                                        <div class="bg-gray-50 rounded-lg p-3">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <span class="text-sm font-medium text-gray-700">За неделю</span>
+                                                <span class="text-xs text-gray-500">7 дней</span>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 text-xs">
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-green-600" x-text="workshop.week_stats?.completed_works || 0"></div>
+                                                    <div class="text-gray-500">Работ</div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-red-600" x-text="workshop.week_stats?.defects || 0"></div>
+                                                    <div class="text-gray-500">Брак</div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-blue-600" x-text="(workshop.week_stats?.efficiency || 0) + '%'"></div>
+                                                    <div class="text-gray-500">Эффект.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- За месяц -->
+                                        <div class="bg-gray-50 rounded-lg p-3 cursor-pointer hover:bg-gray-100 transition-colors" @click="showMonthlyStats(workshop)">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <span class="text-sm font-medium text-gray-700">За месяц</span>
+                                                <span class="text-xs text-gray-500">30 дней</span>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 text-xs">
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-green-600" x-text="workshop.month_stats?.completed_works || 0"></div>
+                                                    <div class="text-gray-500">Работ</div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-red-600" x-text="workshop.month_stats?.defects || 0"></div>
+                                                    <div class="text-gray-500">Брак</div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-semibold text-blue-600" x-text="(workshop.month_stats?.efficiency || 0) + '%'"></div>
+                                                    <div class="text-gray-500">Эффект.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Кнопка действий -->
+                                    <div class="mt-3 pt-3 border-t border-gray-200">
+                                        <button @click="openWorkshopDetails(workshop)" 
+                                               class="w-full bg-blue-600 text-white text-center py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                            Детали цеха
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <!-- Модальное окно с подробной статистикой цеха -->
+    <template x-if="showWorkshopDetails">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="showWorkshopDetails = false">
+            <div class="modal-content bg-white rounded-t-3xl w-full max-w-md h-[90vh] flex flex-col">
+                <!-- Заголовок модального окна -->
+                <div class="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3 flex items-center justify-between rounded-t-3xl">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="factory" class="w-4 h-4 text-blue-600"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-base font-semibold text-gray-900 truncate" x-text="selectedWorkshop?.name"></h3>
+                            <p class="text-xs text-gray-600">Подробная статистика</p>
+                        </div>
+                    </div>
+                    <button @click="closeWorkshopDetails()" class="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-2">
+                        <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <!-- Индикатор скролла -->
+                <div class="flex-shrink-0 bg-gray-100 h-1 rounded-full mx-3 mb-1">
+                    <div class="bg-gray-300 h-1 rounded-full w-12 mx-auto"></div>
+                </div>
+
+                <!-- Содержимое модального окна -->
+                <div class="flex-1 overflow-y-auto px-3 pb-2 space-y-4" style="-webkit-overflow-scrolling: touch;">
+                    <!-- Основные метрики -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-blue-50 rounded-lg p-2 text-center">
+                            <div class="text-xs text-blue-600">Сотрудников</div>
+                            <div class="text-lg font-bold text-blue-700" x-text="selectedWorkshop?.employees_count || 0"></div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-2 text-center">
+                            <div class="text-xs text-green-600">Активных задач</div>
+                            <div class="text-lg font-bold text-green-700" x-text="selectedWorkshop?.active_tasks || 0"></div>
+                        </div>
+                    </div>
+
+                    <!-- Статистика по дням (последние 7 дней) -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 mb-2">Статистика за неделю</h4>
+                        <div class="space-y-1">
+                            <template x-for="(day, index) in weeklyStats" :key="index">
+                                <div class="bg-gray-50 rounded-lg p-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-gray-700" x-text="day.date"></span>
+                                        <span class="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full" x-text="day.dayName"></span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-1 text-xs">
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-green-600 text-xs" x-text="day.completed_works || 0"></div>
+                                            <div class="text-gray-500 text-xs">Работ</div>
+                                        </div>
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-red-600 text-xs" x-text="day.defects || 0"></div>
+                                            <div class="text-gray-500 text-xs">Брак</div>
+                                        </div>
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-blue-600 text-xs" x-text="(day.efficiency || 0) + '%'"></div>
+                                            <div class="text-gray-500 text-xs">Эффект.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- График производительности -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 mb-2">График производительности</h4>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="flex items-end justify-between h-16 space-x-1">
+                                <template x-for="(value, index) in productivityChart" :key="index">
+                                    <div class="flex-1 flex flex-col items-center">
+                                        <div class="w-full bg-gradient-to-t from-blue-400 to-blue-600 rounded-t transition-all duration-300 shadow-sm" 
+                                             :style="`height: ${Math.max(6, (value / Math.max(...productivityChart)) * 50)}px`"></div>
+                                        <span class="text-xs text-gray-600 mt-1 font-medium" x-text="value"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                <span class="text-center flex-1">Пн</span>
+                                <span class="text-center flex-1">Вт</span>
+                                <span class="text-center flex-1">Ср</span>
+                                <span class="text-center flex-1">Чт</span>
+                                <span class="text-center flex-1">Пт</span>
+                                <span class="text-center flex-1">Сб</span>
+                                <span class="text-center flex-1">Вс</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Детальная статистика по периодам -->
+                    <div class="space-y-2">
+                        <!-- За неделю -->
+                        <div class="bg-gray-50 rounded-lg p-2">
+                            <h5 class="text-xs font-semibold text-gray-900 mb-1">За неделю</h5>
+                            <div class="grid grid-cols-2 gap-1">
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-green-600" x-text="selectedWorkshop?.week_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-red-600" x-text="selectedWorkshop?.week_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-blue-600" x-text="(selectedWorkshop?.week_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффективность</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-purple-600" x-text="selectedWorkshop?.week_stats?.total_hours || 0"></div>
+                                    <div class="text-xs text-gray-600">Часов</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- За месяц -->
+                        <div class="bg-gray-50 rounded-lg p-2">
+                            <h5 class="text-xs font-semibold text-gray-900 mb-1">За месяц</h5>
+                            <div class="grid grid-cols-2 gap-1">
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-green-600" x-text="selectedWorkshop?.month_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-red-600" x-text="selectedWorkshop?.month_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-blue-600" x-text="(selectedWorkshop?.month_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффективность</div>
+                                </div>
+                                <div class="text-center bg-white rounded p-1">
+                                    <div class="text-sm font-bold text-purple-600" x-text="selectedWorkshop?.month_stats?.total_hours || 0"></div>
+                                    <div class="text-xs text-gray-600">Часов</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                                        <!-- Кнопка закрытия -->
+                    <!-- <div class="pt-2 pb-4">
+                        <button @click="closeWorkshopDetails()" 
+                                class="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+                            Закрыть
+                        </button>
+                    </div> -->
+                </div>
+                
+                <!-- Фиксированная кнопка закрытия внизу -->
+                <div class="flex-shrink-0 bg-white border-t border-gray-200 px-3 py-2 rounded-b-3xl">
+                    <button @click="closeWorkshopDetails()" 
+                            class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Модальное окно общей статистики цеха -->
+    <template x-if="showGeneralStats">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="showGeneralStats = false">
+            <div class="modal-content bg-white rounded-t-3xl w-full max-w-md h-[90vh] flex flex-col">
+                <!-- Заголовок модального окна -->
+                <div class="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3 flex items-center justify-between rounded-t-3xl">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-blue-600"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-base font-semibold text-gray-900 truncate" x-text="selectedWorkshop?.name"></h3>
+                            <p class="text-xs text-gray-600">Общая статистика</p>
+                        </div>
+                    </div>
+                    <button @click="closeGeneralStats()" class="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-2">
+                        <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <!-- Индикатор скролла -->
+                <div class="flex-shrink-0 bg-gray-100 h-1 rounded-full mx-3 mb-1">
+                    <div class="bg-gray-300 h-1 rounded-full w-12 mx-auto"></div>
+                </div>
+
+                <!-- Содержимое модального окна -->
+                <div class="flex-1 overflow-y-auto px-3 pb-2 space-y-4" style="-webkit-overflow-scrolling: touch;">
+                    <!-- Основные метрики -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-blue-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-blue-600">Всего работ</div>
+                            <div class="text-lg font-bold text-blue-700" x-text="selectedWorkshop?.total_stats?.completed_works || 0"></div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-green-600">Общая эффективность</div>
+                            <div class="text-lg font-bold text-green-700" x-text="(selectedWorkshop?.total_stats?.efficiency || 0) + '%'"></div>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-red-600">Общий брак</div>
+                            <div class="text-lg font-bold text-red-700" x-text="selectedWorkshop?.total_stats?.defects || 0"></div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-purple-600">Сотрудников</div>
+                            <div class="text-lg font-bold text-purple-700" x-text="selectedWorkshop?.employees_count || 0"></div>
+                        </div>
+                    </div>
+
+                    <!-- Детальная статистика по периодам -->
+                    <div class="space-y-3">
+                        <!-- За неделю -->
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <h5 class="text-sm font-semibold text-gray-900 mb-2">За неделю</h5>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-green-600" x-text="selectedWorkshop?.week_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-red-600" x-text="selectedWorkshop?.week_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-blue-600" x-text="(selectedWorkshop?.week_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- За месяц -->
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <h5 class="text-sm font-semibold text-gray-900 mb-2">За месяц</h5>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-green-600" x-text="selectedWorkshop?.month_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-red-600" x-text="selectedWorkshop?.month_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-blue-600" x-text="(selectedWorkshop?.month_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Общая статистика -->
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <h5 class="text-sm font-semibold text-gray-900 mb-2">Общая</h5>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-green-600" x-text="selectedWorkshop?.total_stats?.completed_works || 0"></div>
+                                    <div class="text-xs text-gray-600">Работ</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-red-600" x-text="selectedWorkshop?.total_stats?.defects || 0"></div>
+                                    <div class="text-xs text-gray-600">Брак</div>
+                                </div>
+                                <div class="bg-white rounded p-2">
+                                    <div class="text-sm font-bold text-blue-600" x-text="(selectedWorkshop?.total_stats?.efficiency || 0) + '%'"></div>
+                                    <div class="text-xs text-gray-600">Эффект.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- График тренда эффективности -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">Тренд эффективности</h5>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="flex items-end justify-between h-16 space-x-1">
+                                <template x-for="(value, index) in efficiencyTrend" :key="index">
+                                    <div class="flex-1 flex flex-col items-center">
+                                        <div class="w-full bg-gradient-to-t from-green-400 to-green-600 rounded-t transition-all duration-300 shadow-sm" 
+                                             :style="`height: ${Math.max(6, (value / 100) * 50)}px`"></div>
+                                        <span class="text-xs text-gray-600 mt-1 font-medium" x-text="value + '%'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                <span class="text-center flex-1">Пн</span>
+                                <span class="text-center flex-1">Вт</span>
+                                <span class="text-center flex-1">Ср</span>
+                                <span class="text-center flex-1">Чт</span>
+                                <span class="text-center flex-1">Пт</span>
+                                <span class="text-center flex-1">Сб</span>
+                                <span class="text-center flex-1">Вс</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Фиксированная кнопка закрытия внизу -->
+                <div class="flex-shrink-0 bg-white border-t border-gray-200 px-3 py-2 rounded-b-3xl">
+                    <button @click="closeGeneralStats()" 
+                            class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Модальное окно статистики работ за месяц -->
+    <template x-if="showMonthlyStatsModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="showMonthlyStatsModal = false">
+            <div class="modal-content bg-white rounded-t-3xl w-full max-w-md h-[90vh] flex flex-col">
+                <!-- Заголовок модального окна -->
+                <div class="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3 flex items-center justify-between rounded-t-3xl">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="calendar" class="w-4 h-4 text-green-600"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-base font-semibold text-gray-900 truncate" x-text="selectedWorkshop?.name"></h3>
+                            <p class="text-xs text-gray-600">Статистика работ за месяц</p>
+                        </div>
+                    </div>
+                    <button @click="closeMonthlyStats()" class="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-2">
+                        <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <!-- Индикатор скролла -->
+                <div class="flex-shrink-0 bg-gray-100 h-1 rounded-full mx-3 mb-1">
+                    <div class="bg-gray-300 h-1 rounded-full w-12 mx-auto"></div>
+                </div>
+
+                <!-- Содержимое модального окна -->
+                <div class="flex-1 overflow-y-auto px-3 pb-2 space-y-4" style="-webkit-overflow-scrolling: touch;">
+                    <!-- Основные метрики месяца -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-green-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-green-600">Выполнено работ</div>
+                            <div class="text-lg font-bold text-green-700" x-text="selectedWorkshop?.month_stats?.completed_works || 0"></div>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-red-600">Брак</div>
+                            <div class="text-lg font-bold text-red-700" x-text="selectedWorkshop?.month_stats?.defects || 0"></div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-blue-600">Эффективность</div>
+                            <div class="text-lg font-bold text-blue-700" x-text="(selectedWorkshop?.month_stats?.efficiency || 0) + '%'"></div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3 text-center">
+                            <div class="text-xs text-purple-600">Часов работы</div>
+                            <div class="text-lg font-bold text-purple-700" x-text="selectedWorkshop?.month_stats?.total_hours || 0"></div>
+                        </div>
+                    </div>
+
+                    <!-- График работ по дням месяца -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">Работы по дням месяца</h5>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="flex items-end justify-between h-20 space-x-1">
+                                <template x-for="(value, index) in monthlyWorkChart" :key="index">
+                                    <div class="flex-1 flex flex-col items-center">
+                                        <div class="w-full bg-gradient-to-t from-green-400 to-green-600 rounded-t transition-all duration-300 shadow-sm" 
+                                             :style="`height: ${Math.max(6, (value / Math.max(...monthlyWorkChart)) * 60)}px`"></div>
+                                        <span class="text-xs text-gray-600 mt-1 font-medium" x-text="value"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                <template x-for="day in 30" :key="day">
+                                    <span class="text-center flex-1" x-text="day % 5 === 0 ? day : ''"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Детальная статистика по неделям -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">По неделям</h5>
+                        <div class="space-y-2">
+                            <template x-for="(week, index) in monthlyWeeks" :key="index">
+                                <div class="bg-gray-50 rounded-lg p-2">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-xs font-medium text-gray-700" x-text="'Неделя ' + (index + 1)"></span>
+                                        <span class="text-xs text-gray-500" x-text="week.days + ' дней'"></span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-1 text-xs">
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-green-600" x-text="week.completed_works || 0"></div>
+                                            <div class="text-gray-500">Работ</div>
+                                        </div>
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-red-600" x-text="week.defects || 0"></div>
+                                            <div class="text-gray-500">Брак</div>
+                                        </div>
+                                        <div class="text-center bg-white rounded p-1">
+                                            <div class="font-semibold text-blue-600" x-text="(week.efficiency || 0) + '%'"></div>
+                                            <div class="text-gray-500">Эффект.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Фиксированная кнопка закрытия внизу -->
+                <div class="flex-shrink-0 bg-white border-t border-gray-200 px-3 py-2 rounded-b-3xl">
+                    <button @click="closeMonthlyStats()" 
+                            class="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition-colors">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Модальное окно деталей эффективности -->
+    <template x-if="showEfficiencyModal">
+        <div class="fixed inset-0 z-50 flex items-end justify-center modal-bg" @click.self="showEfficiencyModal = false">
+            <div class="modal-content bg-white rounded-t-3xl w-full max-w-md h-[90vh] flex flex-col">
+                <!-- Заголовок модального окна -->
+                <div class="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3 flex items-center justify-between rounded-t-3xl">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-green-600"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-base font-semibold text-gray-900 truncate" x-text="selectedWorkshop?.name"></h3>
+                            <p class="text-xs text-gray-600">Детали эффективности</p>
+                        </div>
+                    </div>
+                    <button @click="closeEfficiencyModal()" class="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-2">
+                        <i data-lucide="x" class="w-4 h-4 text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <!-- Индикатор скролла -->
+                <div class="flex-shrink-0 bg-gray-100 h-1 rounded-full mx-3 mb-1">
+                    <div class="bg-gray-300 h-1 rounded-full w-12 mx-auto"></div>
+                </div>
+
+                <!-- Содержимое модального окна -->
+                <div class="flex-1 overflow-y-auto px-3 pb-2 space-y-4" style="-webkit-overflow-scrolling: touch;">
+                    <!-- Текущая эффективность -->
+                    <div class="bg-green-50 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-green-700" x-text="(selectedWorkshop?.total_stats?.efficiency || 0) + '%'"></div>
+                        <div class="text-sm text-green-600">Текущая эффективность</div>
+                    </div>
+
+                    <!-- Факторы эффективности -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">Факторы эффективности</h5>
+                        <div class="space-y-2">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-700">Качество работы</span>
+                                    <span class="text-sm font-semibold text-green-600" x-text="getQualityScore() + '%'"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                                         :style="`width: ${getQualityScore()}%`"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-700">Скорость выполнения</span>
+                                    <span class="text-sm font-semibold text-blue-600" x-text="getSpeedScore() + '%'"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                         :style="`width: ${getSpeedScore()}%`"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-700">Минимизация брака</span>
+                                    <span class="text-sm font-semibold text-purple-600" x-text="getDefectScore() + '%'"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-purple-500 h-2 rounded-full transition-all duration-300" 
+                                         :style="`width: ${getDefectScore()}%`"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- График тренда эффективности -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">Тренд эффективности</h5>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="flex items-end justify-between h-20 space-x-1">
+                                <template x-for="(value, index) in efficiencyTrend" :key="index">
+                                    <div class="flex-1 flex flex-col items-center">
+                                        <div class="w-full bg-gradient-to-t from-green-400 to-green-600 rounded-t transition-all duration-300 shadow-sm" 
+                                             :style="`height: ${Math.max(6, (value / 100) * 60)}px`"></div>
+                                        <span class="text-xs text-gray-600 mt-1 font-medium" x-text="value + '%'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                <span class="text-center flex-1">Пн</span>
+                                <span class="text-center flex-1">Вт</span>
+                                <span class="text-center flex-1">Ср</span>
+                                <span class="text-center flex-1">Чт</span>
+                                <span class="text-center flex-1">Пт</span>
+                                <span class="text-center flex-1">Сб</span>
+                                <span class="text-center flex-1">Вс</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Рекомендации по улучшению -->
+                    <div>
+                        <h5 class="text-sm font-semibold text-gray-900 mb-2">Рекомендации</h5>
+                        <div class="space-y-2">
+                            <template x-for="(recommendation, index) in efficiencyRecommendations" :key="index">
+                                <div class="bg-blue-50 rounded-lg p-3 border-l-4 border-blue-400">
+                                    <div class="flex items-start space-x-2">
+                                        <i data-lucide="lightbulb" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0"></i>
+                                        <div class="text-sm text-blue-800" x-text="recommendation"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Фиксированная кнопка закрытия внизу -->
+                <div class="flex-shrink-0 bg-white border-t border-gray-200 px-3 py-2 rounded-b-3xl">
+                    <button @click="closeEfficiencyModal()" 
+                            class="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition-colors">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Bottom Navigation -->
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 max-w-md mx-auto w-full">
+        <a href="/dashboard/" class="flex flex-col items-center nav-active">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/employees/" class="flex flex-col items-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            <span class="text-xs">Сотрудники</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/orders/plans/master/" class="flex flex-col items-center">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Планы</span>
+        </a>
+        <a href="/settings/" class="flex flex-col items-center">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span class="text-xs">Настройки</span>
+        </a>
+    </nav>
+
+    <script>
+        function masterDashboardMobile() {
+            return {
+                loading: true,
+                userName: '',
+                totalStats: {},
+                workshops: [],
+                unreadNotifications: 0,
+                showWorkshopDetails: false,
+                selectedWorkshop: null,
+                weeklyStats: [],
+                productivityChart: [],
+                touchHandlers: null,
+                greeting: '',
+                showGeneralStats: false,
+                showMonthlyStatsModal: false,
+                showEfficiencyModal: false,
+                efficiencyTrend: [],
+                monthlyWorkChart: [],
+                monthlyWeeks: [],
+                efficiencyRecommendations: [],
+                
+                async init() {
+                    // Проверяем, что Lucide доступен
+                    if (typeof lucide === 'undefined') {
+                        console.warn('Lucide не загружен, ожидаем...');
+                        // Ждем загрузки Lucide
+                        await new Promise(resolve => {
+                            const checkLucide = () => {
+                                if (typeof lucide !== 'undefined') {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkLucide, 100);
+                                }
+                            };
+                            checkLucide();
+                        });
+                    }
+                    
+                    this.greeting = this.getGreeting();
+                    await this.loadData();
+                    await this.loadUnreadNotifications();
+                    this.$nextTick(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    });
+
+                    // Если на странице уведомлений их очистили — скрываем бейдж сразу
+                    try {
+                        const ts = localStorage.getItem('notifications_last_cleared');
+                        if (ts) {
+                            this.unreadNotifications = 0;
+                        }
+                    } catch (e) {}
+
+                    // Обновляем счетчик при возвращении на страницу
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) {
+                            // Если на странице уведомлений недавно очистили — сразу скрыть локально, затем обновить с сервера
+                            try {
+                                const ts = localStorage.getItem('notifications_last_cleared');
+                                if (ts) {
+                                    this.unreadNotifications = 0;
+                                }
+                            } catch (e) {}
+                            this.loadUnreadNotifications();
+                        }
+                    });
+                },
+                
+                async loadUnreadNotifications() {
+                    try {
+                        const resp = await fetch('/notifications/unread-count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.unreadNotifications = data.unread_count || 0;
+                        } else {
+                            this.unreadNotifications = 0;
+                        }
+                    } catch (e) {
+                        this.unreadNotifications = 0;
+                    }
+                },
+
+                async loadData() {
+                    try {
+                        // Загружаем статистику мастера
+                        const response = await fetch('/workshops/api/workshops/master-stats/');
+                        const data = await response.json();
+                        
+                        this.totalStats = data.total_stats || {};
+                        this.workshops = data.workshops || [];
+                        
+                        // Получаем имя пользователя
+                        this.userName = '{{ request.user.get_full_name|default:request.user.username }}';
+                        
+                    } catch (error) {
+                        console.error('Ошибка загрузки данных:', error);
+                    } finally {
+                        this.loading = false;
+                        // Пересоздаем иконки после загрузки данных
+                        this.$nextTick(() => {
+                            if (typeof lucide !== 'undefined') {
+                                lucide.createIcons();
+                            }
+                        });
+                    }
+                },
+                
+                openWorkshopDetails(workshop) {
+                    this.selectedWorkshop = workshop;
+                    this.showWorkshopDetails = true;
+                    this.generateWeeklyStats(workshop);
+                    this.generateProductivityChart(workshop);
+                    
+                    // Пересоздаем иконки в модальном окне
+                    this.$nextTick(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                        
+                        // Добавляем поддержку жестов для закрытия
+                        this.setupModalGestures();
+                    });
+                },
+                
+                setupModalGestures() {
+                    const modal = document.querySelector('.modal-content');
+                    if (!modal) return;
+                    
+                    let startY = 0;
+                    let currentY = 0;
+                    let isDragging = false;
+                    
+                    const handleTouchStart = (e) => {
+                        startY = e.touches[0].clientY;
+                        isDragging = true;
+                    };
+                    
+                    const handleTouchMove = (e) => {
+                        if (!isDragging) return;
+                        currentY = e.touches[0].clientY;
+                        const deltaY = currentY - startY;
+                        
+                        if (deltaY > 0) {
+                            modal.style.transform = `translateY(${deltaY}px)`;
+                            modal.style.opacity = Math.max(0.5, 1 - (deltaY / 200));
+                        }
+                    };
+                    
+                    const handleTouchEnd = () => {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        
+                        const deltaY = currentY - startY;
+                        if (deltaY > 100) {
+                            this.showWorkshopDetails = false;
+                        } else {
+                            modal.style.transform = '';
+                            modal.style.opacity = '';
+                        }
+                    };
+                    
+                    // Сохраняем ссылки на обработчики для последующего удаления
+                    this.touchHandlers = {
+                        start: handleTouchStart,
+                        move: handleTouchMove,
+                        end: handleTouchEnd
+                    };
+                    
+                    modal.addEventListener('touchstart', handleTouchStart, { passive: true });
+                    modal.addEventListener('touchmove', handleTouchMove, { passive: true });
+                    modal.addEventListener('touchend', handleTouchEnd, { passive: true });
+                },
+                
+                cleanupModalGestures() {
+                    const modal = document.querySelector('.modal-content');
+                    if (!modal || !this.touchHandlers) return;
+                    
+                    modal.removeEventListener('touchstart', this.touchHandlers.start);
+                    modal.removeEventListener('touchmove', this.touchHandlers.move);
+                    modal.removeEventListener('touchend', this.touchHandlers.end);
+                    
+                    this.touchHandlers = null;
+                },
+                
+                closeWorkshopDetails() {
+                    this.cleanupModalGestures();
+                    this.showWorkshopDetails = false;
+                },
+                
+                // Функции для работы с модальными окнами
+                redirectToEmployees(workshopId) {
+                    window.location.href = '/employees/';
+                },
+                
+                showGeneralStats(workshop) {
+                    this.selectedWorkshop = workshop;
+                    this.showGeneralStats = true;
+                    this.generateEfficiencyTrend(workshop);
+                    
+                    this.$nextTick(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    });
+                },
+                
+                closeGeneralStats() {
+                    this.showGeneralStats = false;
+                },
+                
+                showMonthlyStats(workshop) {
+                    this.selectedWorkshop = workshop;
+                    this.showMonthlyStatsModal = true;
+                    this.generateMonthlyWorkChart(workshop);
+                    this.generateMonthlyWeeks(workshop);
+                    
+                    this.$nextTick(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    });
+                },
+                
+                closeMonthlyStats() {
+                    this.showMonthlyStatsModal = false;
+                },
+                
+                showEfficiencyDetails(workshop) {
+                    this.selectedWorkshop = workshop;
+                    this.showEfficiencyModal = true;
+                    this.generateEfficiencyTrend(workshop);
+                    this.generateEfficiencyRecommendations(workshop);
+                    
+                    this.$nextTick(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    });
+                },
+                
+                closeEfficiencyModal() {
+                    this.showEfficiencyModal = false;
+                },
+                
+                generateWeeklyStats(workshop) {
+                    const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                    const today = new Date();
+                    this.weeklyStats = [];
+                    
+                    for (let i = 6; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(date.getDate() - i);
+                        
+                        // Генерируем случайные данные для демонстрации
+                        const completedWorks = Math.floor(Math.random() * 20) + 5;
+                        const defects = Math.floor(Math.random() * 3);
+                        const efficiency = Math.max(85, Math.min(98, 100 - (defects * 5) + Math.random() * 10));
+                        
+                        this.weeklyStats.push({
+                            date: date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+                            dayName: days[date.getDay() === 0 ? 6 : date.getDay() - 1], // Понедельник = 0
+                            completed_works: completedWorks,
+                            defects: defects,
+                            efficiency: Math.round(efficiency)
+                        });
+                    }
+                },
+                
+                generateProductivityChart(workshop) {
+                    // Генерируем данные для графика производительности
+                    this.productivityChart = Array.from({ length: 7 }, () => 
+                        Math.floor(Math.random() * 30) + 15
+                    );
+                },
+                
+                generateEfficiencyTrend(workshop) {
+                    // Генерируем тренд эффективности за неделю
+                    const baseEfficiency = workshop.total_stats?.efficiency || 85;
+                    this.efficiencyTrend = Array.from({ length: 7 }, () => {
+                        const variation = Math.random() * 10 - 5; // ±5%
+                        return Math.max(70, Math.min(100, Math.round(baseEfficiency + variation)));
+                    });
+                },
+                
+                generateMonthlyWorkChart(workshop) {
+                    // Генерируем данные работ по дням месяца
+                    const baseWork = workshop.month_stats?.completed_works || 100;
+                    this.monthlyWorkChart = Array.from({ length: 30 }, () => {
+                        const variation = Math.random() * 0.4 + 0.8; // ±20%
+                        return Math.max(1, Math.round((baseWork / 30) * variation));
+                    });
+                },
+                
+                generateMonthlyWeeks(workshop) {
+                    // Генерируем статистику по неделям
+                    this.monthlyWeeks = Array.from({ length: 4 }, (_, weekIndex) => {
+                        const weekWork = Math.floor(Math.random() * 20) + 15;
+                        const weekDefects = Math.floor(Math.random() * 3);
+                        const weekEfficiency = Math.max(80, Math.min(98, 95 - weekDefects * 5 + Math.random() * 10));
+                        
+                        return {
+                            days: 7,
+                            completed_works: weekWork,
+                            defects: weekDefects,
+                            efficiency: Math.round(weekEfficiency)
+                        };
+                    });
+                },
+                
+                generateEfficiencyRecommendations(workshop) {
+                    const efficiency = workshop.total_stats?.efficiency || 85;
+                    const defects = workshop.total_stats?.defects || 0;
+                    
+                    this.efficiencyRecommendations = [];
+                    
+                    if (efficiency < 90) {
+                        this.efficiencyRecommendations.push('Провести дополнительное обучение сотрудников');
+                    }
+                    if (defects > 5) {
+                        this.efficiencyRecommendations.push('Улучшить контроль качества на всех этапах');
+                    }
+                    if (efficiency < 95) {
+                        this.efficiencyRecommendations.push('Оптимизировать рабочие процессы');
+                    }
+                    if (this.efficiencyRecommendations.length === 0) {
+                        this.efficiencyRecommendations.push('Отличная работа! Продолжайте в том же духе');
+                    }
+                },
+                
+                // Вспомогательные функции для расчета показателей
+                getQualityScore() {
+                    if (!this.selectedWorkshop) return 85;
+                    const efficiency = this.selectedWorkshop.total_stats?.efficiency || 85;
+                    return Math.min(100, Math.max(70, efficiency + Math.random() * 10 - 5));
+                },
+                
+                getSpeedScore() {
+                    if (!this.selectedWorkshop) return 80;
+                    const efficiency = this.selectedWorkshop.total_stats?.efficiency || 85;
+                    return Math.min(100, Math.max(70, efficiency - 5 + Math.random() * 15));
+                },
+                
+                getDefectScore() {
+                    if (!this.selectedWorkshop) return 90;
+                    const defects = this.selectedWorkshop.total_stats?.defects || 0;
+                    const baseScore = 100 - (defects * 2);
+                    return Math.min(100, Math.max(70, baseScore + Math.random() * 10 - 5));
+                },
+                
+                getGreeting() {
+                    const hour = new Date().getHours();
+                    let greetings = [];
+
+                    if (hour >= 5 && hour < 12) {
+                        greetings = [
+                            'Доброе утро',
+                            'Прекрасного утра',
+                            'Светлого утра',
+                            'Хорошего утра'
+                        ];
+                    } else if (hour >= 12 && hour < 18) {
+                        greetings = [
+                            'Добрый день',
+                            'Прекрасного дня',
+                            'Солнечного дня',
+                            'Хорошего дня'
+                        ];
+                    } else if (hour >= 18 && hour < 23) {
+                        greetings = [
+                            'Добрый вечер',
+                            'Приятного вечера',
+                            'Теплого вечера',
+                            'Доброго вечера'
+                        ];
+                    } else {
+                        greetings = [
+                            'Доброй ночи',
+                            'Спокойной ночи',
+                            'Тихой ночи',
+                            'Уютной ночи'
+                        ];
+                    }
+
+                    return greetings[Math.floor(Math.random() * greetings.length)];
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+
+    <script>
+        function masterDashboard() {
+            return {
+                greeting: '',
+                init() {
+                    this.greeting = this.getGreeting();
+                },
+                getGreeting() {
+                    const hour = new Date().getHours();
+                    let greetings = [];
+
+                    if (hour >= 5 && hour < 12) {
+                        greetings = ["Доброе утро", "Прекрасного утра", "Светлого утра"];
+                    } else if (hour >= 12 && hour < 18) {
+                        greetings = ["Добрый день", "Прекрасного дня", "Солнечного дня"];
+                    } else if (hour >= 18 && hour < 23) {
+                        greetings = ["Добрый вечер", "Приятного вечера", "Теплого вечера"];
+                    } else {
+                        greetings = ["Доброй ночи", "Спокойной ночи", "Тихой ночи"];
+                    }
+
+                    return greetings[Math.floor(Math.random() * greetings.length)];
+                }
+            }
+        }
+    </script>
+    
+</body>
+</html> 

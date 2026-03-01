@@ -499,16 +499,53 @@ class NeutralBatchesListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from apps.defects.models import Defect
+        from django.utils import timezone
+        from datetime import timedelta
+        
         batches = (
             NeutralBatch.objects.select_related("workshop", "employee")
             .all()
             .order_by("-created_at")
         )
+        # Если передан параметр all=true, возвращаем все партии (включая использованные)
+        include_all = request.query_params.get("all", "false").lower() == "true"
         data = []
         for b in batches:
             available = b.available_quantity
-            if available <= 0:
+            # Пропускаем использованные партии только если не запрошены все
+            if not include_all and available <= 0:
                 continue
+            
+            # Ищем связанный брак для этой партии
+            # Брак создается в тот же день с комментарием об экструзии
+            batch_date_start = b.created_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            batch_date_end = batch_date_start + timedelta(days=1)
+            
+            related_defect = Defect.objects.filter(
+                user=b.employee,
+                created_at__gte=batch_date_start,
+                created_at__lt=batch_date_end,
+                employee_comment__icontains="Extrusion defect"
+            ).first()
+            
+            scrap_quantity = 0
+            total_material = float(b.total_quantity)
+            
+            if related_defect:
+                scrap_quantity = float(related_defect.quantity)
+                # Из комментария "Extrusion defect: X kg of Y kg" извлекаем Y
+                comment = related_defect.employee_comment or ""
+                import re
+                match = re.search(r"of\s+([\d.]+)\s+kg", comment)
+                if match:
+                    total_material = float(match.group(1))
+                else:
+                    # Если не удалось извлечь, считаем что total = produced + scrap
+                    total_material = float(b.total_quantity) + scrap_quantity
+            
+            efficiency = (float(b.total_quantity) / total_material * 100) if total_material > 0 else 100.0
+            
             data.append(
                 {
                     "id": b.id,
@@ -520,6 +557,10 @@ class NeutralBatchesListView(APIView):
                     "used_quantity": float(b.used_quantity),
                     "available_quantity": float(available),
                     "created_at": b.created_at.isoformat(),
+                    "scrap_quantity": scrap_quantity,
+                    "total_material": total_material,
+                    "efficiency": round(efficiency, 1),
+                    "defect_id": related_defect.id if related_defect else None,
                 }
             )
         return Response(data)

@@ -39,6 +39,8 @@
         .bg-blue-50 { background-color: #f1f5f9 !important; }
         .bg-blue-100 { background-color: #e2e8f0 !important; }
         .text-blue-500 { color: #0e121a !important; }
+        /* Alpine.js cloak */
+        [x-cloak] { display: none !important; }
         /* Мобильные стили */
         @media (max-width: 640px) {
             .mobile-card { margin-bottom: 0.75rem; padding: 0.75rem; }
@@ -70,11 +72,21 @@
     <main class="flex-1 pt-16 pb-16 px-3 w-full">
         <div class="flex justify-between items-center mb-4">
             <h1 class="text-xl font-bold text-gray-900">Мои задачи</h1>
+            <button
+                type="button"
+                x-show="showHistoryButton"
+                @click="viewMode = viewMode === 'active' ? 'history' : 'active'"
+                class="inline-flex items-center px-4 py-2 rounded-full border border-gray-300 text-sm font-bold text-gray-900 bg-yellow-200 hover:bg-yellow-300 shadow transition"
+                style="min-width: 140px;"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="mr-2" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>
+                </svg>
+                <span x-text="viewMode === 'active' ? 'История работ' : 'Текущие задачи'" class="text-sm font-bold"></span>
+            </button>
         </div>
-        
-        <!-- Поиск (только для цехов, где показываются задачи) -->
-        
-        
+
         <!-- Loading -->
         <template x-if="loading">
             <div class="space-y-3 animate-pulse">
@@ -87,7 +99,62 @@
         <!-- Экструзия: отдельный workflow по балансу материалов -->
         <template x-if="!loading && isExtrusion">
             <div class="space-y-4">
-                <template x-if="!hasMaterialBalance && !extrusionSummary">
+                <!-- Переключатель режима просмотра для экструзии -->
+                <template x-if="viewMode === 'history'">
+                    <div class="mb-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3">История выполненных работ</h2>
+                        <template x-if="extrusionHistory.length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="history" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">История пуста</h3>
+                                <p class="text-sm text-gray-600">Пока нет завершённых работ для отображения.</p>
+                            </div>
+                        </template>
+                        <div class="space-y-3">
+                            <template x-for="item in extrusionHistory" :key="item.id">
+                                <div class="card bg-white rounded-lg p-3 flex flex-col">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900">Экструзия</div>
+                                            <div class="text-xs text-gray-500" x-text="item.completed_at ? new Date(item.completed_at).toLocaleDateString('ru-RU') : 'Дата не указана'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                        <div>
+                                            <div class="text-gray-500">Выпущено</div>
+                                            <div class="font-semibold text-emerald-600" x-text="(item.produced_quantity || 0).toFixed(3) + ' кг'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Брак</div>
+                                            <div class="font-semibold text-red-600" x-text="(item.scrap_quantity || 0).toFixed(3) + ' кг'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Эффективность</div>
+                                            <div class="font-semibold text-gray-900" x-text="(item.efficiency || 0).toFixed(1) + ' %'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            @click="selectedHistoryTask = item; showHistoryModal = true; $nextTick(() => lucide.createIcons())"
+                                            class="w-full inline-flex justify-center items-center px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <i data-lucide="eye" class="w-3.5 h-3.5 mr-1.5"></i>
+                                            Подробнее
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Активная работа для экструзии -->
+                <template x-if="viewMode === 'active'">
+                    <div>
+                        <template x-if="!hasMaterialBalance && !extrusionSummary">
                     <div class="text-center py-8 space-y-3">
                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                             <i data-lucide="package" class="w-8 h-8 text-gray-600"></i>
@@ -188,14 +255,75 @@
                         </template>
                     </div>
                 </template>
+                    </div>
+                </template>
             </div>
         </template>
 
         <!-- Пакетоотделочный / упаковочный цех: работа с нейтральной зоной и заявками -->
         <template x-if="!loading && isPackaging">
             <div class="space-y-4">
-                <!-- Партии нейтральной зоны -->
-                <template x-if="neutralBatches.length === 0">
+                <!-- Переключатель режима просмотра для упаковки -->
+                <template x-if="viewMode === 'history'">
+                    <div class="mb-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3">История выполненных работ</h2>
+                        <template x-if="packagingHistory.length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="history" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">История пуста</h3>
+                                <p class="text-sm text-gray-600">Пока нет завершённых работ для отображения.</p>
+                            </div>
+                        </template>
+                        <div class="space-y-3">
+                            <template x-for="item in packagingHistory" :key="item.id">
+                                <div class="card bg-white rounded-lg p-3 flex flex-col">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900" x-text="item.product_name || 'Упаковка'"></div>
+                                            <div class="text-xs text-gray-500" x-text="item.completed_at ? new Date(item.completed_at).toLocaleDateString('ru-RU') : 'Дата не указана'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-4 gap-2 text-xs">
+                                        <div>
+                                            <div class="text-gray-500">Входной</div>
+                                            <div class="font-semibold text-gray-900" x-text="(item.input_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Доработано</div>
+                                            <div class="font-semibold text-emerald-600" x-text="(item.produced_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Брак</div>
+                                            <div class="font-semibold text-red-600" x-text="(item.scrap_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Эффективность</div>
+                                            <div class="font-semibold text-gray-900" x-text="(item.efficiency || 0).toFixed(1) + ' %'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            @click="selectedHistoryTask = item; showHistoryModal = true; $nextTick(() => lucide.createIcons())"
+                                            class="w-full inline-flex justify-center items-center px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <i data-lucide="eye" class="w-3.5 h-3.5 mr-1.5"></i>
+                                            Подробнее
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Активная работа для упаковки -->
+                <template x-if="viewMode === 'active'">
+                    <div>
+                        <!-- Партии нейтральной зоны -->
+                        <template x-if="neutralBatches.length === 0">
                     <div class="text-center py-8 space-y-3">
                         <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
                             <i data-lucide="archive" class="w-8 h-8 text-blue-500"></i>
@@ -344,20 +472,318 @@
                         </template>
                     </div>
                 </template>
+                    </div>
+                </template>
             </div>
         </template>
 
         <!-- Обычный список задач для остальных цехов -->
         <template x-if="!loading && !isExtrusion && !isPackaging">
-            <div class="text-center py-8">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <i data-lucide="info" class="w-8 h-8 text-gray-400"></i>
+            <div>
+                <!-- Поиск и переключатель режима -->
+                <div class="mb-4 space-y-2">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                        <input
+                            type="text"
+                            x-model="searchTerm"
+                            placeholder="Поиск по названию задачи или товара..."
+                            class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        >
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="inline-flex rounded-full bg-gray-100 p-0.5">
+                            <button
+                                type="button"
+                                @click="viewMode = 'active'"
+                                :class="viewMode === 'active' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'"
+                                class="px-3 py-1 rounded-full font-medium transition-colors"
+                            >
+                                Текущие
+                            </button>
+                            <button
+                                type="button"
+                                @click="viewMode = 'history'"
+                                :class="viewMode === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'"
+                                class="px-3 py-1 rounded-full font-medium transition-colors"
+                            >
+                                История
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <h3 class="text-base font-semibold text-gray-900 mb-1">&#1057;&#1090;&#1088;&#1072;&#1085;&#1080;&#1094;&#1072; &#1076;&#1083;&#1103; &#1094;&#1077;&#1093;&#1086;&#1074; &#8470;1 &#1080; &#8470;2</h3>
-                <p class="text-sm text-gray-600">&#1042; &#1101;&#1090;&#1086;&#1081; &#1079;&#1086;&#1085;&#1077; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; &#1085;&#1077; &#1086;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1072;&#1102;&#1090;&#1089;&#1103;.</p>
+
+                <!-- Текущие задачи -->
+                <template x-if="viewMode === 'active'">
+                    <div>
+                        <template x-if="filteredTasks.length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="check-circle" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">Нет активных задач</h3>
+                                <p class="text-sm text-gray-600">Как только мастер назначит вам работу, она появится здесь.</p>
+                            </div>
+                        </template>
+                        <div class="space-y-3">
+                            <template x-for="task in filteredTasks" :key="task.id">
+                                <div class="card bg-white rounded-lg p-3 flex flex-col mobile-card">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name : (task.title || 'Задача')"></div>
+                                            <div class="text-xs text-gray-500 mobile-text-xs" x-text="task.stage_name || ''"></div>
+                                        </div>
+                                        <div class="text-right text-xs text-gray-500 mobile-text-xs">
+                                            <div x-show="isTaskOverdue(task)" class="inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium">
+                                                <span>Просрочена</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-3 gap-2 text-xs mobile-gap-1 mobile-text-xs">
+                                        <div>
+                                            <div class="text-gray-500">План</div>
+                                            <div class="font-semibold text-gray-900" x-text="getDisplayQuantity(task, 'plan')"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Сделано</div>
+                                            <div class="font-semibold text-emerald-600" x-text="getDisplayQuantity(task, 'completed')"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Брак</div>
+                                            <div class="font-semibold text-red-600" x-text="getDisplayQuantity(task, 'defective')"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            @click="toggleTask(task)"
+                                            class="w-full inline-flex justify-center items-center px-3 py-1.5 rounded-lg text-xs font-medium btn-dark"
+                                        >
+                                            Отметить выполненной
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- История выполненных задач -->
+                <template x-if="viewMode === 'history'">
+                    <div>
+                        <template x-if="completedTasksHistory.length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="history" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">История пуста</h3>
+                                <p class="text-sm text-gray-600">Пока нет завершённых задач для отображения.</p>
+                            </div>
+                        </template>
+                        <div class="space-y-3">
+                            <template x-for="task in completedTasksHistory" :key="task.id">
+                                <div class="card bg-white rounded-lg p-3 flex flex-col mobile-card">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name : (task.title || 'Задача')"></div>
+                                            <div class="text-xs text-gray-500 mobile-text-xs" x-text="task.stage_name || ''"></div>
+                                        </div>
+                                        <div class="text-right text-[11px] text-gray-400 mobile-text-xs">
+                                            <div x-text="task.completed_at ? new Date(task.completed_at).toLocaleDateString('ru-RU') : (task.created_at ? new Date(task.created_at).toLocaleDateString('ru-RU') : '')"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-3 gap-2 text-xs mobile-gap-1 mobile-text-xs">
+                                        <div>
+                                            <div class="text-gray-500">План</div>
+                                            <div class="font-semibold text-gray-900" x-text="getDisplayQuantity(task, 'plan')"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Выполнено</div>
+                                            <div class="font-semibold text-emerald-600" x-text="getDisplayQuantity(task, 'completed')"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Брак</div>
+                                            <div class="font-semibold text-red-600" x-text="getDisplayQuantity(task, 'defective')"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            @click="selectedHistoryTask = task; showHistoryModal = true; $nextTick(() => lucide.createIcons())"
+                                            class="w-full inline-flex justify-center items-center px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <i data-lucide="eye" class="w-3.5 h-3.5 mr-1.5"></i>
+                                            Подробнее
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
     </main>
+
+    <!-- Модальное окно для просмотра деталей выполненной задачи -->
+    <div 
+        x-show="showHistoryModal" 
+        x-cloak
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        @click.away="showHistoryModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-bg"
+    >
+        <div 
+            x-show="showHistoryModal"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            @click.stop
+        >
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-gray-900">Детали выполненной работы</h3>
+                <button 
+                    @click="showHistoryModal = false"
+                    class="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4" x-show="selectedHistoryTask">
+                <template x-if="selectedHistoryTask">
+                    <div class="space-y-4">
+                        <!-- Для экструзии и упаковки -->
+                        <template x-if="selectedHistoryTask.type === 'extrusion' || selectedHistoryTask.type === 'packaging'">
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="text-xs text-gray-500 mb-1">Тип работы</div>
+                                    <div class="text-base font-semibold text-gray-900" x-text="selectedHistoryTask.type === 'extrusion' ? 'Экструзия' : 'Упаковка'"></div>
+                                </div>
+                                <template x-if="selectedHistoryTask.type === 'packaging'">
+                                    <div>
+                                        <div class="text-xs text-gray-500 mb-1">Товар</div>
+                                        <div class="text-sm font-medium text-gray-700" x-text="selectedHistoryTask.product_name || 'Не указан'"></div>
+                                    </div>
+                                </template>
+                                <div class="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200">
+                                    <template x-if="selectedHistoryTask.type === 'extrusion'">
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Материал</div>
+                                            <div class="text-lg font-bold text-gray-900" x-text="(selectedHistoryTask.total_material || 0).toFixed(3) + ' кг'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Выпущено</div>
+                                            <div class="text-lg font-bold text-emerald-600" x-text="(selectedHistoryTask.produced_quantity || 0).toFixed(3) + ' кг'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Брак</div>
+                                            <div class="text-lg font-bold text-red-600" x-text="(selectedHistoryTask.scrap_quantity || 0).toFixed(3) + ' кг'"></div>
+                                        </div>
+                                    </template>
+                                    <template x-if="selectedHistoryTask.type === 'packaging'">
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Входной</div>
+                                            <div class="text-lg font-bold text-gray-900" x-text="(selectedHistoryTask.input_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Доработано</div>
+                                            <div class="text-lg font-bold text-emerald-600" x-text="(selectedHistoryTask.produced_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-500 mb-1">Брак</div>
+                                            <div class="text-lg font-bold text-red-600" x-text="(selectedHistoryTask.scrap_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                    </template>
+                                    <div class="col-span-3 pt-2 border-t border-gray-200">
+                                        <div class="text-xs text-gray-500 mb-1">Эффективность</div>
+                                        <div class="text-lg font-bold text-gray-900" x-text="(selectedHistoryTask.efficiency || 0).toFixed(1) + ' %'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <!-- Для обычных задач -->
+                        <template x-if="!selectedHistoryTask.type">
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="text-xs text-gray-500 mb-1">Товар / Задача</div>
+                                    <div class="text-base font-semibold text-gray-900" x-text="selectedHistoryTask.order_item && selectedHistoryTask.order_item.product && selectedHistoryTask.order_item.product.name ? selectedHistoryTask.order_item.product.name : (selectedHistoryTask.title || 'Задача')"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-500 mb-1">Этап работы</div>
+                                    <div class="text-sm font-medium text-gray-700" x-text="selectedHistoryTask.stage_name || 'Не указан'"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200">
+                                    <div>
+                                        <div class="text-xs text-gray-500 mb-1">План</div>
+                                        <div class="text-lg font-bold text-gray-900" x-text="getDisplayQuantity(selectedHistoryTask, 'plan')"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-500 mb-1">Выполнено</div>
+                                        <div class="text-lg font-bold text-emerald-600" x-text="getDisplayQuantity(selectedHistoryTask, 'completed')"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-500 mb-1">Брак</div>
+                                        <div class="text-lg font-bold text-red-600" x-text="getDisplayQuantity(selectedHistoryTask, 'defective')"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <div class="pt-2 border-t border-gray-200">
+                            <div class="text-xs text-gray-500 mb-1">Дата выполнения</div>
+                            <div class="text-sm font-medium text-gray-700" x-text="selectedHistoryTask.completed_at ? new Date(selectedHistoryTask.completed_at).toLocaleString('ru-RU') : (selectedHistoryTask.created_at ? new Date(selectedHistoryTask.created_at).toLocaleString('ru-RU') : 'Не указана')"></div>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200">
+                            <div class="text-xs text-gray-500 mb-1">Дата выполнения</div>
+                            <div class="text-sm font-medium text-gray-700" x-text="selectedHistoryTask.completed_at ? new Date(selectedHistoryTask.completed_at).toLocaleString('ru-RU') : (selectedHistoryTask.created_at ? new Date(selectedHistoryTask.created_at).toLocaleString('ru-RU') : 'Не указана')"></div>
+                        </div>
+                        <template x-if="selectedHistoryTask.combined_tasks && selectedHistoryTask.combined_tasks.length > 1">
+                            <div class="pt-2 border-t border-gray-200">
+                                <div class="text-xs text-gray-500 mb-2">Объединённые задачи</div>
+                                <div class="space-y-2">
+                                    <template x-for="(subTask, index) in selectedHistoryTask.combined_tasks" :key="subTask.id">
+                                        <div class="bg-gray-50 rounded p-2 text-xs">
+                                            <div class="font-medium text-gray-700 mb-1">Задача #<span x-text="index + 1"></span></div>
+                                            <div class="grid grid-cols-3 gap-2 text-xs">
+                                                <div>
+                                                    <span class="text-gray-500">План: </span>
+                                                    <span class="font-semibold" x-text="getDisplayQuantity(subTask, 'plan')"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-gray-500">Выполнено: </span>
+                                                    <span class="font-semibold text-emerald-600" x-text="getDisplayQuantity(subTask, 'completed')"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-gray-500">Брак: </span>
+                                                    <span class="font-semibold text-red-600" x-text="getDisplayQuantity(subTask, 'defective')"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+            <div class="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-4 py-3 flex justify-end">
+                <button 
+                    @click="showHistoryModal = false"
+                    class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                >
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div x-show="toastMessage" x-transition class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
         <div class="px-4 py-2 rounded-lg text-sm font-medium shadow-lg"
@@ -406,6 +832,16 @@
             toastMessage: '',
             toastType: 'success',
             toastTimer: null,
+            viewMode: 'active',
+            showHistoryModal: false,
+            selectedHistoryTask: null,
+            // История для экструзии и упаковки
+            extrusionHistory: [],
+            packagingHistory: [],
+            get showHistoryButton() {
+                // Показываем кнопку для всех цехов после загрузки данных
+                return !this.loading;
+            },
             async init() {
                 this.userId = window.user_id || null;
                 try {
@@ -425,20 +861,32 @@
                 }
 
                 // Определяем цех по ID: 1 = экструзия, 2 = пакетоотделочный
+                // Устанавливаем сразу после получения workshopId
                 this.isExtrusion = this.workshopId === 1;
                 this.isPackaging = this.workshopId === 2;
 
                 if (this.isExtrusion) {
                     await this.checkMaterialBalance();
+                    await this.loadExtrusionHistory();
                 } else if (this.isPackaging) {
                     await this.loadNeutralBatches();
                     await this.loadPackagingOrders();
                     await this.loadPackagingProducts();
+                    await this.loadPackagingHistory();
                 } else {
                     // Для остальных цехов загружаем задачи только если не цех 1 или 2
                     await this.loadTasks();
                 }
+                // Гарантируем, что loading установлен в false после инициализации
+                this.loading = false;
                 lucide.createIcons();
+                
+                // Обработчик закрытия модального окна по Escape
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.showHistoryModal) {
+                        this.showHistoryModal = false;
+                    }
+                });
             },
             showToast(message, type = 'success') {
                 this.toastMessage = message;
@@ -473,6 +921,93 @@
                 const data = await resp.json();
                 this.tasks = (data.results || data).filter(task => String(task.employee) === String(this.userId));
                 this.loading = false;
+            },
+            async loadExtrusionHistory() {
+                try {
+                    // Загружаем историю партий нейтральной зоны для данного сотрудника (включая использованные)
+                    // API теперь возвращает информацию о браках напрямую
+                    const resp = await fetch('/api/workshops/api/neutral-batches/?all=true');
+                    const data = await resp.json();
+                    const allBatches = Array.isArray(data) ? data : [];
+                    
+                    // Фильтруем только партии данного сотрудника
+                    this.extrusionHistory = allBatches
+                        .filter(batch => {
+                            const employeeId = batch.employee_id || batch.employee?.id || batch.employee;
+                            return employeeId && String(employeeId) === String(this.userId);
+                        })
+                        .map(batch => ({
+                            id: batch.id,
+                            type: 'extrusion',
+                            total_material: batch.total_material || batch.total_quantity || 0,
+                            produced_quantity: batch.total_quantity || 0,
+                            scrap_quantity: batch.scrap_quantity || 0,
+                            efficiency: batch.efficiency || 100.0,
+                            created_at: batch.created_at,
+                            completed_at: batch.created_at,
+                            defect_id: batch.defect_id || null
+                        }))
+                        .sort((a, b) => {
+                            // Сортируем по дате создания (новые сверху)
+                            const da = a.created_at || '';
+                            const db = b.created_at || '';
+                            return db.localeCompare(da);
+                        });
+                } catch (e) {
+                    console.error('Error loading extrusion history:', e);
+                    this.extrusionHistory = [];
+                }
+            },
+            async loadPackagingHistory() {
+                try {
+                    // Загружаем историю готовой продукции для цеха упаковки
+                    // Фильтруем по цеху (workshop_id = 2 для упаковки)
+                    // API теперь возвращает информацию о браках напрямую
+                    let resp = await fetch(`/finished_goods/api/finished-goods/?workshop=${this.workshopId}`);
+                    let data = await resp.json();
+                    let allFinished = Array.isArray(data) ? (data.results || data) : [];
+                    
+                    // Если фильтр по workshop не работает, загружаем все и фильтруем на клиенте
+                    if (allFinished.length === 0) {
+                        resp = await fetch('/finished_goods/api/finished-goods/');
+                        data = await resp.json();
+                        allFinished = Array.isArray(data) ? (data.results || data) : [];
+                        allFinished = allFinished.filter(item => {
+                            const workshopId = item.workshop?.id || item.workshop || item.workshop_id;
+                            return workshopId && String(workshopId) === String(this.workshopId);
+                        });
+                    }
+                    
+                    // Используем данные о браках из API
+                    this.packagingHistory = allFinished.map(item => {
+                        const quantity = Number(item.quantity || 0);
+                        const inputQty = Number(item.input_quantity || quantity || 0);
+                        const scrapQty = Number(item.scrap_quantity || 0);
+                        const efficiency = Number(item.efficiency || 100.0);
+                        
+                        return {
+                            id: item.id,
+                            type: 'packaging',
+                            product_name: item.product?.name || item.product || 'Товар',
+                            produced_quantity: quantity,
+                            input_quantity: inputQty,
+                            scrap_quantity: scrapQty,
+                            efficiency: efficiency,
+                            created_at: item.received_at || item.created_at || item.packaging_date,
+                            completed_at: item.received_at || item.created_at || item.packaging_date,
+                            defect_id: item.defect_id || null
+                        };
+                    })
+                    .sort((a, b) => {
+                        // Сортируем по дате создания (новые сверху)
+                        const da = a.created_at || '';
+                        const db = b.created_at || '';
+                        return db.localeCompare(da);
+                    });
+                } catch (e) {
+                    console.error('Error loading packaging history:', e);
+                    this.packagingHistory = [];
+                }
             },
             get filteredTasks() {
                 const term = this.searchTerm.toLowerCase();
@@ -515,6 +1050,55 @@
                     }
                 });
                 
+                return groupedTasks;
+            },
+            get completedTasksHistory() {
+                const term = this.searchTerm.toLowerCase();
+                const filtered = this.tasks
+                    .filter(task => !this.isTaskVisible(task))
+                    .filter(task =>
+                        (task.title || '').toLowerCase().includes(term) ||
+                        (task.stage_name || '').toLowerCase().includes(term) ||
+                        (task.order_item && task.order_item.product && task.order_item.product.name
+                            ? task.order_item.product.name.toLowerCase().includes(term)
+                            : false)
+                    );
+
+                const groupedTasks = [];
+                const taskGroups = {};
+
+                filtered.forEach(task => {
+                    const key = `${task.stage}_${task.order_item?.id || 'no_item'}`;
+                    if (!taskGroups[key]) {
+                        taskGroups[key] = [];
+                    }
+                    taskGroups[key].push(task);
+                });
+
+                Object.values(taskGroups).forEach(group => {
+                    if (group.length === 1) {
+                        groupedTasks.push(group[0]);
+                    } else {
+                        const firstTask = group[0];
+                        const combinedTask = {
+                            ...firstTask,
+                            combined_tasks: group,
+                            quantity: group.reduce((sum, t) => sum + (t.quantity || 0), 0),
+                            completed_quantity: group.reduce((sum, t) => sum + (t.completed_quantity || 0), 0),
+                            defective_quantity: group.reduce((sum, t) => sum + (t.defective_quantity || 0), 0),
+                            is_combined: true
+                        };
+                        groupedTasks.push(combinedTask);
+                    }
+                });
+
+                // сортируем по дате завершения (новые сверху)
+                groupedTasks.sort((a, b) => {
+                    const da = a.completed_at || a.created_at || '';
+                    const db = b.completed_at || b.created_at || '';
+                    return (db || '').localeCompare(da || '');
+                });
+
                 return groupedTasks;
             },
             get computedScrap() {

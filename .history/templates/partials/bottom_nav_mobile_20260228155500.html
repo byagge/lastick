@@ -1,0 +1,174 @@
+<nav class="fixed bottom-0 left-0 right-0 z-30 nav-bar bg-white/95 backdrop-blur border-t border-gray-200">
+  <div class="max-w-md mx-auto flex items-center justify-between px-2 py-1.5 text-[11px] text-gray-500">
+    <!-- Основное: Дашборд -->
+    <a
+      href="/dashboard/"
+      class="flex flex-col items-center flex-1 px-1.5 py-1 rounded-lg transition-colors"
+      data-nav-prefix="/dashboard/"
+    >
+      <i data-lucide="layout-grid" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Дашборд</span>
+    </a>
+
+    <!-- Основное: Заказы -->
+    <a
+      href="/orders/"
+      class="flex flex-col items-center flex-1 px-1.5 py-1 rounded-lg transition-colors"
+      data-nav-prefix="/orders/"
+    >
+      <i data-lucide="clipboard-list" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Заказы</span>
+    </a>
+
+    <!-- Основное: Склад -->
+    <a
+      href="/inventory/"
+      class="flex flex-col items-center flex-1 px-1.5 py-1 rounded-lg transition-colors"
+      data-nav-prefix="/inventory/"
+    >
+      <i data-lucide="layers-3" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Склад</span>
+    </a>
+
+    <!-- Основное: Сотрудники -->
+    <a
+      href="/employees/"
+      class="flex flex-col items-center flex-1 px-1.5 py-1 rounded-lg transition-colors"
+      data-nav-prefix="/employees/"
+    >
+      <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Сотрудники</span>
+    </a>
+
+    <!-- Кнопка "Другое" -->
+    <button
+      type="button"
+      id="bottom-nav-more-btn"
+      class="flex flex-col items-center flex-1 px-1.5 py-1 rounded-lg transition-colors text-gray-600"
+    >
+      <i data-lucide="more-horizontal" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Другое</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Bottom sheet "Другое" -->
+<div
+  id="bottom-nav-more-sheet"
+  class="fixed inset-0 z-40 hidden"
+>
+  <!-- backdrop -->
+  <div class="absolute inset-0 bg-black bg-opacity-40" data-bottom-nav-more-close></div>
+
+  <!-- sheet panel -->
+  <div class="absolute inset-x-0 bottom-0 max-w-md mx-auto bg-white rounded-t-2xl shadow-2xl border-t border-gray-200">
+    <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-semibold">
+          S
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-900">Дополнительно</p>
+          <p class="text-[11px] text-gray-500">Быстрые ссылки</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+        data-bottom-nav-more-close
+      >
+        <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="max-h-80 overflow-y-auto py-2 text-sm">
+      <div class="px-4 pb-1">
+        <p class="text-[11px] uppercase tracking-wide text-gray-400 mb-1.5">Операционная</p>
+      </div>
+      <div class="px-1 space-y-0.5">
+        <a href="/products/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="package" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Продукция</span>
+        </a>
+        <a href="/finished_goods/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="box" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Готовая продукция</span>
+        </a>
+        <a href="/workshops/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="warehouse" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Цеха</span>
+        </a>
+        <a href="/attendance/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="clock-3" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Посещаемость</span>
+        </a>
+        <a href="/defects/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Браки</span>
+        </a>
+        <a href="/clients/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="user-plus" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Клиенты</span>
+        </a>
+      </div>
+
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[11px] uppercase tracking-wide text-gray-400 mb-1.5">Финансы</p>
+      </div>
+      <div class="px-1 pb-3 space-y-0.5">
+        <a href="/finance/expenses/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="receipt" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Расходы</span>
+        </a>
+        <a href="/finance/incomes/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="trending-up" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Доходы</span>
+        </a>
+        <a href="/finance/debts/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="scale" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Долги</span>
+        </a>
+        <a href="/finance/financial-reports/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-gray-400 mr-2.5"></i>
+          <span class="text-gray-800">Финансовые отчёты</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    try {
+      var currentPath = window.location.pathname || '/';
+
+      // Активное состояние для основных пунктов
+      var links = document.querySelectorAll('[data-nav-prefix]');
+      links.forEach(function (link) {
+        var prefix = link.getAttribute('data-nav-prefix') || '';
+        if (prefix && currentPath.indexOf(prefix) === 0) {
+          link.classList.add('text-gray-900');
+        }
+      });
+
+      // Открытие/закрытие "Другое"
+      var moreBtn = document.getElementById('bottom-nav-more-btn');
+      var sheet = document.getElementById('bottom-nav-more-sheet');
+      if (moreBtn && sheet) {
+        var closeElements = sheet.querySelectorAll('[data-bottom-nav-more-close]');
+
+        moreBtn.addEventListener('click', function () {
+          sheet.classList.remove('hidden');
+        });
+
+        closeElements.forEach(function (el) {
+          el.addEventListener('click', function () {
+            sheet.classList.add('hidden');
+          });
+        });
+      }
+    } catch (e) {
+      // fail silently in production
+    }
+  })();
+</script>

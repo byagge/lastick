@@ -1,0 +1,31 @@
+<nav class="fixed bottom-0 left-0 right-0 z-30 nav-bar bg-white backdrop-blur border-t border-gray-200">
+  <div class="max-w-md mx-auto flex items-center justify-between px-4 py-2 text-xs text-gray-500">
+    <a href="/director/mobile/" class="flex flex-col items-center flex-1 px-2"
+       :class="window.location.pathname.startsWith('/director/mobile') ? 'text-gray-900' : ''">
+      <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Обзор</span>
+    </a>
+    <a href="/orders/mobile/" class="flex flex-col items-center flex-1 px-2"
+       :class="window.location.pathname.startsWith('/orders') ? 'text-gray-900' : ''">
+      <i data-lucide="clipboard-list" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Заказы</span>
+    </a>
+    <a href="/inventory/mobile/" class="flex flex-col items-center flex-1 px-2"
+       :class="window.location.pathname.startsWith('/inventory') ? 'text-gray-900' : ''">
+      <i data-lucide="archive" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Склад</span>
+    </a>
+    <a href="/finished/mobile/" class="flex flex-col items-center flex-1 px-2"
+       :class="window.location.pathname.startsWith('/finished') ? 'text-gray-900' : ''">
+      <i data-lucide="package" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Готовое</span>
+    </a>
+    <a href="/employees/mobile/" class="flex flex-col items-center flex-1 px-2"
+       :class="window.location.pathname.startsWith('/employees') ? 'text-gray-900' : ''">
+      <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
+      <span class="leading-tight">Люди</span>
+    </a>
+  </div>
+</nav>
+
+

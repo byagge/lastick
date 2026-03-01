@@ -17,11 +17,6 @@ class User(AbstractUser):
         DAY = 'day', 'Дневной (8-20)'
         NIGHT = 'night', 'Ночной (20-8)'
 
-    class PayCategory(models.TextChoices):
-        A = 'A', 'Категория A'
-        B = 'B', 'Категория B'
-        C = 'C', 'Категория C'
-
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
@@ -52,14 +47,6 @@ class User(AbstractUser):
         choices=WorkSchedule.choices,
         default=WorkSchedule.DAY,
         verbose_name='График работы'
-    )
-    pay_category = models.CharField(
-        max_length=10,
-        choices=PayCategory.choices,
-        blank=True,
-        null=True,
-        verbose_name='Категория оплаты',
-        help_text='Категория сотрудника для расчёта оклада и сдельной ставки'
     )
     piecework_rate = models.DecimalField(
         'Ставка за кг (сдельная)',

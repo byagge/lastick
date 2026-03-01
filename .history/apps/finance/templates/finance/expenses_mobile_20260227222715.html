@@ -1,0 +1,251 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="theme-color" content="#0e121a">
+    <title>Smart Factory - Расходы</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); font-family: system-ui, -apple-system, sans-serif; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(15,23,42,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(.4,0,.2,1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" x-data="expensesMobile()" x-init="init()">
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">S</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Расходы</span>
+        </div>
+        <a href="{% url 'finance:expense_create' %}" class="text-white bg-gray-900 rounded-full p-2">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </a>
+    </header>
+
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <section class="mb-5">
+            <div class="flex space-x-3 overflow-x-auto pb-2">
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[160px]">
+                    <p class="text-xs text-gray-500">Сумма</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ total_expenses|floatformat:2 }} KGS</p>
+                </div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[140px]">
+                    <p class="text-xs text-gray-500">Операций</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ expenses_count }}</p>
+                </div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[160px]">
+                    <p class="text-xs text-gray-500">Средний чек</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ avg_expense|floatformat:2 }} KGS</p>
+                </div>
+                <div class="card bg-white rounded-xl border border-gray-200 p-3 min-w-[150px]">
+                    <p class="text-xs text-gray-500">Последний</p>
+                    <p class="text-lg font-semibold text-gray-900">{% if latest_expense_date %}{{ latest_expense_date|date:"d.m.Y" }}{% else %}-{% endif %}</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-4">
+            <form method="get" class="space-y-3">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input type="text" name="search" value="{{ request.GET.search|default:'' }}"
+                           placeholder="Поиск по расходам"
+                           class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <details class="bg-white rounded-xl border border-gray-200">
+                    <summary class="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer">Фильтры</summary>
+                    <div class="px-4 pb-4 space-y-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Категория</label>
+                            <select name="category" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                <option value="">Все категории</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Поставщик</label>
+                            <select name="supplier" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                <option value="">Все поставщики</option>
+                                {% for supplier in suppliers %}
+                                    <option value="{{ supplier.id }}" {% if request.GET.supplier == supplier.id|stringformat:"s" %}selected{% endif %}>{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Дата от</label>
+                                <input type="date" name="date_from" value="{{ request.GET.date_from|default:'' }}"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Дата до</label>
+                                <input type="date" name="date_to" value="{{ request.GET.date_to|default:'' }}"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Сумма от</label>
+                                <input type="number" step="0.01" name="amount_min" value="{{ request.GET.amount_min|default:'' }}"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Сумма до</label>
+                                <input type="number" step="0.01" name="amount_max" value="{{ request.GET.amount_max|default:'' }}"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg">Применить</button>
+                            <a href="{% url 'finance:expenses' %}" class="px-4 py-2 border border-gray-200 rounded-lg text-gray-600">Сброс</a>
+                        </div>
+                    </div>
+                </details>
+            </form>
+        </section>
+
+        <section class="space-y-3">
+            {% if expenses %}
+                {% for expense in expenses %}
+                    <div class="card bg-white rounded-xl border border-gray-200 p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900">{{ expense.category.name }}</p>
+                                <p class="text-xs text-gray-500">{{ expense.date|date:"d.m.Y" }} • {{ expense.supplier.name|default:"-" }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-semibold text-red-600">-{{ expense.amount|floatformat:2 }} KGS</p>
+                                <p class="text-xs text-gray-400">{{ expense.payment_method|default:"-" }}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">{{ expense.description|truncatechars:120 }}</p>
+                        <div class="flex items-center justify-between text-xs text-gray-400">
+                            <span>Счет: {{ expense.invoice_number|default:"-" }}</span>
+                            <div class="flex items-center gap-2">
+                                <button class="text-blue-600" @click="openExpenseModal({{ expense.pk }})">Детали</button>
+                                <a href="{% url 'finance:expense_edit' expense.pk %}" class="text-gray-600">Редакт.</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                {% if is_paginated %}
+                    <div class="flex items-center justify-between pt-2 text-sm">
+                        {% if page_obj.has_previous %}
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-2 bg-white border border-gray-200 rounded-lg">Назад</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                        <span class="text-gray-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                        {% if page_obj.has_next %}
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-2 bg-white border border-gray-200 rounded-lg">Вперёд</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-16">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="receipt" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Расходов нет</h3>
+                    <p class="text-gray-500 text-sm">Создайте первый расход и начните учет.</p>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <div x-show="showExpenseModal" x-transition class="fixed inset-0 z-50 overflow-y-auto modal-bg" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-10">
+            <div class="bg-white rounded-2xl text-left overflow-hidden shadow-xl w-full max-w-lg animate-slide-up">
+                <div class="px-6 pt-6 pb-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Детали расхода</h3>
+                        <button @click="closeExpenseModal()" class="text-gray-400 hover:text-gray-600">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div id="expenseDetailsContent" class="text-sm text-gray-700">Загрузка...</div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4">
+                    <button @click="closeExpenseModal()" class="w-full inline-flex justify-center rounded-xl border border-gray-300 px-6 py-3 bg-white text-sm font-medium text-gray-700">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
+        <a href="{% url 'finance:dashboard' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="{% url 'finance:expenses' %}" class="flex flex-col items-center text-gray-900">
+            <i data-lucide="minus-circle" class="w-5 h-5"></i>
+            <span class="text-xs">Расходы</span>
+        </a>
+        <a href="{% url 'finance:incomes' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span class="text-xs">Доходы</span>
+        </a>
+        <a href="{% url 'finance:financial_reports' %}" class="flex flex-col items-center text-gray-500">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+            <span class="text-xs">Отчеты</span>
+        </a>
+    </nav>
+
+    <script>
+        function expensesMobile() {
+            return {
+                showExpenseModal: false,
+                selectedExpenseId: null,
+
+                init() {
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                openExpenseModal(expenseId) {
+                    this.selectedExpenseId = expenseId;
+                    this.showExpenseModal = true;
+                    this.loadExpenseDetails();
+                },
+                closeExpenseModal() {
+                    this.showExpenseModal = false;
+                    this.selectedExpenseId = null;
+                },
+                async loadExpenseDetails() {
+                    if (!this.selectedExpenseId) return;
+                    const content = document.getElementById('expenseDetailsContent');
+                    content.innerHTML = 'Загрузка...';
+                    try {
+                        const response = await fetch(`/finance/expenses/${this.selectedExpenseId}/details/`);
+                        const html = await response.text();
+                        content.innerHTML = html;
+                    } catch (error) {
+                        content.innerHTML = '<div class="text-red-600">Не удалось загрузить данные.</div>';
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                }
+            }
+        }
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('expensesMobile', expensesMobile);
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

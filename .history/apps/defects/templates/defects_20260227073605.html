@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Smart Factory - Браки</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .glass { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #e0e7ef; border-radius: 4px; }
+        aside::-webkit-scrollbar { display: none; }
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
+    </style>
+</head>
+<body class="min-h-screen">
+    {% include 'partials/app_header.html' %}
+    {% include 'partials/app_sidebar.html' %}
+
+    <main class="flex-1 overflow-auto ml-64 p-6 pt-28" x-data="defectsData()" x-init="init()">
+        <div class="glass rounded-xl border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Браки</h1>
+                <p class="text-gray-600">Лог браков по товарам, сотрудникам и штрафам.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mt-4 lg:mt-0">
+                <div class="relative w-full lg:w-80">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input type="text" placeholder="Поиск по продукту, сотруднику, комментарию..." x-model="searchTerm" class="pl-10 pr-4 py-3 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                <p class="text-xs text-gray-500">Всего записей</p>
+                <p class="text-2xl font-semibold text-gray-900" x-text="stats.total_defects || 0"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                <p class="text-xs text-gray-500">Брака, кг</p>
+                <p class="text-2xl font-semibold text-gray-900" x-text="formatNumber(stats.total_quantity || 0, 3)"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                <p class="text-xs text-gray-500">Штрафов назначено</p>
+                <p class="text-2xl font-semibold text-gray-900" x-text="stats.with_penalty || 0"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                <p class="text-xs text-gray-500">Сумма штрафов</p>
+                <p class="text-2xl font-semibold text-gray-900" x-text="formatNumber(stats.total_penalty || 0, 2)"></p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Продукт</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Сотрудник</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Количество (кг)</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Комментарий сотрудника</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Комментарий админа</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Штраф</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Дата</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-900">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <template x-for="defect in filteredDefects()" :key="defect.id">
+                            <tr class="hover:bg-blue-50">
+                                <td class="px-4 py-3" x-text="getProductName(defect)"></td>
+                                <td class="px-4 py-3" x-text="getUserName(defect)"></td>
+                                <td class="px-4 py-3" x-text="formatNumber(defect.quantity || 0, 3)"></td>
+                                <td class="px-4 py-3 text-sm text-gray-600" x-text="defect.employee_comment || '-'"></td>
+                                <td class="px-4 py-3 text-sm text-gray-600" x-text="defect.admin_comment || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <span x-text="defect.penalty_amount !== null && defect.penalty_amount !== undefined ? formatNumber(defect.penalty_amount, 2) : 'нет'"></span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600" x-text="formatDate(defect.created_at)"></td>
+                                <td class="px-4 py-3">
+                                    <button
+                                        x-show="canAssignPenalty()"
+                                        @click="openPenaltyModal(defect)"
+                                        class="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white hover:bg-black"
+                                        x-text="defect.penalty_amount ? 'Изменить' : 'Назначить'"
+                                    ></button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div x-show="filteredDefects().length === 0" class="text-center py-12">
+                <i data-lucide="alert-triangle" class="mx-auto text-gray-400 mb-4" style="width: 48px; height: 48px;"></i>
+                <p class="text-gray-500 text-lg">Браки не найдены</p>
+                <p class="text-gray-400">Измените фильтры или поисковый запрос.</p>
+            </div>
+        </div>
+
+        <div x-show="showPenaltyModal" class="fixed inset-0 z-50" style="display: none;">
+            <div class="absolute inset-0 bg-black bg-opacity-40" @click="closePenaltyModal()"></div>
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Назначить штраф</h3>
+                            <p class="text-sm text-gray-500" x-text="getProductName(selectedDefect)"></p>
+                        </div>
+                        <button @click="closePenaltyModal()" class="text-gray-400 hover:text-gray-600">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Сумма штрафа</label>
+                            <input type="number" min="0" step="0.01" x-model="penaltyForm.penalty_amount" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Комментарий администратора</label>
+                            <textarea rows="3" x-model="penaltyForm.admin_comment" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex items-center justify-end gap-3">
+                        <button @click="closePenaltyModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Отмена</button>
+                        <button @click="assignPenalty()" class="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function defectsData() {
+            return {
+                defects: [],
+                stats: {},
+                searchTerm: '',
+                showPenaltyModal: false,
+                selectedDefect: null,
+                penaltyForm: {
+                    penalty_amount: '',
+                    admin_comment: ''
+                },
+                currentUser: null,
+                async fetchDefects() {
+                    const resp = await fetch('/defects/api/defects/');
+                    const data = await resp.json();
+                    this.defects = Array.isArray(data) ? data : (data.results || []);
+                },
+                async fetchStats() {
+                    const resp = await fetch('/defects/api/stats/');
+                    this.stats = await resp.json();
+                },
+                async fetchCurrentUser() {
+                    try {
+                        const resp = await fetch('/accounts/api/profile/');
+                        if (resp.ok) {
+                            this.currentUser = await resp.json();
+                        }
+                    } catch (e) {
+                        this.currentUser = null;
+                    }
+                },
+                getProductName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.product === 'string') return defect.product;
+                    return defect.product && defect.product.name ? defect.product.name : 'Без продукта';
+                },
+                getUserName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.user === 'string') return defect.user;
+                    return defect.user && defect.user.full_name ? defect.user.full_name : 'Без сотрудника';
+                },
+                formatDate(value) {
+                    if (!value) return '-';
+                    try {
+                        return new Date(value).toLocaleString('ru-RU');
+                    } catch (e) {
+                        return '-';
+                    }
+                },
+                formatNumber(value, digits) {
+                    const num = Number(value || 0);
+                    return num.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+                },
+                filteredDefects() {
+                    const term = this.searchTerm.toLowerCase();
+                    return this.defects.filter(defect => {
+                        const product = this.getProductName(defect).toLowerCase();
+                        const user = this.getUserName(defect).toLowerCase();
+                        const employeeComment = (defect.employee_comment || '').toLowerCase();
+                        const adminComment = (defect.admin_comment || '').toLowerCase();
+                        return product.includes(term) || user.includes(term) || employeeComment.includes(term) || adminComment.includes(term);
+                    });
+                },
+                canAssignPenalty() {
+                    if (!this.currentUser) return false;
+                    const role = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
+                    return role === 'admin' || role === 'accountant';
+                },
+                openPenaltyModal(defect) {
+                    this.selectedDefect = defect;
+                    this.penaltyForm.penalty_amount = defect.penalty_amount || '';
+                    this.penaltyForm.admin_comment = defect.admin_comment || '';
+                    this.showPenaltyModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closePenaltyModal() {
+                    this.showPenaltyModal = false;
+                    this.selectedDefect = null;
+                    this.penaltyForm.penalty_amount = '';
+                    this.penaltyForm.admin_comment = '';
+                },
+                getCSRFToken() {
+                    const metaToken = document.querySelector('meta[name="csrf-token"]');
+                    if (metaToken) return metaToken.getAttribute('content');
+                    const name = 'csrftoken';
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                },
+                async assignPenalty() {
+                    if (!this.selectedDefect) return;
+                    const csrfToken = this.getCSRFToken();
+                    if (this.penaltyForm.penalty_amount === '' || this.penaltyForm.penalty_amount === null) {
+                        alert('Укажите сумму штрафа');
+                        return;
+                    }
+                    const payload = {
+                        penalty_amount: Number(this.penaltyForm.penalty_amount),
+                        admin_comment: this.penaltyForm.admin_comment || ''
+                    };
+                    try {
+                        const response = await fetch(`/defects/api/defects/${this.selectedDefect.id}/assign_penalty/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            await this.fetchDefects();
+                            await this.fetchStats();
+                            this.closePenaltyModal();
+                        } else {
+                            alert('Ошибка при назначении штрафа');
+                        }
+                    } catch (e) {
+                        alert('Ошибка при назначении штрафа');
+                    }
+                },
+                async init() {
+                    await Promise.all([this.fetchDefects(), this.fetchStats(), this.fetchCurrentUser()]);
+                    this.$nextTick(() => lucide.createIcons());
+                }
+            }
+        }
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('defectsData', defectsData);
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

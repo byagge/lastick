@@ -10,7 +10,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     work_schedule_display = serializers.CharField(source='get_work_schedule_display', read_only=True)
     workshop_name = serializers.CharField(source='workshop.name', read_only=True)
-    pay_category_display = serializers.CharField(source='get_pay_category_display', read_only=True)
     
     # Для фронта:
     name = serializers.CharField(source='get_full_name', read_only=True)
@@ -20,7 +19,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(required=False, allow_blank=True)
     payment_type = serializers.CharField(required=False)
     work_schedule = serializers.CharField(required=False)
-    pay_category = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     
     # Баланс
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -52,7 +50,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             # HR-поля (без документов)
             'payment_type', 'payment_type_display',
             'work_schedule', 'work_schedule_display',
-            'pay_category', 'pay_category_display',
             # Финансы
             'balance', 'piecework_rate', 'fixed_salary',
             # Статистика

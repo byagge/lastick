@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="employeeTasksPage()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <title>Задачи сотрудников</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+    <!-- AppBar -->
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200 flex items-center justify-between px-4 h-16">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">Z</span>
+            </div>
+            <span class="text-lg font-semibold text-gray-900">Задачи сотрудников</span>
+        </div>
+    </header>
+{% if request.session.impersonator_id %}
+<div class="bg-yellow-200 text-yellow-900 text-xs text-center py-1">
+    Режим имперсонации. <a href="{% url 'release_impersonation' %}" class="underline font-semibold">Вернуться</a>
+</div>
+{% endif %}
+    <!-- Main Content -->
+    <main class="flex-1 pt-20 pb-20 px-4 max-w-md mx-auto w-full">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">Задачи</h1>
+            <button @click="showAddTaskModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                <span>Добавить</span>
+            </button>
+        </div>
+        <div class="mb-4">
+            <input type="text" x-model="searchTerm" placeholder="Поиск по названию или сотруднику..." class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <template x-if="loading">
+            <div class="space-y-4 animate-pulse">
+                <div class="h-20 rounded-xl skeleton"></div>
+                <div class="h-20 rounded-xl skeleton"></div>
+            </div>
+        </template>
+        <template x-if="!loading">
+            <div>
+                <template x-if="filteredTasks.length === 0">
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="check-square" class="w-10 h-10 text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Нет задач</h3>
+                        <p class="text-gray-600">Добавьте первую задачу</p>
+                    </div>
+                </template>
+                <template x-for="task in filteredTasks" :key="task.id">
+                    <div class="card bg-white rounded-xl p-4 mb-4 flex items-center space-x-3 cursor-pointer" @click="openCompleteModal(task)">
+                        <input type="checkbox" :checked="task.is_completed" @change.stop="toggleTask(task)" class="w-5 h-5 text-blue-600 rounded">
+                            <div class="flex-1">
+                            <div class="font-medium text-gray-900" x-text="task.title"></div>
+                            <div class="text-xs text-gray-500">Сотрудник: <span x-text="task.employee_name"></span></div>
+                            
+                            <!-- Детальная информация о заказе -->
+                            <template x-if="task.order_item && task.order_item.order">
+                                <div class="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                    <div class="text-xs font-semibold text-blue-800 mb-1">Информация о заказе:</div>
+                                    <div class="space-y-1 text-xs text-blue-700">
+                                        <div><span class="font-medium">Заявка:</span> <span x-text="task.order_item.order.name || 'Не указано'"></span></div>
+                                        <template x-if="task.order_item.order.client">
+                                            <div><span class="font-medium">Клиент:</span> <span x-text="task.order_item.order.client.name || 'Не указан'"></span></div>
+                                        </template>
+                                        <div><span class="font-medium">Дата создания:</span> <span x-text="task.order_item.order.created_at ? new Date(task.order_item.order.created_at).toLocaleDateString('ru-RU') : 'Не указана'"></span></div>
+                                        <div><span class="font-medium">Статус заказа:</span> <span x-text="task.order_item.order.status_display || 'Не указан'"></span></div>
+                                        <template x-if="task.order_item.order.comment">
+                                            <div><span class="font-medium">Комментарий:</span> <span x-text="task.order_item.order.comment"></span></div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Fallback если order_item отсутствует или без вложенного order -->
+                            <template x-if="(!task.order_item || !task.order_item.order) && task.order">
+                                <div class="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                    <div class="text-xs font-semibold text-blue-800 mb-1">Информация о заказе:</div>
+                                    <div class="space-y-1 text-xs text-blue-700">
+                                        <div><span class="font-medium">Заявка:</span> <span x-text="task.order.name || 'Не указано'"></span></div>
+                                        <template x-if="task.order.client">
+                                            <div><span class="font-medium">Клиент:</span> <span x-text="task.order.client.name || 'Не указан'"></span></div>
+                                        </template>
+                                        <div><span class="font-medium">Дата создания:</span> <span x-text="task.order.created_at ? new Date(task.order.created_at).toLocaleDateString('ru-RU') : 'Не указана'"></span></div>
+                                        <div><span class="font-medium">Статус заказа:</span> <span x-text="task.order.status_display || 'Не указан'"></span></div>
+                                        <template x-if="task.order.comment">
+                                            <div><span class="font-medium">Комментарий:</span> <span x-text="task.order.comment"></span></div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Информация о товаре -->
+                            <template x-if="task.order_item">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span x-text="task.order_item.product.name"></span>
+                                        <template x-if="task.order_item.size">
+                                            <span>• <span x-text="task.order_item.size"></span></span>
+                                        </template>
+                                        <template x-if="task.order_item.color">
+                                            <span>• <span x-text="task.order_item.color"></span></span>
+                                        </template>
+                                    </div>
+                                    <template x-if="task.order_item.product.is_glass">
+                                        <div class="text-xs text-blue-600 mt-1">
+                                            <i data-lucide="droplets" class="w-3 h-3 inline mr-1"></i>
+                                            Стекло: <span x-text="task.order_item.glass_type_display || 'Не указан'"></span>
+                                        </div>
+                                    </template>
+                                    <!-- Дополнительные характеристики товара -->
+                                    <template x-if="task.order_item.paint_type">
+                                        <div class="text-xs text-purple-600 mt-1">
+                                            <i data-lucide="palette" class="w-3 h-3 inline mr-1"></i>
+                                            Краска: <span x-text="task.order_item.paint_type"></span>
+                                            <template x-if="task.order_item.paint_color">
+                                                <span> (<span x-text="task.order_item.paint_color"></span>)</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="task.order_item.cnc_specs">
+                                        <div class="text-xs text-green-600 mt-1">
+                                            <i data-lucide="cpu" class="w-3 h-3 inline mr-1"></i>
+                                            ЧПУ: <span x-text="task.order_item.cnc_specs"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="task.order_item.cutting_specs">
+                                        <div class="text-xs text-orange-600 mt-1">
+                                            <i data-lucide="scissors" class="w-3 h-3 inline mr-1"></i>
+                                            Распил: <span x-text="task.order_item.cutting_specs"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="task.order_item.packaging_notes">
+                                        <div class="text-xs text-indigo-600 mt-1">
+                                            <i data-lucide="package" class="w-3 h-3 inline mr-1"></i>
+                                            Упаковка: <span x-text="task.order_item.packaging_notes"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <div class="text-xs text-gray-500">План: <span x-text="task.plan_quantity"></span>, Выполнено: <span x-text="task.completed_quantity"></span></div>
+                            <div class="text-xs text-gray-400" x-text="new Date(task.started_at).toLocaleString('ru-RU')"></div>
+                            <template x-if="task.defective_quantity && task.defective_quantity > 0">
+                                <div class="text-xs text-red-600">Брак: <span x-text="task.defective_quantity"></span></div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </main>
+    <!-- Add Task Modal -->
+    <template x-if="showAddTaskModal">
+        <div class="fixed inset-0 z-40 flex items-end justify-center modal-bg" @click.self="showAddTaskModal = false">
+            <div class="bg-white rounded-t-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Новая задача</h2>
+                    <button @click="showAddTaskModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="addTask" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Название задачи <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="newTask.title" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Сотрудник (ID) <span class="text-red-500">*</span></label>
+                        <input type="number" x-model.number="newTask.employee" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">План (кол-во)</label>
+                        <input type="number" x-model.number="newTask.plan_quantity" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" min="1">
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" @click="showAddTaskModal = false" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                        <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg">Добавить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+    <template x-if="showCompleteModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Выполнить задачу</h3>
+                    <p class="text-gray-600 mb-2" x-text="selectedTask ? selectedTask.title : ''"></p>
+                    
+                    <!-- Детальная информация о заказе -->
+                    <template x-if="selectedTask && selectedTask.order_item && selectedTask.order_item.order">
+                        <div class="mt-4 p-3 bg-blue-50 rounded-lg text-left text-sm border-l-4 border-blue-400">
+                            <h4 class="font-semibold text-blue-800 mb-2">Заказ:</h4>
+                            <div class="space-y-1 text-blue-700">
+                                <div><span class="font-medium">Название:</span> <span x-text="selectedTask.order_item.order.name || 'Не указано'"></span></div>
+                                <template x-if="selectedTask.order_item.order.client">
+                                    <div><span class="font-medium">Клиент:</span> <span x-text="selectedTask.order_item.order.client.name || 'Не указан'"></span></div>
+                                </template>
+                                <div><span class="font-medium">Дата создания:</span> <span x-text="selectedTask.order_item.order.created_at ? new Date(selectedTask.order_item.order.created_at).toLocaleDateString('ru-RU') : 'Не указана'"></span></div>
+                                <div><span class="font-medium">Статус:</span> <span x-text="selectedTask.order_item.order.status_display || 'Не указан'"></span></div>
+                                <template x-if="selectedTask.order_item.order.comment">
+                                    <div><span class="font-medium">Комментарий:</span> <span x-text="selectedTask.order_item.order.comment"></span></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Fallback если order_item отсутствует или без вложенного order -->
+                    <template x-if="(!selectedTask || !selectedTask.order_item || !selectedTask.order_item.order) && selectedTask.order">
+                        <div class="mt-4 p-3 bg-blue-50 rounded-lg text-left text-sm border-l-4 border-blue-400">
+                            <h4 class="font-semibold text-blue-800 mb-2">Заказ:</h4>
+                            <div class="space-y-1 text-blue-700">
+                                <div><span class="font-medium">Название:</span> <span x-text="selectedTask.order.name || 'Не указано'"></span></div>
+                                <template x-if="selectedTask.order.client">
+                                    <div><span class="font-medium">Клиент:</span> <span x-text="selectedTask.order.client.name || 'Не указан'"></span></div>
+                                </template>
+                                <div><span class="font-medium">Дата создания:</span> <span x-text="selectedTask.order.created_at ? new Date(selectedTask.order.created_at).toLocaleDateString('ru-RU') : 'Не указана'"></span></div>
+                                <div><span class="font-medium">Статус:</span> <span x-text="selectedTask.order.status_display || 'Не указан'"></span></div>
+                                <template x-if="selectedTask.order.comment">
+                                    <div><span class="font-medium">Комментарий:</span> <span x-text="selectedTask.order.comment"></span></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Информация о товаре -->
+                    <template x-if="selectedTask && selectedTask.order_item">
+                        <div class="mt-4 p-3 bg-gray-50 rounded-lg text-left text-sm">
+                            <h4 class="font-semibold text-gray-900 mb-2">Товар:</h4>
+                            <div class="space-y-1">
+                                <div><span class="font-medium">Название:</span> <span x-text="selectedTask.order_item.product.name"></span></div>
+                                <template x-if="selectedTask.order_item.size">
+                                    <div><span class="font-medium">Размер:</span> <span x-text="selectedTask.order_item.size"></span></div>
+                                </template>
+                                <template x-if="selectedTask.order_item.color">
+                                    <div><span class="font-medium">Цвет:</span> <span x-text="selectedTask.order_item.color"></span></div>
+                                </template>
+                                <template x-if="selectedTask.order_item.product.is_glass">
+                                    <div><span class="font-medium">Тип стекла:</span> <span x-text="selectedTask.order_item.glass_type_display || 'Не указан'"></span></div>
+                                </template>
+                                <!-- Дополнительные характеристики товара -->
+                                <template x-if="selectedTask.order_item.paint_type">
+                                    <div><span class="font-medium">Краска:</span> <span x-text="selectedTask.order_item.paint_type"></span>
+                                        <template x-if="selectedTask.order_item.paint_color">
+                                            <span> (<span x-text="selectedTask.order_item.paint_color"></span>)</span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="selectedTask.order_item.cnc_specs">
+                                    <div><span class="font-medium">ЧПУ:</span> <span x-text="selectedTask.order_item.cnc_specs"></span></div>
+                                </template>
+                                <template x-if="selectedTask.order_item.cutting_specs">
+                                    <div><span class="font-medium">Распил:</span> <span x-text="selectedTask.order_item.cutting_specs"></span></div>
+                                </template>
+                                <template x-if="selectedTask.order_item.packaging_notes">
+                                    <div><span class="font-medium">Упаковка:</span> <span x-text="selectedTask.order_item.packaging_notes"></span></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                <div class="flex items-center justify-center space-x-3 mt-4">
+                        <button @click="completedInput = Math.max(0, completedInput - 1)" class="w-10 h-10 rounded-full bg-gray-100 text-2xl font-bold text-blue-600 flex items-center justify-center">-</button>
+                        <input type="number" min="0" :max="selectedTask ? selectedTask.plan_quantity : 1000" x-model.number="completedInput" class="w-20 text-center px-2 py-2 border border-gray-300 rounded-lg text-lg font-bold">
+                        <button @click="completedInput = Math.min(selectedTask ? selectedTask.plan_quantity : 1000, completedInput + 1)" class="w-10 h-10 rounded-full bg-gray-100 text-2xl font-bold text-blue-600 flex items-center justify-center">+</button>
+                </div>
+                    <div class="text-xs text-gray-500 mt-2">План: <span x-text="selectedTask ? selectedTask.plan_quantity : ''"></span></div>
+                </div>
+                <div class="flex space-x-3 mt-4">
+                    <button @click="showCompleteModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                    <button @click="submitCompleted()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg">Готово</button>
+                </div>
+            </div>
+        </div>
+    </template>
+    <!-- Bottom Navigation -->
+    {% include 'partials/bottom_nav_mobile.html' %}
+    <script>
+    function employeeTasksPage() {
+        return {
+            loading: true,
+            tasks: [],
+            searchTerm: '',
+            showAddTaskModal: false,
+            newTask: { title: '', employee: '', plan_quantity: 1 },
+            showCompleteModal: false,
+            selectedTask: null,
+            completedInput: 0,
+            async init() {
+                await this.loadTasks();
+                lucide.createIcons();
+            },
+            async loadTasks() {
+                this.loading = true;
+                const resp = await fetch('/employee_tasks/api/employee-tasks/');
+                const data = await resp.json();
+                this.tasks = data.results || data;
+                this.loading = false;
+            },
+            get filteredTasks() {
+                const term = this.searchTerm.toLowerCase();
+                return this.tasks.filter(task =>
+                    (task.title || '').toLowerCase().includes(term) ||
+                    (task.employee_name || '').toLowerCase().includes(term) ||
+                    (task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name.toLowerCase().includes(term) : false)
+                );
+            },
+            async toggleTask(task) {
+                await fetch(`/employee_tasks/api/employee-tasks/${task.id}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({ is_completed: !task.is_completed })
+                });
+                task.is_completed = !task.is_completed;
+            },
+            openCompleteModal(task) {
+                this.selectedTask = task;
+                this.completedInput = task.completed_quantity;
+                this.showCompleteModal = true;
+            },
+            async submitCompleted() {
+                if (!this.selectedTask) return;
+                const resp = await fetch(`/employee_tasks/api/employee-tasks/${this.selectedTask.id}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({ completed_quantity: this.completedInput, is_completed: this.completedInput >= this.selectedTask.plan_quantity })
+                });
+                if (resp.ok) {
+                    this.selectedTask.completed_quantity = this.completedInput;
+                    this.selectedTask.is_completed = this.completedInput >= this.selectedTask.plan_quantity;
+                }
+                this.showCompleteModal = false;
+            },
+            async addTask() {
+                if (!this.newTask.title.trim() || !this.newTask.employee) return;
+                const payload = {
+                    title: this.newTask.title.trim(),
+                    employee: this.newTask.employee,
+                    plan_quantity: this.newTask.plan_quantity || 1,
+                    completed_quantity: 0,
+                    is_completed: false
+                };
+                const resp = await fetch('/employee_tasks/api/employee-tasks/', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'X-CSRFToken': this.getCsrfToken() 
+                        },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    const created = await resp.json();
+                    this.tasks.unshift(created);
+                    this.showAddTaskModal = false;
+                    this.newTask = { title: '', employee: '', plan_quantity: 1 };
+                }
+            },
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html> 

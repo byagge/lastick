@@ -8,13 +8,23 @@ from rest_framework.response import Response
 from .models import Defect
 from .serializers import DefectSerializer, DefectPenaltySerializer
 from apps.users.models import User
+from apps.employees.views import is_mobile
 
 
 def defects_page(request):
-    return render(request, "defects.html")
+    """
+    Отображает страницу браков.
+    - Для десктопа: defects.html
+    - Для мобильных устройств: defects_mobile.html
+    """
+    template = "defects_mobile.html" if is_mobile(request) else "defects.html"
+    return render(request, template)
 
 
 def defects_mobile_page(request):
+    """
+    Прямой доступ к мобильной версии по отдельному URL, если нужно.
+    """
     return render(request, "defects_mobile.html")
 
 

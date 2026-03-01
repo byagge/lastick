@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Браки - Мобильная версия</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 55%, #e5e7eb 100%); }
+        .card { box-shadow: 0 2px 14px 0 rgba(15, 23, 42, 0.06); }
+    </style>
+</head>
+<body class="min-h-screen" x-data="defectsData()" x-init="init()">
+    <header class="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur border-b border-gray-200 z-40">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-gray-900">Браки</h1>
+                <p class="text-xs text-gray-500">Лог браков и штрафов</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="pt-20 px-4 pb-16">
+        <div class="mb-4">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                <input type="text" placeholder="Поиск..." x-model="searchTerm" class="pl-10 pr-4 py-3 w-full border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Всего</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="stats.total_defects || 0"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Брака, кг</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="formatNumber(stats.total_quantity || 0, 3)"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Штрафов</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="stats.with_penalty || 0"></p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-3 card">
+                <p class="text-xs text-gray-500">Сумма</p>
+                <p class="text-xl font-semibold text-gray-900" x-text="formatNumber(stats.total_penalty || 0, 2)"></p>
+            </div>
+        </div>
+
+        <div class="space-y-3">
+            <template x-for="defect in filteredDefects()" :key="defect.id">
+                <div class="bg-white rounded-xl border border-gray-200 p-4 card">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900" x-text="getProductName(defect)"></h3>
+                            <p class="text-xs text-gray-500" x-text="getUserName(defect)"></p>
+                        </div>
+                        <span class="text-xs font-semibold text-gray-900" x-text="formatNumber(defect.quantity || 0, 3) + ' кг'"></span>
+                    </div>
+                    <div class="text-xs text-gray-600 space-y-1">
+                        <div><span class="text-gray-500">Комментарий:</span> <span x-text="defect.employee_comment || '-'"></span></div>
+                        <div><span class="text-gray-500">Админ:</span> <span x-text="defect.admin_comment || '-'"></span></div>
+                        <div><span class="text-gray-500">Штраф:</span> <span x-text="defect.penalty_amount !== null && defect.penalty_amount !== undefined ? formatNumber(defect.penalty_amount, 2) : 'нет'"></span></div>
+                        <div><span class="text-gray-500">Дата:</span> <span x-text="formatDate(defect.created_at)"></span></div>
+                    </div>
+                    <div class="mt-3" x-show="canAssignPenalty()">
+                        <button @click="openPenaltyModal(defect)" class="w-full px-3 py-2 text-xs rounded-lg bg-gray-900 text-white" x-text="defect.penalty_amount ? 'Изменить штраф' : 'Назначить штраф'"></button>
+                    </div>
+                </div>
+            </template>
+            <div x-show="filteredDefects().length === 0" class="text-center py-10 text-gray-500">
+                Браки не найдены
+            </div>
+        </div>
+    </main>
+
+    <div x-show="showPenaltyModal" class="fixed inset-0 z-50" style="display: none;">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="closePenaltyModal()"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-base font-semibold text-gray-900">Назначить штраф</h3>
+                    <button @click="closePenaltyModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Сумма штрафа</label>
+                        <input type="number" min="0" step="0.01" x-model="penaltyForm.penalty_amount" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Комментарий</label>
+                        <textarea rows="3" x-model="penaltyForm.admin_comment" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-end gap-2">
+                    <button @click="closePenaltyModal()" class="px-3 py-2 text-xs rounded-lg border border-gray-200 text-gray-600">Отмена</button>
+                    <button @click="assignPenalty()" class="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function defectsData() {
+            return {
+                defects: [],
+                stats: {},
+                searchTerm: '',
+                showPenaltyModal: false,
+                selectedDefect: null,
+                penaltyForm: {
+                    penalty_amount: '',
+                    admin_comment: ''
+                },
+                currentUser: null,
+                async fetchDefects() {
+                    const resp = await fetch('/defects/api/defects/');
+                    const data = await resp.json();
+                    this.defects = Array.isArray(data) ? data : (data.results || []);
+                },
+                async fetchStats() {
+                    const resp = await fetch('/defects/api/stats/');
+                    this.stats = await resp.json();
+                },
+                async fetchCurrentUser() {
+                    try {
+                        const resp = await fetch('/accounts/api/profile/');
+                        if (resp.ok) {
+                            this.currentUser = await resp.json();
+                        }
+                    } catch (e) {
+                        this.currentUser = null;
+                    }
+                },
+                getProductName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.product === 'string') return defect.product;
+                    return defect.product && defect.product.name ? defect.product.name : 'Без продукта';
+                },
+                getUserName(defect) {
+                    if (!defect) return '';
+                    if (typeof defect.user === 'string') return defect.user;
+                    return defect.user && defect.user.full_name ? defect.user.full_name : 'Без сотрудника';
+                },
+                formatDate(value) {
+                    if (!value) return '-';
+                    try {
+                        return new Date(value).toLocaleString('ru-RU');
+                    } catch (e) {
+                        return '-';
+                    }
+                },
+                formatNumber(value, digits) {
+                    const num = Number(value || 0);
+                    return num.toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+                },
+                filteredDefects() {
+                    const term = this.searchTerm.toLowerCase();
+                    return this.defects.filter(defect => {
+                        const product = this.getProductName(defect).toLowerCase();
+                        const user = this.getUserName(defect).toLowerCase();
+                        const employeeComment = (defect.employee_comment || '').toLowerCase();
+                        const adminComment = (defect.admin_comment || '').toLowerCase();
+                        return product.includes(term) || user.includes(term) || employeeComment.includes(term) || adminComment.includes(term);
+                    });
+                },
+                canAssignPenalty() {
+                    if (!this.currentUser) return false;
+                    const role = this.currentUser.role || this.currentUser.role_name || this.currentUser.user_role;
+                    return role === 'admin' || role === 'accountant';
+                },
+                openPenaltyModal(defect) {
+                    this.selectedDefect = defect;
+                    this.penaltyForm.penalty_amount = defect.penalty_amount || '';
+                    this.penaltyForm.admin_comment = defect.admin_comment || '';
+                    this.showPenaltyModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closePenaltyModal() {
+                    this.showPenaltyModal = false;
+                    this.selectedDefect = null;
+                    this.penaltyForm.penalty_amount = '';
+                    this.penaltyForm.admin_comment = '';
+                },
+                getCSRFToken() {
+                    const metaToken = document.querySelector('meta[name=\"csrf-token\"]');
+                    if (metaToken) return metaToken.getAttribute('content');
+                    const name = 'csrftoken';
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                },
+                async assignPenalty() {
+                    if (!this.selectedDefect) return;
+                    const csrfToken = this.getCSRFToken();
+                    if (this.penaltyForm.penalty_amount === '' || this.penaltyForm.penalty_amount === null) {
+                        alert('Укажите сумму штрафа');
+                        return;
+                    }
+                    const payload = {
+                        penalty_amount: Number(this.penaltyForm.penalty_amount),
+                        admin_comment: this.penaltyForm.admin_comment || ''
+                    };
+                    try {
+                        const response = await fetch(`/defects/api/defects/${this.selectedDefect.id}/assign_penalty/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            await this.fetchDefects();
+                            await this.fetchStats();
+                            this.closePenaltyModal();
+                        } else {
+                            alert('Ошибка при назначении штрафа');
+                        }
+                    } catch (e) {
+                        alert('Ошибка при назначении штрафа');
+                    }
+                },
+                async init() {
+                    await Promise.all([this.fetchDefects(), this.fetchStats(), this.fetchCurrentUser()]);
+                    this.$nextTick(() => lucide.createIcons());
+                }
+            }
+        }
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('defectsData', defectsData);
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

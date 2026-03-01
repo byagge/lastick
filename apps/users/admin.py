@@ -13,7 +13,6 @@ class UserAdmin(BaseUserAdmin):
         'role',
         'workshop',
         'payment_type',
-        'pay_category',
         'balance',
         'is_active',
     )
@@ -21,7 +20,6 @@ class UserAdmin(BaseUserAdmin):
         'role',
         'workshop',
         'payment_type',
-        'pay_category',
         'is_active',
     )
     search_fields = ('username', 'first_name', 'last_name', 'email', 'phone')
@@ -38,7 +36,6 @@ class UserAdmin(BaseUserAdmin):
                     'workshop',
                     'payment_type',
                     'work_schedule',
-                    'pay_category',
                 )
             },
         ),
@@ -85,7 +82,6 @@ class UserAdmin(BaseUserAdmin):
                     'workshop',
                     'payment_type',
                     'work_schedule',
-                    'pay_category',
                     'piecework_rate',
                     'fixed_salary',
                 ),

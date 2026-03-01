@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru" style="margin:0; padding:0;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Цех — Мобильная панель мастера</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #dbeafe 100%); }
+        .nav-active { color: #2563eb; }
+        .nav-bar { box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.08); }
+        .card { box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04); }
+        .modal-bg { background: rgba(0,0,0,0.35); }
+        .skeleton { background: linear-gradient(90deg, #e0e7ef 25%, #f3f4f6 50%, #e0e7ef 75%); background-size: 200% 100%; animation: skeleton 1.2s infinite linear; }
+        @keyframes skeleton { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
+        .menu-card { transition: all 0.3s; }
+        .menu-card:active { transform: scale(0.97); }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="font-family: system-ui, -apple-system, sans-serif;">
+<div x-data="workshopMobile()" x-init="init()" class="pb-16">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between h-14 px-4">
+        <div class="flex items-center gap-2">
+            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span class="text-white font-bold text-lg">Ц</span>
+            </div>
+            <span class="font-semibold text-lg text-gray-900" x-text="overview.workshop_name || 'Цех'"></span>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/settings/" class="text-gray-500"><i data-lucide="settings" class="w-5 h-5"></i></a>
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm" x-text="(overview.user_name || 'М').charAt(0).toUpperCase()"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16 px-2 max-w-md mx-auto w-full">
+        <!-- Welcome -->
+        <div class="mb-4 mt-2">
+            <h1 class="text-2xl font-bold text-gray-900 mb-1">Панель мастера</h1>
+            <p class="text-gray-600 text-sm">Статистика по вашему цеху</p>
+        </div>
+        <!-- Список этапов для подтверждения -->
+        <div class="mb-6" x-data="stageConfirm()" x-init="init()">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">Этапы для подтверждения</h2>
+            <template x-if="loading">
+                <div class="text-gray-400 text-center py-8">Загрузка...</div>
+            </template>
+            <template x-if="!loading && stages.length === 0">
+                <div class="text-gray-400 text-center py-8">Нет этапов для подтверждения</div>
+            </template>
+            <template x-for="stage in stages" :key="stage.id">
+                <div class="card bg-white rounded-xl p-4 mb-3 flex flex-col">
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <div class="font-semibold text-gray-900" x-text="stage.operation"></div>
+                            <div class="text-xs text-gray-500">Заказ: <span x-text="stage.order_name"></span></div>
+                            <div class="text-xs text-gray-400">План: <span x-text="stage.plan_quantity"></span></div>
+                        </div>
+                        <div class="text-xs text-gray-500">Срок: <span x-text="stage.deadline"></span></div>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <button type="button" @click="stage.completed_quantity = Math.max(0, stage.completed_quantity-1)" class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xl">-</button>
+                        <input type="number" x-model.number="stage.completed_quantity" min="0" :max="stage.plan_quantity" class="w-16 text-center px-2 py-2 border border-gray-300 rounded-lg">
+                        <button type="button" @click="stage.completed_quantity = Math.min(stage.plan_quantity, stage.completed_quantity+1)" class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-xl">+</button>
+                        <!-- <button @click="confirmStage(stage)" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg">Подтвердить</button> -->
+                    </div>
+                </div>
+            </template>
+            <template x-if="showSuccess">
+                <div class="fixed inset-0 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                        <div class="mb-2">
+                            <svg class="w-16 h-16 mx-auto text-green-500 animate-success-pop" fill="none" viewBox="0 0 48 48" stroke="currentColor" stroke-width="3">
+                                <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-opacity="0.15" fill="#fff"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 25l6 6 10-13"/>
+                            </svg>
+                        </div>
+                        <div class="text-lg font-semibold mb-2">Этап подтверждён!</div>
+                        <button @click="showSuccess = false" class="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg">Ок</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Сотрудники</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_employees || '0'"></span>
+            </div>
+            <div class="card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Произведено</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.products_made || '0'"></span>
+            </div>
+            <div class="card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Брак</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.defective_products || '0'"></span>
+            </div>
+            <div class="card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-start">
+                <span class="text-xs text-gray-500">Заказы</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.active_orders || '0'"></span>
+            </div>
+        </div>
+        <!-- Chart -->
+        <div class="card bg-white rounded-xl p-4 border border-gray-200 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-base font-semibold text-gray-900">График</h3>
+                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="period" @change="updateChart()">
+                    <option value="week">Неделя</option>
+                    <option value="month">Месяц</option>
+                    <option value="year">Год</option>
+                </select>
+            </div>
+            <div class="relative h-48">
+                <div x-show="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                    <div class="flex items-center space-x-2">
+                        <div class="spinner"></div>
+                        <span class="text-gray-600 text-sm">Загрузка...</span>
+                    </div>
+                </div>
+                <canvas id="workshopChart"></canvas>
+            </div>
+        </div>
+        <!-- Main Menu (cards) -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <a href="/employees/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="users" class="w-6 h-6 text-blue-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Сотрудники</span>
+            </a>
+            <a href="/defects/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="alert-circle" class="w-6 h-6 text-red-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Браки</span>
+            </a>
+            <a href="/inventory/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="archive" class="w-6 h-6 text-gray-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Склад</span>
+            </a>
+        </div>
+    </main>
+    <!-- Bottom Navigation -->
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40 max-w-md mx-auto w-full">
+        <a href="/dashboard/" class="flex flex-col items-center nav-active">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-xs">Главная</span>
+        </a>
+        <a href="/employees/" class="flex flex-col items-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            <span class="text-xs">Сотрудники</span>
+        </a>
+        <a href="/attendance/scan/" class="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 rounded-full -mt-4 shadow-lg">
+            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+        </a>
+        <a href="/orders/plans/master/" class="flex flex-col items-center">
+            <i data-lucide="archive" class="w-5 h-5"></i>
+            <span class="text-xs">Планы</span>
+        </a>
+        <a href="/settings/" class="flex flex-col items-center">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span class="text-xs">Настройки</span>
+        </a>
+    </nav>
+</div>
+<script>
+    function workshopMobile() {
+        return {
+            overview: {},
+            period: 'week',
+            loading: false,
+            chartRequestId: 0,
+            workshopChart: null,
+            async init() {
+                await this.loadWorkshopData();
+                await this.initChart();
+                lucide.createIcons();
+                this.$nextTick(() => { lucide.createIcons(); });
+            },
+            async loadWorkshopData() {
+                try {
+                    this.loading = true;
+                    const overviewResponse = await fetch('/workshop-dashboard/overview/', { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (overviewResponse.ok) this.overview = await overviewResponse.json();
+                } catch (e) { this.overview = {}; } finally { this.loading = false; }
+            },
+            async initChart() {
+                this.loading = true;
+                this.chartRequestId++;
+                const currentRequestId = this.chartRequestId;
+                let chartData = { labels: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'], products: [0,0,0,0,0,0,0], defective: [0,0,0,0,0,0,0] };
+                try {
+                    const chartResponse = await fetch(`/workshop-dashboard/production-chart/?period=${this.period}`, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', } });
+                    if (currentRequestId !== this.chartRequestId) return;
+                    if (chartResponse.ok) {
+                        const responseData = await chartResponse.json();
+                        if (responseData.labels && responseData.products) {
+                            chartData = { labels: responseData.labels, products: responseData.products, defective: responseData.defective };
+                        }
+                    }
+                } catch (e) {} finally {
+                    if (currentRequestId === this.chartRequestId) {
+                        if (this.workshopChart) this.workshopChart.destroy();
+                        const ctx = document.getElementById('workshopChart');
+                        if (ctx) {
+                            this.workshopChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: chartData.labels,
+                                    datasets: [
+                                        { label: 'Произведено', data: chartData.products, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2, tension: 0.4, fill: false, yAxisID: 'y', pointBackgroundColor: '#3B82F6', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 },
+                                        { label: 'Брак', data: chartData.defective, borderColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.1)', borderWidth: 2, tension: 0.4, fill: false, yAxisID: 'y1', pointBackgroundColor: '#DC2626', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        x: { grid: { display: false } },
+                                        y: { type: 'linear', display: true, position: 'left', grid: { display: true, drawBorder: false, color: 'rgba(0,0,0,0.07)' }, ticks: { callback: v => v+' шт.' } },
+                                        y1: { type: 'linear', display: false, position: 'right' }
+                                    }
+                                }
+                            });
+                        }
+                        this.loading = false;
+                    }
+                }
+            },
+            async updateChart() { this.loading = true; await this.initChart(); this.loading = false; }
+        }
+    }
+
+    function stageConfirm() {
+        return {
+            loading: true,
+            stages: [],
+            showSuccess: false,
+            async init() {
+                await this.fetchStages();
+            },
+            async fetchStages() {
+                this.loading = true;
+                // Получаем этапы для текущего цеха (например, /orders/api/stages/?workshop=<id>&status=in_progress)
+                // Для примера — все этапы с in_progress
+                const resp = await fetch('/orders/api/stages/?status=in_progress');
+                const data = await resp.json();
+                this.stages = (data.results || data).map(s => ({ ...s, completed_quantity: s.plan_quantity }));
+                this.loading = false;
+            },
+            async confirmStage(stage) {
+                if (stage.completed_quantity < 0 || stage.completed_quantity > stage.plan_quantity) {
+                    alert('Введите корректное количество!');
+                    return;
+                }
+                const resp = await fetch(`/orders/api/stages/${stage.id}/confirm/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                    body: JSON.stringify({ completed_quantity: stage.completed_quantity })
+                });
+                if (resp.ok) {
+                    this.showSuccess = true;
+                    await this.fetchStages();
+                } else {
+                    alert('Ошибка подтверждения этапа');
+                }
+            },
+            getCsrfToken() {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return '';
+            }
+        }
+    }
+</script>
+<script>document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
+</body>
+</html> 

@@ -25,7 +25,7 @@ class EmployeeTaskAdmin(admin.ModelAdmin):
     ]
     search_fields = ['employee__username', 'employee__first_name', 'employee__last_name', 'stage__order__name']
     readonly_fields = ['earnings', 'penalties', 'net_earnings', 'created_at']
-
+    
     fieldsets = (
         ('Основная информация', {'fields': ('stage', 'employee', 'quantity')}),
         ('Выполнение', {'fields': ('completed_quantity', 'defective_quantity', 'completed_at')}),
@@ -43,12 +43,12 @@ class EmployeeTaskAdmin(admin.ModelAdmin):
         (
             'Система',
             {
-                'fields': ('created_at',),
+            'fields': ('created_at',),
                 'classes': ('collapse',),
             },
         ),
     )
-
+    
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'employee',
