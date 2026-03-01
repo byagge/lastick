@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',  # Django REST Framework
-    'apps.users',  # наше приложение пользователей
+    'apps.useНУrs',  # наше приложение пользователей
     'apps.clients',
     'apps.executive.dashboard',
     'apps.employees',
@@ -104,6 +104,9 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+# 
+# Локально используется SQLite по умолчанию
+# Для продакшна настройки переопределяются в settings_production.py (PostgreSQL)
 
 DATABASES = {
     'default': {
