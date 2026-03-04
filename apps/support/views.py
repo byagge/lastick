@@ -28,6 +28,9 @@ from .ai_service import AISupportService
 logger = logging.getLogger(__name__)
 
 # Web Views
+def support_landing(request):
+    return render(request, 'support/landing.html')
+
 @login_required
 def support_dashboard(request):
     """Главная страница поддержки"""

@@ -5,7 +5,8 @@ app_name = 'support'
 
 urlpatterns = [
     # Web Views
-    path('', views.support_dashboard, name='dashboard'),
+    path('', views.support_landing, name='landing'),
+    path('dashboard/', views.support_dashboard, name='dashboard'),
     path('chat/<int:chat_id>/', views.chat_detail, name='chat_detail'),
     path('create/', views.create_chat, name='create_chat'),
     
