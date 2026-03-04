@@ -53,9 +53,6 @@ limit_request_field_size = 8190
 worker_tmp_dir = "/dev/shm"  # Используем RAM для временных файлов
 forwarded_allow_ips = "*"
 
-# Health checks
-check_config = True
-
 # Environment variables
 raw_env = [
     "DJANGO_SETTINGS_MODULE=core.settings_production",
