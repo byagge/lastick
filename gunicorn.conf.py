@@ -6,6 +6,7 @@ Optimized for high load and stability
 import multiprocessing
 import os
 
+# TODO: change to 0.0.0.0:8000
 # Server socket
 bind = "127.0.0.1:8000"
 backlog = 2048
