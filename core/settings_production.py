@@ -5,9 +5,9 @@ DEBUG = False
 
 # ВАЖНО: ключи и хосты берем из env
 SECRET_KEY = "django-insecure-se9x7st*@o62&^mwej@a2x%$j)44xsmjy-g@^o!sf$zjj04=pt="
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "lastick.zappis.app,185.139.69.157,localhost,127.0.0.1").split(",")
 
-CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "https://lastick.zappis.app,http://lastick.zappis.app,https://185.139.69.157,http://185.139.69.157").split(",") if o]
 
 # ==================== БЕЗОПАСНОСТЬ ====================
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
