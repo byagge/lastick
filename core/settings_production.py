@@ -25,9 +25,9 @@ SECURE_HSTS_PRELOAD = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', ''),
-        'USER': os.environ.get('DB_USER', ''),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'NAME': os.environ.get('DB_NAME', 'lastick_db'),
+        'USER': os.environ.get('DB_USER', 'lastick_user'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'f91Us55PIF4I'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
         'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '600')),  # 10 минут для продакшна
