@@ -4,7 +4,7 @@ import os
 DEBUG = False
 
 # ВАЖНО: ключи и хосты берем из env
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY", "django-insecure-se9x7st*@o62&^mwej@a2x%$j)44xsmjy-g@^o!sf$zj04=pt="]
+SECRET_KEY = "django-insecure-se9x7st*@o62&^mwej@a2x%$j)44xsmjy-g@^o!sf$zjj04=pt="
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
 
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
