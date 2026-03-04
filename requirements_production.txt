@@ -31,7 +31,6 @@ django-cors-headers==4.3.1   # CORS handling
 django-ratelimit==4.1.0      # Rate limiting
 
 # Caching and optimization
-django-cacheops==8.0.2       # Query caching
 django-query-profiler==0.8.0 # Query profiling
 
 # Health checks
