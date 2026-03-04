@@ -522,21 +522,30 @@ class OrderStageNoTransferAPIView(APIView):
 class DashboardOverviewAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated]
 	def get(self, request):
-		# Доход — сумма (цена продукта * количество) по всем позициям заявок
 		total_income = OrderItem.objects.aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
-		# Продажи — сумма quantity по всем позициям
 		product_sales = OrderItem.objects.aggregate(total=Sum('quantity'))['total'] or 0
-		# Брак — сумма quantity по всем OrderDefect + сумма defective_quantity по всем EmployeeTask
 		order_defects_total = OrderDefect.objects.aggregate(total=Sum('quantity'))['total'] or 0
 		employee_tasks_defects_total = EmployeeTask.objects.aggregate(total=Sum('defective_quantity'))['total'] or 0
 		defective_products = order_defects_total + employee_tasks_defects_total
-		# Сотрудники — всего
 		total_employees = User.objects.count()
+		month_start = timezone.now() - timezone.timedelta(days=30)
+		products_last_month = EmployeeTask.objects.filter(
+			completed_at__isnull=False,
+			completed_at__gte=month_start
+		).aggregate(total=Sum('completed_quantity'))['total'] or 0
+		active_orders = Order.objects.filter(status__in=['production', 'new']).count()
+		from apps.finished_goods.models import FinishedGood
+		stock_value = FinishedGood.objects.filter(status='stock').aggregate(
+			total=Sum(F('quantity') * F('product__price'))
+		)['total'] or 0
 		return Response({
 			'total_income': total_income,
 			'product_sales': product_sales,
 			'defective_products': defective_products,
 			'total_employees': total_employees,
+			'products_last_month': products_last_month,
+			'active_orders': active_orders,
+			'stock_value': stock_value,
 			'user_name': request.user.get_full_name() or request.user.username,
 		})
 

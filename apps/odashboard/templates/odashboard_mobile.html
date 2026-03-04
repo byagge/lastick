@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-192x192.png">
     <link rel="shortcut icon" href="/static/icons/icon-192x192.png">
-    <title>Smart Factory — Мобильный дашборд</title>
+    <title>Smart Factory - Analytics</title>
     <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" media="all">
     <!-- Lucide Icons -->
@@ -23,7 +23,13 @@
         .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3B82F6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .stat-card { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%); backdrop-filter: blur(10px); }
-    </style>
+    
+        .bg-blue-600 { background-color: #0e121a !important; }
+        .hover\:bg-blue-700:hover { background-color: #0b0f16 !important; }
+        .text-blue-600 { color: #0e121a !important; }
+        .bg-blue-100 { background-color: #e2e8f0 !important; }
+        .bg-blue-50 { background-color: #f1f5f9 !important; }
+</style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" style="font-family: system-ui, -apple-system, sans-serif; margin:0; padding:0;">
 <div x-data="smartFactoryDashboard()" x-init="init()" class="pb-16">
@@ -59,69 +65,67 @@
 
     <!-- Main Content -->
     <main class="pt-16 px-2 max-w-md mx-auto">
-        <!-- Welcome -->
         <div class="mb-4 mt-2">
-            <h1 class="text-2xl font-bold text-gray-900 mb-1">Аналитика производства</h1>
-            <p class="text-gray-600 text-sm">Сводка по всем показателям системы</p>
+            <h1 class="text-2xl font-bold text-gray-900 mb-1">Production analytics</h1>
+            <p class="text-gray-600 text-sm">Live metrics and current production status.</p>
         </div>
 
-        <!-- Quick Stats -->
         <div class="grid grid-cols-2 gap-3 mb-4">
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Продажи</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.product_sales || '0'"></span>
-                <span class="text-xs text-gray-400">шт.</span>
+                <span class="text-xs text-gray-500">Produced last 30 days</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.products_last_month || 0"></span>
+                <span class="text-xs text-gray-400">pcs</span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Брак</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.defective_products || '0'"></span>
-                <span class="text-xs text-gray-400">шт.</span>
+                <span class="text-xs text-gray-500">Active orders</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.active_orders || 0"></span>
+                <span class="text-xs text-gray-400">in progress</span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Активные заказы</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.active_orders || '0'"></span>
+                <span class="text-xs text-gray-500">Defects</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.defective_products || 0"></span>
+                <span class="text-xs text-gray-400">pcs</span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Сотрудники</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_employees || '0'"></span>
+                <span class="text-xs text-gray-500">Employees</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_employees || 0"></span>
+                <span class="text-xs text-gray-400">people</span>
             </div>
         </div>
 
-        <!-- Additional Stats -->
         <div class="grid grid-cols-2 gap-3 mb-4">
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Клиенты</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_clients || '0'"></span>
+                <span class="text-xs text-gray-500">Clients</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_clients || 0"></span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Услуги</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_services || '0'"></span>
+                <span class="text-xs text-gray-500">Materials, kg</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="formatKg(overview.total_materials_kg || 0)"></span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Материалы</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_materials || '0'"></span>
+                <span class="text-xs text-gray-500">Materials value</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="formatCurrency(overview.total_materials_value || 0)"></span>
             </div>
             <div class="stat-card rounded-xl p-4 border border-gray-200 flex flex-col items-start">
-                <span class="text-xs text-gray-500">Заказы</span>
-                <span class="text-xl font-semibold text-gray-900" x-text="overview.total_orders || '0'"></span>
+                <span class="text-xs text-gray-500">Stock goods value</span>
+                <span class="text-xl font-semibold text-gray-900" x-text="formatCurrency(overview.stock_value || 0)"></span>
             </div>
         </div>
 
-        <!-- Chart -->
         <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-base font-semibold text-gray-900">График показателей</h3>
+                <h3 class="text-base font-semibold text-gray-900">Production trend</h3>
                 <div class="flex gap-2">
-                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="period" @change="updateChart()">
-                    <option value="week">Неделя</option>
-                    <option value="month">Месяц</option>
-                    <option value="year">Год</option>
-                </select>
+                    <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="period" @change="updateChart()">
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="year">Year</option>
+                    </select>
                     <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs" x-model="chartMetric" @change="updateChart()">
-                        <option value="revenue">Доход</option>
-                        <option value="sales">Продажи</option>
-                        <option value="defects">Брак</option>
-                        <option value="orders_count">Заказы</option>
+                        <option value="revenue">Revenue</option>
+                        <option value="sales">Produced</option>
+                        <option value="defects">Defects</option>
+                        <option value="orders_count">Orders</option>
                     </select>
                 </div>
             </div>
@@ -129,35 +133,33 @@
                 <div x-show="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
                     <div class="flex items-center space-x-2">
                         <div class="spinner"></div>
-                        <span class="text-gray-600 text-sm">Загрузка...</span>
+                        <span class="text-gray-600 text-sm">Loading...</span>
                     </div>
                 </div>
                 <canvas id="revenueChart"></canvas>
             </div>
         </div>
 
-        <!-- Top Employees -->
         <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Топ сотрудники</h3>
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Top employees</h3>
             <template x-for="emp in topEmployees" :key="emp.id">
                 <div class="flex items-center justify-between py-2 border-b last:border-b-0">
                     <div>
                         <p class="text-sm font-medium text-gray-900" x-text="emp.full_name || emp.name"></p>
-                        <p class="text-xs text-gray-500">Выполнено: <span x-text="emp.completed_works || 0"></span>, Брак: <span x-text="emp.defects || 0"></span></p>
+                        <p class="text-xs text-gray-500">Completed: <span x-text="emp.completed_works || 0"></span>, Defects: <span x-text="emp.defects || 0"></span></p>
                     </div>
                     <div class="text-right">
-                        <p class="text-xs text-green-700">Эфф: <span x-text="emp.efficiency || 0"></span>%</p>
+                        <p class="text-xs text-green-700">Eff.: <span x-text="emp.efficiency || 0"></span>%</p>
                     </div>
                 </div>
             </template>
             <div x-show="topEmployees.length === 0" class="text-center py-4 text-gray-500">
-                <p class="text-sm">Нет данных</p>
+                <p class="text-sm">No employee data</p>
             </div>
         </div>
 
-        <!-- Recent Orders -->
         <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Последние заказы</h3>
+            <h3 class="text-base font-semibold text-gray-900 mb-2">Recent orders</h3>
             <template x-for="order in recentOrders" :key="order.id">
                 <div class="flex items-center justify-between py-2 border-b last:border-b-0">
                     <div>
@@ -165,55 +167,57 @@
                         <p class="text-xs text-gray-500" x-text="order.client && order.client.name"></p>
                     </div>
                     <div class="text-right">
-                        <p class="text-xs text-gray-700" x-text="order.status_display"></p>
+                        <p class="text-xs text-gray-700" x-text="order.status_display || order.status"></p>
                         <p class="text-xs text-blue-700" x-text="formatDate(order.created_at)"></p>
                     </div>
                 </div>
             </template>
             <div x-show="recentOrders.length === 0" class="text-center py-4 text-gray-500">
-                <p class="text-sm">Нет данных</p>
+                <p class="text-sm">No recent orders</p>
             </div>
         </div>
 
-        <!-- System Status -->
         <div class="bg-white rounded-xl p-4 border border-gray-200 mb-4">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Статус системы</h3>
+            <h3 class="text-base font-semibold text-gray-900 mb-2">System status</h3>
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Низкий запас материалов</span>
+                    <span class="text-sm text-gray-600">Low stock materials</span>
                     <span class="text-sm font-medium" :class="overview.low_stock_count > 0 ? 'text-red-600' : 'text-green-600'" x-text="overview.low_stock_count || 0"></span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Активные заказы</span>
+                    <span class="text-sm text-gray-600">Active orders</span>
                     <span class="text-sm font-medium text-blue-600" x-text="overview.active_orders || 0"></span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Средняя эффективность</span>
-                    <span class="text-sm font-medium text-green-600" x-text="(overview.avg_efficiency || 0) + '%'"></span>
+                    <span class="text-sm text-gray-600">Average efficiency</span>
+                    <span class="text-sm font-medium text-green-600" x-text="(overview.avg_efficiency || 0) + '%'" ></span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Materials value</span>
+                    <span class="text-sm font-medium text-gray-900" x-text="formatCurrency(overview.total_materials_value || 0)"></span>
                 </div>
             </div>
         </div>
 
-        <!-- Main Menu (cards) -->
         <div class="grid grid-cols-2 gap-3 mb-4">
             <a href="/employees/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
                 <i data-lucide="users" class="w-6 h-6 text-blue-600 mb-1"></i>
-                <span class="text-xs font-semibold text-gray-900">Сотрудники</span>
+                <span class="text-xs font-semibold text-gray-900">Employees</span>
             </a>
             <a href="/clients/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
                 <i data-lucide="user-plus" class="w-6 h-6 text-green-600 mb-1"></i>
-                <span class="text-xs font-semibold text-gray-900">Клиенты</span>
+                <span class="text-xs font-semibold text-gray-900">Clients</span>
             </a>
             <a href="/products/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
                 <i data-lucide="package" class="w-6 h-6 text-purple-600 mb-1"></i>
-                <span class="text-xs font-semibold text-gray-900">Товары</span>
+                <span class="text-xs font-semibold text-gray-900">Products</span>
             </a>
-            <a href="/services/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
-                <i data-lucide="scissors" class="w-6 h-6 text-yellow-600 mb-1"></i>
-                <span class="text-xs font-semibold text-gray-900">Услуги</span>
+            <a href="/inventory/" class="menu-card bg-white rounded-xl p-4 border border-gray-200 flex flex-col items-center text-center">
+                <i data-lucide="archive" class="w-6 h-6 text-yellow-600 mb-1"></i>
+                <span class="text-xs font-semibold text-gray-900">Inventory</span>
             </a>
         </div>
-    </main>
+    </main></main></main>
 
     <!-- Bottom Navigation -->
     <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center h-14 z-40">
@@ -283,7 +287,7 @@
                     this.loading = true;
                     
                     // Загружаем основную статистику
-                    const overviewResponse = await fetch('/orders/dashboard/overview/', { 
+                    const overviewResponse = await fetch('/orders/api/dashboard/overview/', { 
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
                     });
                     if (overviewResponse.ok) {
@@ -293,7 +297,6 @@
                     // Загружаем дополнительные данные по всем приложениям
                     await Promise.all([
                         this.loadClientsData(),
-                        this.loadServicesData(),
                         this.loadInventoryData(),
                         this.loadOrdersData(),
                         this.loadEmployeesData()
@@ -341,16 +344,24 @@
                     if (response.ok) {
                         const data = await response.json();
                         if (data.status === 'success') {
-                            this.overview.total_materials = data.data.length;
-                            // Подсчитываем материалы с низким запасом
-                            this.overview.low_stock_count = data.data.filter(m => 
-                                m.quantity <= m.min_quantity
+                            const materials = data.data || [];
+                            this.overview.total_materials = materials.length;
+                            this.overview.total_materials_kg = materials.reduce((sum, m) => 
+                                sum + (Number(m.quantity) || 0), 0
+                            );
+                            this.overview.low_stock_count = materials.filter(m => 
+                                (Number(m.quantity) || 0) <= (Number(m.min_quantity) || 0)
                             ).length;
+                            this.overview.total_materials_value = materials.reduce((sum, m) => 
+                                sum + ((Number(m.quantity) || 0) * (Number(m.price) || 0)), 0
+                            );
                         }
                     }
                 } catch (e) {
                     this.overview.total_materials = 0;
+                    this.overview.total_materials_kg = 0;
                     this.overview.low_stock_count = 0;
+                    this.overview.total_materials_value = 0;
                 }
             },
 
@@ -360,17 +371,9 @@
                     if (response.ok) {
                         const data = await response.json();
                         this.recentOrders = data.results || data;
-                        this.overview.total_orders = data.count || data.length;
-                        
-                        // Подсчитываем активные заказы
-                        this.overview.active_orders = (data.results || data).filter(order => 
-                            order.status === 'production' || order.status === 'new'
-                        ).length;
                     }
                 } catch (e) {
                     this.recentOrders = [];
-                    this.overview.total_orders = 0;
-                    this.overview.active_orders = 0;
                 }
             },
 
@@ -441,7 +444,7 @@
                 };
                 
                 try {
-                    const chartResponse = await fetch(`/orders/dashboard/revenue-chart/?period=${this.period}`, { 
+                    const chartResponse = await fetch(`/orders/api/dashboard/revenue-chart/?period=${this.period}`, { 
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' } 
                     });
                     
@@ -485,18 +488,18 @@
                             let color = '#3B82F6';
                             let data = chartData[this.chartMetric] || [];
                             
-                            if (this.chartMetric === 'revenue') { 
-                                label = 'Доход (⃀)'; 
-                                color = '#3B82F6'; 
-                            } else if (this.chartMetric === 'sales') { 
-                                label = 'Продажи (шт)'; 
-                                color = '#10B981'; 
-                            } else if (this.chartMetric === 'defects') { 
-                                label = 'Брак (шт)'; 
-                                color = '#EF4444'; 
-                            } else if (this.chartMetric === 'orders_count') { 
-                                label = 'Заказы (шт)'; 
-                                color = '#6366F1'; 
+                            if (this.chartMetric === 'revenue') {
+                                label = 'Revenue (RUB)';
+                                color = '#3B82F6';
+                            } else if (this.chartMetric === 'sales') {
+                                label = 'Produced (pcs)';
+                                color = '#10B981';
+                            } else if (this.chartMetric === 'defects') {
+                                label = 'Defects (pcs)';
+                                color = '#EF4444';
+                            } else if (this.chartMetric === 'orders_count') {
+                                label = 'Orders (pcs)';
+                                color = '#6366F1';
                             }
 
                             if (!window.Chart) {
@@ -552,6 +555,14 @@
                 this.loading = true; 
                 await this.initChart(); 
                 this.loading = false; 
+            },
+
+            formatKg(value) {
+                const num = Number(value || 0);
+                return new Intl.NumberFormat('ru-RU', {
+                    minimumFractionDigits: num % 1 === 0 ? 0 : 2,
+                    maximumFractionDigits: 2
+                }).format(num);
             },
 
             formatCurrency(amount) {
