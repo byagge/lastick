@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon-192x192.png">
     <link rel="shortcut icon" href="/static/icons/icon-192x192.png">
-    <title>Smart Factory - Analytics</title>
+    <title>Smart Factory - Аналитика</title>
     <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Lucide Icons -->
@@ -91,36 +91,37 @@
         </div>
 </div>
 {% endif %}
-<!-- Main Content -->
+    <!-- Main Content -->
     <main class="flex-1 overflow-auto ml-64 p-6 pt-28">
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <section class="glass rounded-2xl border border-gray-200 p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Production analytics</h1>
-                    <p class="text-gray-600">Live metrics, active orders, and period trends.</p>
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Производственная аналитика</h1>
+                    <p class="text-gray-600">Реальные показатели производства, заказов и склада.</p>
                 </div>
                 <div class="flex items-center gap-3 mt-4 lg:mt-0">
-                    <div class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium">Live update</div>
+                    <div class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium">Данные с сервера</div>
                 </div>
             </section>
 
+            <!-- Основные KPI -->
             <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Produced last 30 days</p>
+                        <p class="text-sm text-gray-600">Произведено за последний месяц</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="overview.products_last_month || 0"></p>
-                        <p class="text-xs text-gray-400">pcs</p>
+                        <p class="text-xs text-gray-400">шт</p>
                     </div>
                     <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <i data-lucide="layers" class="w-5 h-5 text-blue-600"></i>
+                        <i data-lucide="factory" class="w-5 h-5 text-blue-600"></i>
                     </div>
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Active orders</p>
+                        <p class="text-sm text-gray-600">Активные заказы</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="overview.active_orders || 0"></p>
-                        <p class="text-xs text-gray-400">in progress</p>
+                        <p class="text-xs text-gray-400">в работе</p>
                     </div>
                     <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
                         <i data-lucide="clipboard-check" class="w-5 h-5 text-emerald-600"></i>
@@ -128,9 +129,9 @@
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Defects</p>
+                        <p class="text-sm text-gray-600">Брак (всего)</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="overview.defective_products || 0"></p>
-                        <p class="text-xs text-gray-400">pcs</p>
+                        <p class="text-xs text-gray-400">шт</p>
                     </div>
                     <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                         <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
@@ -138,9 +139,9 @@
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Employees</p>
+                        <p class="text-sm text-gray-600">Сотрудники</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="overview.total_employees || 0"></p>
-                        <p class="text-xs text-gray-400">people</p>
+                        <p class="text-xs text-gray-400">чел</p>
                     </div>
                     <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
                         <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i>
@@ -148,10 +149,11 @@
                 </div>
             </section>
 
+            <!-- Склад и клиенты -->
             <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Clients</p>
+                        <p class="text-sm text-gray-600">Клиенты</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="overview.total_clients || 0"></p>
                     </div>
                     <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
@@ -160,8 +162,9 @@
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Materials, kg</p>
+                        <p class="text-sm text-gray-600">Материалы на складе</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="formatKg(overview.total_materials_kg || 0)"></p>
+                        <p class="text-xs text-gray-400">кг, всего</p>
                     </div>
                     <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
                         <i data-lucide="archive" class="w-5 h-5 text-amber-600"></i>
@@ -169,7 +172,7 @@
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Materials value</p>
+                        <p class="text-sm text-gray-600">Стоимость материалов</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.total_materials_value || 0)"></p>
                     </div>
                     <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
@@ -178,7 +181,7 @@
                 </div>
                 <div class="card bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Stock goods value</p>
+                        <p class="text-sm text-gray-600">Стоимость товаров на складе</p>
                         <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(overview.stock_value || 0)"></p>
                     </div>
                     <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
@@ -190,18 +193,18 @@
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Production trend</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Динамика производства</h3>
                         <div class="flex space-x-2">
                             <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm" x-model="period" @change="updateChart()">
-                                <option value="week">Week</option>
-                                <option value="month">Month</option>
-                                <option value="year">Year</option>
+                                <option value="week">Неделя</option>
+                                <option value="month">Месяц</option>
+                                <option value="year">Год</option>
                             </select>
                             <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm" x-model="chartMetric" @change="updateChart()">
-                                <option value="revenue">Revenue</option>
-                                <option value="sales">Produced</option>
-                                <option value="defects">Defects</option>
-                                <option value="orders_count">Orders</option>
+                                <option value="revenue">Выручка</option>
+                                <option value="sales">Произведено</option>
+                                <option value="defects">Брак</option>
+                                <option value="orders_count">Заказы</option>
                             </select>
                         </div>
                     </div>
@@ -209,7 +212,7 @@
                         <div x-show="loading" class="loading-overlay">
                             <div class="flex items-center space-x-2">
                                 <div class="spinner"></div>
-                                <span class="text-gray-600">Loading...</span>
+                                <span class="text-gray-600">Загрузка...</span>
                             </div>
                         </div>
                         <canvas id="revenueChart"></canvas>
@@ -217,22 +220,26 @@
                 </div>
 
                 <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">System status</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Сводка склада и эффективности</h3>
                     <div class="space-y-4">
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Low stock materials</span>
-                            <span class="text-sm font-medium px-2 py-1 rounded-full" :class="overview.low_stock_count > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'" x-text="overview.low_stock_count || 0"></span>
+                            <span class="text-sm text-gray-600">Критичные материалы (ниже минимума)</span>
+                            <span
+                                class="text-sm font-medium px-2 py-1 rounded-full"
+                                :class="overview.low_stock_count > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'"
+                                x-text="overview.low_stock_count || 0"
+                            ></span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Active orders</span>
+                            <span class="text-sm text-gray-600">Активные заказы</span>
                             <span class="text-sm font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800" x-text="overview.active_orders || 0"></span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Average efficiency</span>
+                            <span class="text-sm text-gray-600">Средняя эффективность сотрудников</span>
                             <span class="text-sm font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-800" x-text="(overview.avg_efficiency || 0) + '%'" ></span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Materials value</span>
+                            <span class="text-sm text-gray-600">Стоимость материалов на складе</span>
                             <span class="text-sm font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-800" x-text="formatCurrency(overview.total_materials_value || 0)"></span>
                         </div>
                     </div>
@@ -241,15 +248,15 @@
 
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Top employees</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Топ сотрудники по выработке</h3>
                     <div class="overflow-hidden">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Defects</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Efficiency</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сотрудник</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Выполнено, шт</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Брак, шт</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Эфф-ть</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -266,28 +273,32 @@
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900" x-text="emp.completed_works || 0"></td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900" x-text="emp.defects || 0"></td>
                                         <td class="px-3 py-3 whitespace-nowrap">
-                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" :class="emp.efficiency >= 80 ? 'bg-green-100 text-green-800' : emp.efficiency >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'" x-text="(emp.efficiency || 0) + '%'" ></span>
+                                            <span
+                                                class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                                                :class="emp.efficiency >= 80 ? 'bg-green-100 text-green-800' : emp.efficiency >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
+                                                x-text="(emp.efficiency || 0) + '%'"
+                                            ></span>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                         <div x-show="topEmployees.length === 0" class="text-center py-8 text-gray-500">
-                            <p class="text-sm">No employee data</p>
+                            <p class="text-sm">Нет данных по сотрудникам</p>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent orders</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Последние заказы</h3>
                     <div class="overflow-hidden">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Заказ</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиент</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Создан</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -304,14 +315,14 @@
                             </tbody>
                         </table>
                         <div x-show="recentOrders.length === 0" class="text-center py-8 text-gray-500">
-                            <p class="text-sm">No recent orders</p>
+                            <p class="text-sm">Нет данных по заказам</p>
                         </div>
                     </div>
                 </div>
             </section>
         </div>
-    </main></main></main>
-    </div>
+    </main>
+</div>
 
     <script>
     function smartFactoryDashboard() {
@@ -569,16 +580,16 @@
                                 let data = chartData[this.chartMetric] || [];
                                 
                                 if (this.chartMetric === 'revenue') {
-                                    label = 'Revenue (RUB)';
+                                    label = 'Выручка (⃀)';
                                     color = '#3B82F6';
                                 } else if (this.chartMetric === 'sales') {
-                                    label = 'Produced (pcs)';
+                                    label = 'Произведено (шт)';
                                     color = '#10B981';
                                 } else if (this.chartMetric === 'defects') {
-                                    label = 'Defects (pcs)';
+                                    label = 'Брак (шт)';
                                     color = '#EF4444';
                                 } else if (this.chartMetric === 'orders_count') {
-                                    label = 'Orders (pcs)';
+                                    label = 'Заказы (шт)';
                                     color = '#6366F1';
                                 }
 
@@ -661,22 +672,21 @@
                 this.loading = false; 
                 },
 
-                formatKg(value) {
+            formatKg(value) {
                 const num = Number(value || 0);
                 return new Intl.NumberFormat('ru-RU', {
                     minimumFractionDigits: num % 1 === 0 ? 0 : 2,
                     maximumFractionDigits: 2
                 }).format(num);
             },
-
             formatCurrency(amount) {
-                    return new Intl.NumberFormat('ru-RU', {
-                        style: 'currency',
-                    currency: 'RUB',
+                const value = Number(amount || 0);
+                const formatted = new Intl.NumberFormat('ru-RU', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0
-                    }).format(amount);
-                },
+                }).format(value);
+                return `${formatted} ⃀`;
+            },
 
             formatDate(dateString) {
                 if (!dateString) return '';
