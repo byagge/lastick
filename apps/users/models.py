@@ -24,7 +24,9 @@ class User(AbstractUser):
         verbose_name='Роль'
     )
     phone = models.CharField(max_length=20, verbose_name='Телефон', blank=True)
-    email = models.EmailField(verbose_name='Email', blank=True)
+    email = models.EmailField(verbose_name='Email', blank=True)  # Оставляем для совместимости, но не используем
+    whatsapp = models.CharField(max_length=20, verbose_name='WhatsApp', blank=True, help_text='Номер WhatsApp')
+    full_name = models.CharField(max_length=255, verbose_name='Полное имя', blank=True)
     workshop = models.ForeignKey(
         'operations_workshops.Workshop',
         on_delete=models.SET_NULL,
@@ -74,6 +76,17 @@ class User(AbstractUser):
         help_text='Текущий баланс пользователя в сомах'
     )
     
+    # Рейтинг и кредит
+    rating = models.IntegerField(
+        'Рейтинг',
+        default=100,
+        help_text='Рейтинг сотрудника (максимум 100)'
+    )
+    credit = models.IntegerField(
+        'Кредит',
+        default=0,
+        help_text='Кредит сотрудника (используется для расчета рейтинга)'
+    )
     
 
     # Системные поля
@@ -91,7 +104,9 @@ class User(AbstractUser):
 
     def get_full_name(self):
         """Возвращает полное имя (ФИО)"""
-        if self.first_name and self.last_name:
+        if self.full_name:
+            return self.full_name
+        elif self.first_name and self.last_name:
             return f"{self.last_name} {self.first_name}"
         elif self.first_name:
             return self.first_name
@@ -124,37 +139,31 @@ class User(AbstractUser):
         return f"{self.balance:,.2f} сомов"
 
     def generate_username(self):
-        """Генерирует username из имени и фамилии"""
-        if self.first_name and self.last_name:
-            # Создаем username из фамилии и имени (например: ИвановИван)
-            base_username = f"{self.last_name}{self.first_name}"
-            # Убираем пробелы и приводим к нижнему регистру
-            username = re.sub(r'\s+', '', base_username).lower()
-            # Заменяем кириллицу на латиницу
-            cyrillic_to_latin = {
-                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-                'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-                'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-                'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-                'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
-            }
-            for cyr, lat in cyrillic_to_latin.items():
-                username = username.replace(cyr, lat)
-            
-            # Проверяем уникальность
-            original_username = username
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{original_username}{counter}"
-                counter += 1
-            
-            return username
-        else:
-            # Если нет имени/фамилии, используем email или генерируем случайный
-            if self.email:
-                return self.email.split('@')[0]
-            else:
-                return f"user{User.objects.count() + 1}"
+        """Генерирует username в формате id+num"""
+        # Используем формат: id + номер (например: id1, id2, id3)
+        counter = User.objects.count() + 1
+        username = f"id{counter}"
+        
+        # Проверяем уникальность
+        while User.objects.filter(username=username).exists():
+            counter += 1
+            username = f"id{counter}"
+        
+        return username
+    
+    def update_rating_from_credit(self):
+        """Обновляет рейтинг на основе кредита"""
+        # Рейтинг = 100 + кредит, но не больше 100 и не меньше 0
+        new_rating = max(0, min(100, 100 + self.credit))
+        self.rating = new_rating
+        return new_rating
+    
+    def add_credit(self, amount, reason=''):
+        """Добавляет кредит (может быть отрицательным для штрафа)"""
+        self.credit += amount
+        self.update_rating_from_credit()
+        self.save(update_fields=['credit', 'rating'])
+        return self.rating
 
     def save(self, *args, **kwargs):
         """Автоматически генерируем username при сохранении"""

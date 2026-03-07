@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from .models import AttendanceRecord
+from .models import AttendanceRecord, AttendanceSettings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Q, Count
@@ -225,6 +225,7 @@ def attendance_list(request):
             local_check_in = timezone.localtime(record.check_in) if record.check_in else None
             local_check_out = timezone.localtime(record.check_out) if record.check_out else None
             
+            late_hours = record.get_late_hours() if record.is_late else 0
             records_data.append({
                 'id': record.id,
                 'employee': {
@@ -238,6 +239,7 @@ def attendance_list(request):
                 'status': 'checked_out' if record.check_out else 'present',
                 'note': record.note or '',
                 'is_late': record.is_late,
+                'late_hours': late_hours,
                 'penalty_amount': float(record.penalty_amount)
             })
         
@@ -443,5 +445,62 @@ def employee_status_by_workshop(request):
             'employees': employees_data
         })
         
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def attendance_settings(request):
+    """Получение и обновление настроек посещаемости"""
+    try:
+        settings_obj = AttendanceSettings.get_settings()
+        
+        if request.method == 'GET':
+            return Response({
+                'penalty_per_hour': float(settings_obj.penalty_per_hour),
+                'grace_period_minutes': settings_obj.grace_period_minutes
+            })
+        
+        elif request.method == 'POST':
+            # Проверка прав администратора
+            if not (request.user.is_superuser or request.user.is_staff or getattr(request.user, 'role', None) == User.Role.ADMIN):
+                return Response({'error': 'Доступ запрещен'}, status=403)
+            
+            penalty_per_hour = request.data.get('penalty_per_hour')
+            grace_period_minutes = request.data.get('grace_period_minutes')
+            
+            if penalty_per_hour is not None:
+                try:
+                    penalty = Decimal(str(penalty_per_hour))
+                    if penalty < 0:
+                        return Response({'error': 'Штраф за час не может быть отрицательным'}, status=400)
+                    settings_obj.penalty_per_hour = penalty
+                except Exception:
+                    return Response({'error': 'Некорректная сумма штрафа за час'}, status=400)
+            
+            if grace_period_minutes is not None:
+                try:
+                    grace = int(grace_period_minutes)
+                    if grace < 0:
+                        return Response({'error': 'Льготный период не может быть отрицательным'}, status=400)
+                    settings_obj.grace_period_minutes = grace
+                except (ValueError, TypeError):
+                    return Response({'error': 'Некорректное значение льготного периода'}, status=400)
+            
+            settings_obj.save()
+            
+            # Пересчитываем штрафы для всех записей за сегодня
+            today = timezone.localdate()
+            today_records = AttendanceRecord.objects.filter(date=today, penalty_manual=False)
+            for record in today_records:
+                record.calculate_penalty()
+                record.save()
+            
+            return Response({
+                'success': True,
+                'penalty_per_hour': float(settings_obj.penalty_per_hour),
+                'grace_period_minutes': settings_obj.grace_period_minutes
+            })
+            
     except Exception as e:
         return Response({'error': str(e)}, status=500)

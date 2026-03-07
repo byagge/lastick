@@ -3,8 +3,42 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+import math
 
 # Create your models here.
+
+class AttendanceSettings(models.Model):
+    """Настройки системы посещаемости (singleton)"""
+    penalty_per_hour = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('100.00'),
+        verbose_name='Штраф за час опоздания (сом)'
+    )
+    grace_period_minutes = models.IntegerField(
+        default=10,
+        verbose_name='Льготный период (минуты)'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Настройки посещаемости'
+        verbose_name_plural = 'Настройки посещаемости'
+
+    def __str__(self):
+        return f"Штраф: {self.penalty_per_hour} сом/час"
+
+    @classmethod
+    def get_settings(cls):
+        """Получить настройки (singleton pattern)"""
+        settings_obj, _ = cls.objects.get_or_create(pk=1)
+        return settings_obj
+
+    def save(self, *args, **kwargs):
+        # Ограничиваем количество записей до одной
+        self.pk = 1
+        super().save(*args, **kwargs)
 
 class AttendanceRecord(models.Model):
     employee = models.ForeignKey(
@@ -85,23 +119,55 @@ class AttendanceRecord(models.Model):
         naive_dt = datetime.combine(end_date, shift_end)
         return timezone.make_aware(naive_dt, timezone.get_current_timezone())
 
+    def get_late_hours(self):
+        """Возвращает количество часов опоздания (с округлением вверх)"""
+        if not self.check_in:
+            return 0
+
+        shift_start = self.get_shift_start()
+        if not shift_start:
+            return 0
+
+        settings = AttendanceSettings.get_settings()
+        local_check_in = timezone.localtime(self.check_in)
+        grace_time = shift_start + timedelta(minutes=settings.grace_period_minutes)
+
+        if local_check_in <= grace_time:
+            return 0
+
+        # Вычисляем разницу в часах (округление вверх)
+        late_delta = local_check_in - grace_time
+        late_hours = math.ceil(late_delta.total_seconds() / 3600)
+        return late_hours
+
     def calculate_penalty(self):
-        """Рассчитывает штраф за опоздание после 10 минут от начала смены"""
+        """Рассчитывает штраф за опоздание на основе времени опоздания"""
         if not self.check_in:
             self.is_late = False
+            if not self.penalty_manual:
+                self.penalty_amount = Decimal('0.00')
             return self.penalty_amount
 
         shift_start = self.get_shift_start()
         if not shift_start:
             self.is_late = False
+            if not self.penalty_manual:
+                self.penalty_amount = Decimal('0.00')
             return self.penalty_amount
 
+        settings = AttendanceSettings.get_settings()
         local_check_in = timezone.localtime(self.check_in)
-        grace_time = shift_start + timedelta(minutes=10)
+        grace_time = shift_start + timedelta(minutes=settings.grace_period_minutes)
 
         self.is_late = local_check_in > grace_time
+        
         if not self.penalty_manual:
-            self.penalty_amount = Decimal('100.00') if self.is_late else Decimal('0.00')
+            if self.is_late:
+                late_hours = self.get_late_hours()
+                self.penalty_amount = settings.penalty_per_hour * Decimal(str(late_hours))
+            else:
+                self.penalty_amount = Decimal('0.00')
+        
         return self.penalty_amount
 
     def get_late_status(self):
@@ -111,8 +177,10 @@ class AttendanceRecord(models.Model):
         shift_start = self.get_shift_start()
         if not shift_start:
             return False
+        settings = AttendanceSettings.get_settings()
         local_check_in = timezone.localtime(self.check_in)
-        return local_check_in > (shift_start + timedelta(minutes=10))
+        grace_time = shift_start + timedelta(minutes=settings.grace_period_minutes)
+        return local_check_in > grace_time
 
     def recalculate_penalty(self):
         """Принудительно пересчитывает штраф (для существующих записей)"""

@@ -330,3 +330,54 @@ class NeutralBatch(models.Model):
         self.used_quantity = (self.used_quantity or 0) + amount
         self.save(update_fields=['used_quantity'])
         return amount
+
+
+class WorkshopLog(models.Model):
+    """
+    Лог действий, связанных с цехом.
+
+    Используется для отображения раздела «Последние действия»
+    в интерфейсе цехов. Стараемся писать в него все значимые
+    операции (выгрузка в нейтральную зону, упаковка, брак,
+    изменения задач и т.п.).
+    """
+    workshop = models.ForeignKey(
+        Workshop,
+        on_delete=models.CASCADE,
+        related_name='logs',
+        verbose_name='Цех',
+    )
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='workshop_logs',
+        verbose_name='Пользователь',
+    )
+    action = models.CharField('Действие', max_length=120)
+    description = models.TextField('Описание', blank=True)
+    created_at = models.DateTimeField('Дата и время', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Лог цеха'
+        verbose_name_plural = 'Логи цехов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        user_name = self.user.get_full_name() if self.user else 'Система'
+        return f"[{self.workshop.name}] {user_name}: {self.action}"
+
+    @classmethod
+    def add(cls, workshop, user=None, action: str = '', description: str = ''):
+        """
+        Удобный helper для создания записи лога из разных мест системы.
+        """
+        if not workshop:
+            return None
+        return cls.objects.create(
+            workshop=workshop,
+            user=user,
+            action=action[:120] if action else '',
+            description=description or '',
+        )

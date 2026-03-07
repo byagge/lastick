@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import AttendanceRecord
+from .models import AttendanceRecord, AttendanceSettings
 
 @admin.register(AttendanceRecord)
 class AttendanceRecordAdmin(admin.ModelAdmin):
@@ -46,3 +46,12 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
             messages.info(request, 'Изменений не требуется')
     
     recalculate_penalty.short_description = 'Пересчитать штрафы'
+
+@admin.register(AttendanceSettings)
+class AttendanceSettingsAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        # Разрешаем только одну запись
+        return not AttendanceSettings.objects.exists()
+    
+    def has_delete_permission(self, request, obj=None):
+        return False

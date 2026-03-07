@@ -3,7 +3,7 @@ from .views import (
     checkin_by_qr, qr_scanner_page, checkout_employee, attendance_overview, 
     attendance_list, attendance_page, recalculate_today_penalties,
     employee_attendance_status, auto_checkout_after_6pm, employee_status_by_workshop,
-    update_attendance_penalty
+    update_attendance_penalty, attendance_settings
 )
 
 urlpatterns = [
@@ -17,5 +17,6 @@ urlpatterns = [
     path('api/employee-status/', employee_attendance_status, name='employee_attendance_status'),
     path('api/auto-checkout/', auto_checkout_after_6pm, name='auto_checkout_after_6pm'),
     path('api/employee-status-by-workshop/', employee_status_by_workshop, name='employee_status_by_workshop'),
+    path('api/settings/', attendance_settings, name='attendance_settings'),
     path('scan/', qr_scanner_page, name='attendance_qr_scanner'),
 ] 

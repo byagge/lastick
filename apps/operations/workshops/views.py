@@ -3,11 +3,12 @@ from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Workshop
+from .models import Workshop, NeutralBatch, WorkshopLog
 from .serializers import WorkshopSerializer
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.db.models import Sum, Q
 import json
 
 # Create your views here.
@@ -92,8 +93,11 @@ def workshops_stats(request):
 	for workshop in workshops:
 		stats = _calculate_workshop_stats(workshop, week_ago, month_ago)
 		stats['manager_name'] = workshop.manager.get_full_name() if workshop.manager else 'Цех не назначен'
-		stats['active_tasks'] = EmployeeTask.objects.filter(stage__workshop=workshop).count()
-		stats['defects'] = Defect.objects.filter(user__workshop=workshop).count()
+		# Брак в кг (сумма quantity из Defect)
+		defects_kg = Defect.objects.filter(
+			Q(user__workshop=workshop) | Q(employee_task__stage__workshop=workshop)
+		).aggregate(total=Sum('quantity'))['total'] or 0
+		stats['defects'] = float(defects_kg)
 		stats['summary'] = workshop.get_workshop_summary()
 		workshops_stats.append(stats)
 
@@ -257,7 +261,8 @@ def master_workshops_stats(request):
 def _calculate_total_stats(workshops, week_ago, month_ago):
 	"""Рассчитывает общую статистику по всем цехам мастера"""
 	from apps.employee_tasks.models import EmployeeTask
-	from django.db.models import Sum
+	from apps.defects.models import Defect
+	from django.db.models import Sum, Q
 	
 	# Получаем все задачи по цехам мастера
 	workshop_ids = [w.id for w in workshops]
@@ -266,22 +271,38 @@ def _calculate_total_stats(workshops, week_ago, month_ago):
 	# Статистика за неделю
 	week_tasks = all_tasks.filter(created_at__gte=week_ago)
 	week_completed = week_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Брак за неделю в кг
+	week_defects_kg = Defect.objects.filter(
+		Q(created_at__gte=week_ago) & (
+			Q(user__workshop_id__in=workshop_ids) | 
+			Q(employee_task__stage__workshop_id__in=workshop_ids)
+		)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Статистика за месяц
 	month_tasks = all_tasks.filter(created_at__gte=month_ago)
 	month_completed = month_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Брак за месяц в кг
+	month_defects_kg = Defect.objects.filter(
+		Q(created_at__gte=month_ago) & (
+			Q(user__workshop_id__in=workshop_ids) | 
+			Q(employee_task__stage__workshop_id__in=workshop_ids)
+		)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Общая статистика
 	total_completed = all_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Общий брак в кг
+	total_defects_kg = Defect.objects.filter(
+		Q(user__workshop_id__in=workshop_ids) | 
+		Q(employee_task__stage__workshop_id__in=workshop_ids)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Количество сотрудников
 	total_employees = sum(w.users.count() for w in workshops)
@@ -289,28 +310,28 @@ def _calculate_total_stats(workshops, week_ago, month_ago):
 	# Эффективность (процент выполненных задач без брака)
 	total_quantity = all_tasks.aggregate(total=Sum('quantity'))['total'] or 0
 	total_completed_quantity = total_completed['total'] or 0
-	total_defects = total_completed['defects'] or 0
+	total_defects_qty = sum(task.defective_quantity for task in all_tasks)
 	
 	efficiency = 0
 	if total_quantity > 0:
-		efficiency = round(((total_completed_quantity - total_defects) / total_quantity) * 100, 1)
+		efficiency = round(((total_completed_quantity - total_defects_qty) / total_quantity) * 100, 1)
 	
 	return {
 		'total_workshops': len(workshops),
 		'total_employees': total_employees,
 		'week_stats': {
 			'completed_works': week_completed['total'] or 0,
-			'defects': week_completed['defects'] or 0,
-			'efficiency': _calculate_efficiency(week_completed['total'] or 0, week_completed['defects'] or 0)
+			'defects': float(week_defects_kg),
+			'efficiency': _calculate_efficiency(week_completed['total'] or 0, week_defects_kg)
 		},
 		'month_stats': {
 			'completed_works': month_completed['total'] or 0,
-			'defects': month_completed['defects'] or 0,
-			'efficiency': _calculate_efficiency(month_completed['total'] or 0, month_completed['defects'] or 0)
+			'defects': float(month_defects_kg),
+			'efficiency': _calculate_efficiency(month_completed['total'] or 0, month_defects_kg)
 		},
 		'total_stats': {
 			'completed_works': total_completed_quantity,
-			'defects': total_defects,
+			'defects': float(total_defects_kg),
 			'efficiency': efficiency
 		}
 	}
@@ -318,7 +339,8 @@ def _calculate_total_stats(workshops, week_ago, month_ago):
 def _calculate_workshop_stats(workshop, week_ago, month_ago):
 	"""Рассчитывает статистику по конкретному цеху"""
 	from apps.employee_tasks.models import EmployeeTask
-	from django.db.models import Sum
+	from apps.defects.models import Defect
+	from django.db.models import Sum, Q
 	
 	# Получаем задачи цеха
 	workshop_tasks = EmployeeTask.objects.filter(stage__workshop=workshop)
@@ -326,22 +348,38 @@ def _calculate_workshop_stats(workshop, week_ago, month_ago):
 	# Статистика за неделю
 	week_tasks = workshop_tasks.filter(created_at__gte=week_ago)
 	week_completed = week_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Брак за неделю в кг
+	week_defects_kg = Defect.objects.filter(
+		Q(created_at__gte=week_ago) & (
+			Q(user__workshop=workshop) | 
+			Q(employee_task__stage__workshop=workshop)
+		)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Статистика за месяц
 	month_tasks = workshop_tasks.filter(created_at__gte=month_ago)
 	month_completed = month_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Брак за месяц в кг
+	month_defects_kg = Defect.objects.filter(
+		Q(created_at__gte=month_ago) & (
+			Q(user__workshop=workshop) | 
+			Q(employee_task__stage__workshop=workshop)
+		)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Общая статистика
 	total_completed = workshop_tasks.aggregate(
-		total=Sum('completed_quantity'),
-		defects=Sum('defective_quantity')
+		total=Sum('completed_quantity')
 	)
+	# Общий брак в кг
+	total_defects_kg = Defect.objects.filter(
+		Q(user__workshop=workshop) | 
+		Q(employee_task__stage__workshop=workshop)
+	).aggregate(total=Sum('quantity'))['total'] or 0
 	
 	# Количество сотрудников
 	employees_count = workshop.users.count()
@@ -349,11 +387,11 @@ def _calculate_workshop_stats(workshop, week_ago, month_ago):
 	# Эффективность
 	total_quantity = workshop_tasks.aggregate(total=Sum('quantity'))['total'] or 0
 	total_completed_quantity = total_completed['total'] or 0
-	total_defects = total_completed['defects'] or 0
+	total_defects_qty = sum(task.defective_quantity for task in workshop_tasks)
 	
 	efficiency = 0
 	if total_quantity > 0:
-		efficiency = round(((total_completed_quantity - total_defects) / total_quantity) * 100, 1)
+		efficiency = round(((total_completed_quantity - total_defects_qty) / total_quantity) * 100, 1)
 	
 	return {
 		'id': workshop.id,
@@ -362,17 +400,17 @@ def _calculate_workshop_stats(workshop, week_ago, month_ago):
 		'employees_count': employees_count,
 		'week_stats': {
 			'completed_works': week_completed['total'] or 0,
-			'defects': week_completed['defects'] or 0,
-			'efficiency': _calculate_efficiency(week_completed['total'] or 0, week_completed['defects'] or 0)
+			'defects': float(week_defects_kg),
+			'efficiency': _calculate_efficiency(week_completed['total'] or 0, week_defects_kg)
 		},
 		'month_stats': {
 			'completed_works': month_completed['total'] or 0,
-			'defects': month_completed['defects'] or 0,
-			'efficiency': _calculate_efficiency(month_completed['total'] or 0, month_completed['defects'] or 0)
+			'defects': float(month_defects_kg),
+			'efficiency': _calculate_efficiency(month_completed['total'] or 0, month_defects_kg)
 		},
 		'total_stats': {
 			'completed_works': total_completed_quantity,
-			'defects': total_defects,
+			'defects': float(total_defects_kg),
 			'efficiency': efficiency
 		}
 	}
@@ -381,7 +419,13 @@ def _calculate_efficiency(completed, defects):
 	"""Рассчитывает эффективность в процентах"""
 	if completed == 0:
 		return 0
-	return round(((completed - defects) / completed) * 100, 1)
+	# defects может быть в кг (Decimal), конвертируем в float
+	defects_val = float(defects) if defects else 0
+	# Для эффективности используем отношение без брака
+	# Если defects в кг, а completed в штуках, считаем что 1 кг = 1 штука для упрощения
+	if completed > 0:
+		return round(((completed - defects_val) / completed) * 100, 1)
+	return 0
 
 def workshops_page(request):
 	return render(request, 'workshops.html')
@@ -427,8 +471,11 @@ def workshops_list(request):
 			# Подсчитываем активные задачи
 			active_tasks = EmployeeTask.objects.filter(stage__workshop=workshop).count()
 			
-			# Подсчитываем браки
-			defects = Defect.objects.filter(user__workshop=workshop).count()
+			# Подсчитываем браки в кг
+			defects_kg = Defect.objects.filter(
+				Q(user__workshop=workshop) | Q(employee_task__stage__workshop=workshop)
+			).aggregate(total=Sum('quantity'))['total'] or 0
+			defects = float(defects_kg)
 			
 			# Вычисляем производительность на основе выполненных задач
 			completed_tasks = EmployeeTask.objects.filter(
@@ -526,6 +573,95 @@ def workshops_list(request):
 	}
 	
 	return render(request, 'workshops.html', context)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def neutral_zone_info(request):
+	"""
+	Получает информацию о нейтральной зоне (NeutralBatch) - общая зона между цехами
+	Нейтральная зона создается экструзионным цехом и используется пакетоотделочным
+	"""
+	from django.db.models import Sum, Q
+	
+	# Получаем все партии нейтральной зоны (независимо от цеха)
+	batches = NeutralBatch.objects.all().select_related('employee', 'workshop')
+	
+	# Статистика по нейтральной зоне (общая)
+	total_produced = batches.aggregate(total=Sum('total_quantity'))['total'] or 0
+	total_used = batches.aggregate(total=Sum('used_quantity'))['total'] or 0
+	total_available = float(total_produced) - float(total_used)
+	
+	# Последние партии (до 10)
+	recent_batches = batches[:10]
+	batches_data = []
+	for batch in recent_batches:
+		batches_data.append({
+			'id': batch.id,
+			'workshop_name': batch.workshop.name if batch.workshop else 'Неизвестно',
+			'employee_name': batch.employee.get_full_name() if batch.employee else 'Неизвестно',
+			'total_quantity': float(batch.total_quantity),
+			'used_quantity': float(batch.used_quantity),
+			'available_quantity': float(batch.available_quantity),
+			'created_at': batch.created_at.isoformat(),
+		})
+	
+	# Группируем по цехам-источникам (экструзионным)
+	workshop_stats = {}
+	for batch in batches:
+		workshop_id = batch.workshop_id
+		if workshop_id not in workshop_stats:
+			workshop_stats[workshop_id] = {
+				'workshop_id': workshop_id,
+				'workshop_name': batch.workshop.name if batch.workshop else 'Неизвестно',
+				'total_produced': 0,
+				'total_used': 0,
+				'total_available': 0,
+			}
+		workshop_stats[workshop_id]['total_produced'] += float(batch.total_quantity)
+		workshop_stats[workshop_id]['total_used'] += float(batch.used_quantity)
+	
+	# Вычисляем доступное для каждого цеха
+	for ws_id in workshop_stats:
+		ws = workshop_stats[ws_id]
+		ws['total_available'] = ws['total_produced'] - ws['total_used']
+	
+	return Response({
+		'total_produced': float(total_produced),
+		'total_used': float(total_used),
+		'total_available': total_available,
+		'recent_batches': batches_data,
+		'by_workshop': list(workshop_stats.values()),
+	})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def workshop_logs(request, workshop_id):
+	"""
+	Получает логи (последние действия) для конкретного цеха
+	"""
+	try:
+		workshop = Workshop.objects.get(id=workshop_id, is_active=True)
+	except Workshop.DoesNotExist:
+		return Response({'error': 'Цех не найден'}, status=404)
+	
+	# Получаем последние 50 логов
+	logs = WorkshopLog.objects.filter(workshop=workshop).select_related('user')[:50]
+	
+	logs_data = []
+	for log in logs:
+		logs_data.append({
+			'id': log.id,
+			'user_name': log.user.get_full_name() if log.user else 'Система',
+			'action': log.action,
+			'description': log.description,
+			'created_at': log.created_at.isoformat(),
+		})
+	
+	return Response({
+		'workshop_id': workshop.id,
+		'workshop_name': workshop.name,
+		'logs': logs_data,
+	})
 
 def master_dashboard(request):
     """Страница мастера с его цехами и статистикой"""

@@ -131,8 +131,8 @@
                             <div class="flex flex-col items-end space-y-2">
                                 <span :class="getRoleClass(employee.role)" class="px-2 py-1 text-xs rounded-full font-medium" x-text="getRoleLabel(employee.role)"></span>
                                 <div class="flex items-center space-x-1">
-                                    <div class="w-2 h-2 rounded-full" :class="getEfficiencyColor(getEmployeeStats(employee.id).efficiency || 0)"></div>
-                                    <span class="text-xs text-gray-500" x-text="getEmployeeStats(employee.id).efficiency || 0 + '%'">0%</span>
+                                    <div class="w-2 h-2 rounded-full" :class="getRatingColor(employee.rating || 100)"></div>
+                                    <span class="text-xs text-gray-500 font-semibold" x-text="employee.rating || 100"></span>
                                 </div>
                             </div>
                         </div>
@@ -172,7 +172,7 @@
                 </div>
                 <form @submit.prevent="addEmployee" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">ФИО <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Полное имя <span class="text-red-500">*</span></label>
                         <input type="text" x-model="formData.full_name" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     <div>
@@ -183,11 +183,11 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Телефон <span class="text-red-500">*</span></label>
-                        <input type="tel" x-model="formData.phone" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <input type="tel" x-model="formData.phone" @input="if (!formData.whatsapp) formData.whatsapp = formData.phone" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-                        <input type="email" x-model="formData.email" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
+                        <input type="tel" x-model="formData.whatsapp" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Автоматически заполняется из телефона" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Цех</label>
@@ -270,8 +270,8 @@
                                         <span class="text-gray-900" x-text="selectedEmployee.phone"></span>
                                     </div>
                                     <div class="flex items-center space-x-3">
-                                        <i data-lucide="mail" class="w-5 h-5 text-gray-400"></i>
-                                        <span class="text-gray-900" x-text="selectedEmployee.email"></span>
+                                        <i data-lucide="message-circle" class="w-5 h-5 text-gray-400"></i>
+                                        <span class="text-gray-900" x-text="selectedEmployee.whatsapp || selectedEmployee.phone || '—'"></span>
                                     </div>
                                     <div class="flex items-center space-x-3">
                                         <i data-lucide="building" class="w-5 h-5 text-gray-400"></i>
@@ -303,14 +303,42 @@
                                 <p class="text-gray-600 text-sm" x-text="selectedEmployee.notes || 'Примечания отсутствуют'"></p>
                             </div>
                                 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <h4 class="font-medium text-gray-700 mb-1">??? ??????:</h4>
-                                        <p class="text-gray-600 text-sm" x-text="selectedEmployee.payment_type_display || '-'"></p>
+                                <div>
+                                    <h4 class="font-medium text-gray-700 mb-1">Тип оплаты:</h4>
+                                    <p class="text-gray-600 text-sm" x-text="selectedEmployee.payment_type_display || '-'"></p>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-700 mb-1">График:</h4>
+                                    <p class="text-gray-600 text-sm" x-text="selectedEmployee.work_schedule_display || '-'"></p>
+                                </div>
+                                {% if request.user.is_superuser or request.user.role == 'admin' %}
+                                <div class="col-span-2 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <h4 class="font-semibold mb-3 flex items-center">
+                                        <i data-lucide="key" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                        Данные для входа
+                                    </h4>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <p class="text-gray-500 text-sm mb-1">Username</p>
+                                            <p class="font-medium text-gray-900 font-mono" x-text="selectedEmployee.username || '—'"></p>
+                                        </div>
+                                        <div>
+                                            <p class="text-gray-500 text-sm mb-1">Пароль</p>
+                                            <div class="flex items-center space-x-2">
+                                                <p class="font-medium text-gray-900 font-mono flex-1" x-text="showPassword ? employeePassword : '••••••••'"></p>
+                                                <button @click="showPassword = !showPassword" class="text-blue-600 hover:text-blue-800 text-sm">
+                                                    <span x-text="showPassword ? 'Скрыть' : 'Показать'"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="pt-2 border-t border-gray-200">
+                                            <button @click="openChangePasswordModal()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                                Изменить пароль
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 class="font-medium text-gray-700 mb-1">??????:</h4>
-                                        <p class="text-gray-600 text-sm" x-text="selectedEmployee.work_schedule_display || '-'"></p>
-                                    </div>
+                                </div>
+                                {% endif %}
                                 </div>
                         </div>
 
@@ -330,8 +358,8 @@
                                     <div class="text-xs text-blue-600">Заработок</div>
                                 </div>
                                 <div class="bg-purple-50 rounded-lg p-3 text-center">
-                                    <div class="text-lg font-bold text-purple-700" x-text="getEmployeeStats(selectedEmployee.id).efficiency || 0 + '%'">0%</div>
-                                    <div class="text-xs text-purple-600">Эффективность</div>
+                                    <div class="text-lg font-bold text-purple-700" x-text="selectedEmployee.rating || 100">100</div>
+                                    <div class="text-xs text-purple-600">Рейтинг</div>
                                 </div>
                             </div>
                             
@@ -598,6 +626,27 @@
             </div>
         </div>
     </template>
+    <!-- Change Password Modal -->
+    <template x-if="showChangePasswordModal">
+        <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+            <div class="bg-white rounded-xl p-6 w-full max-w-sm mx-4">
+                <div class="text-center mb-4">
+                    <i data-lucide="key" class="w-12 h-12 text-blue-500 mx-auto mb-3"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Изменить пароль</h3>
+                    <p class="text-gray-600" x-text="'Новый пароль для ' + (selectedEmployee?.full_name || selectedEmployee?.name || 'сотрудника')"></p>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Новый пароль</label>
+                    <input type="password" x-model="newPassword" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Введите новый пароль">
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="closeChangePasswordModal()" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
+                    <button @click="changePassword()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- Confirm Transfer Modal -->
     <template x-if="showConfirmModal">
         <div class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
@@ -636,6 +685,10 @@
             newTaskText: '',
             successModalText: '',
             employeeAttendanceStatus: {}, // Статус присутствия сотрудников
+            showPassword: false,
+            employeePassword: '',
+            showChangePasswordModal: false,
+            newPassword: '',
             roles: {
                 employee: { label: 'Сотрудник', color: 'bg-green-100 text-green-800' },
                 worker: { label: 'Сотрудник', color: 'bg-green-100 text-green-800' },
@@ -717,7 +770,7 @@
                     }
                     return (employee.name || employee.full_name || '').toLowerCase().includes(searchLower) ||
                         (employee.phone || '').includes(this.searchTerm) ||
-                        (employee.email || '').toLowerCase().includes(searchLower);
+                        (employee.whatsapp || employee.phone || '').toLowerCase().includes(searchLower);
                 });
             },
             // Верхняя статистика теперь приходит с сервера в totalStats
@@ -739,6 +792,12 @@
                 if (efficiency >= 90) return 'bg-green-500';
                 if (efficiency >= 75) return 'bg-blue-500';
                 if (efficiency >= 60) return 'bg-yellow-500';
+                return 'bg-red-500';
+            },
+            getRatingColor(rating) {
+                if (rating >= 90) return 'bg-green-500';
+                if (rating >= 75) return 'bg-blue-500';
+                if (rating >= 60) return 'bg-yellow-500';
                 return 'bg-red-500';
             },
             formatCurrency(value) {
@@ -779,9 +838,52 @@
                 this.selectedEmployee = employee;
                 this.profileTab = 'info';
                 this.showProfileModal = true;
+                this.showPassword = false;
+                // Пароль по умолчанию: +{username}+
+                this.employeePassword = `+${employee.username}+`;
                 setTimeout(() => {
                     lucide.createIcons();
                 }, 100);
+            },
+            openChangePasswordModal() {
+                this.showChangePasswordModal = true;
+                this.newPassword = '';
+            },
+            closeChangePasswordModal() {
+                this.showChangePasswordModal = false;
+                this.newPassword = '';
+            },
+            async changePassword() {
+                if (!this.selectedEmployee || !this.newPassword) {
+                    this.successModalText = 'Введите новый пароль';
+                    this.showSuccessModal = true;
+                    return;
+                }
+                try {
+                    const response = await fetch(`/employees/api/employees/${this.selectedEmployee.id}/change_password/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({ password: this.newPassword }),
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        this.employeePassword = this.newPassword;
+                        this.closeChangePasswordModal();
+                        this.successModalText = 'Пароль успешно изменен';
+                        this.showSuccessModal = true;
+                    } else {
+                        const data = await response.json();
+                        this.successModalText = 'Ошибка: ' + (data.error || 'Не удалось изменить пароль');
+                        this.showSuccessModal = true;
+                    }
+                } catch (e) {
+                    console.error('Ошибка изменения пароля:', e);
+                    this.successModalText = 'Ошибка изменения пароля';
+                    this.showSuccessModal = true;
+                }
             },
             closeProfileModal() {
                 this.showProfileModal = false;
@@ -793,10 +895,14 @@
                 this.showDeleteModal = true;
             },
             async addEmployee() {
-                if (!this.formData.full_name || !this.formData.phone || !this.formData.email) {
+                if (!this.formData.full_name || !this.formData.phone || !this.formData.whatsapp) {
                     this.successModalText = 'Пожалуйста, заполните обязательные поля';
                     this.showSuccessModal = true;
                     return;
+                }
+                // Если WhatsApp не заполнен, используем телефон
+                if (!this.formData.whatsapp && this.formData.phone) {
+                    this.formData.whatsapp = this.formData.phone;
                 }
                 try {
                     const response = await fetch('/employees/api/employees/', {
@@ -867,7 +973,7 @@
                     full_name: '',
                     role: 'worker',
                     phone: '',
-                    email: '',
+                    whatsapp: '',
                     workshop: ''
                 };
             },

@@ -13,12 +13,15 @@ class EmployeeSerializer(serializers.ModelSerializer):
     
     # Для фронта:
     name = serializers.CharField(source='get_full_name', read_only=True)
-    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    full_name = serializers.CharField(required=False, allow_blank=True)
     position = serializers.CharField(source='role')
     status = serializers.SerializerMethodField()
     notes = serializers.CharField(required=False, allow_blank=True)
     payment_type = serializers.CharField(required=False)
     work_schedule = serializers.CharField(required=False)
+    whatsapp = serializers.CharField(required=False, allow_blank=True)
+    rating = serializers.IntegerField(required=False)
+    credit = serializers.IntegerField(read_only=True)
     
     # Баланс
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -42,9 +45,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username',
-            'first_name', 'last_name', 'name', 'full_name',
+            'full_name', 'name',  # name - это алиас для get_full_name
             'position', 'role', 'role_display', 'is_active', 'status',
-            'phone', 'email',
+            'phone', 'whatsapp',
             'workshop', 'workshop_name',
             'notes',
             # HR-поля (без документов)
@@ -52,6 +55,8 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'work_schedule', 'work_schedule_display',
             # Финансы
             'balance', 'piecework_rate', 'fixed_salary',
+            # Рейтинг
+            'rating', 'credit',
             # Статистика
             'salary', 'completed_works', 'defects', 'efficiency', 'monthly_salary',
             # Связанные данные
@@ -166,8 +171,23 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Обработка вложенных полей / алиасов
         validated_data['role'] = validated_data.get('role') or validated_data.get('position') or User.Role.WORKER
+        
+        # Если указан телефон, но не указан WhatsApp, используем телефон для WhatsApp
+        if validated_data.get('phone') and not validated_data.get('whatsapp'):
+            validated_data['whatsapp'] = validated_data['phone']
+        
+        # Устанавливаем рейтинг по умолчанию
+        if 'rating' not in validated_data:
+            validated_data['rating'] = 100
+            validated_data['credit'] = 0
+        
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         validated_data['role'] = validated_data.get('role') or validated_data.get('position') or instance.role
+        
+        # Если указан телефон, но не указан WhatsApp, используем телефон для WhatsApp
+        if validated_data.get('phone') and not validated_data.get('whatsapp'):
+            validated_data['whatsapp'] = validated_data['phone']
+        
         return super().update(instance, validated_data)

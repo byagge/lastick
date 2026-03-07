@@ -114,6 +114,54 @@
 
         <div class="grid grid-cols-12 gap-4">
             <div class="col-span-12 xl:col-span-8 space-y-4">
+                <!-- Settings Panel (Admin Only) -->
+                <div x-show="isAdmin" class="panel p-4 border-blue-200 bg-blue-50">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Настройки штрафов</h3>
+                            <p class="text-xs text-gray-500">Настройка штрафа за час опоздания</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-700">Штраф за час:</label>
+                                <input type="number" min="0" step="0.01" x-model="settings.penalty_per_hour" 
+                                       @change="saveSettings()"
+                                       class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                <span class="text-sm text-gray-600">сом</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-700">Льготный период:</label>
+                                <input type="number" min="0" step="1" x-model="settings.grace_period_minutes" 
+                                       @change="saveSettings()"
+                                       class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                <span class="text-sm text-gray-600">мин</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Penalty Preview Table -->
+                    <div class="mt-4">
+                        <p class="text-xs text-gray-600 mb-2">Предварительный расчет штрафов:</p>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-xs border border-gray-200 rounded-lg">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Опоздание</th>
+                                        <th class="px-3 py-2 text-left">Штраф</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="i in 8" :key="i">
+                                        <tr class="border-t border-gray-200">
+                                            <td class="px-3 py-2" x-text="i === 1 ? '0-1 час' : (i - 1) + '-' + i + ' часов'"></td>
+                                            <td class="px-3 py-2 font-semibold" x-text="formatMoney((settings.penalty_per_hour || 0) * i)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="panel p-4">
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                         <div>
@@ -179,10 +227,13 @@
                                           x-text="getStatusText(record.status)"></span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span x-show="record.is_late" class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full badge-late">
-                                        <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>
-                                        Опоздание
-                                    </span>
+                                    <div x-show="record.is_late" class="flex flex-col">
+                                        <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full badge-late mb-1">
+                                            <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>
+                                            Опоздание
+                                        </span>
+                                        <span class="text-xs text-gray-600" x-text="'На ' + (record.late_hours || 0) + ' ч.'"></span>
+                                    </div>
                                     <span x-show="!record.is_late" class="text-sm text-gray-400">-</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -314,18 +365,71 @@
                 date_to: '',
                 status: ''
             },
+            settings: {
+                penalty_per_hour: 100,
+                grace_period_minutes: 10
+            },
             isAdmin: "{{ request.user.role }}" === "admin",
             editingPenaltyId: null,
             penaltyDraft: '',
             loading: false,
 
             async init() {
+                await this.loadSettings();
                 await this.loadOverviewData();
                 await this.loadAttendanceData();
                 lucide.createIcons();
                 this.$nextTick(() => {
                     lucide.createIcons();
                 });
+            },
+
+            async loadSettings() {
+                try {
+                    const response = await fetch('/attendance/api/settings/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.settings = {
+                            penalty_per_hour: data.penalty_per_hour || 100,
+                            grace_period_minutes: data.grace_period_minutes || 10
+                        };
+                    }
+                } catch (e) {
+                    console.error('Ошибка загрузки настроек:', e);
+                }
+            },
+
+            async saveSettings() {
+                if (!this.isAdmin) return;
+                try {
+                    const response = await fetch('/attendance/api/settings/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            penalty_per_hour: parseFloat(this.settings.penalty_per_hour) || 0,
+                            grace_period_minutes: parseInt(this.settings.grace_period_minutes) || 10
+                        })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.settings = {
+                            penalty_per_hour: data.penalty_per_hour,
+                            grace_period_minutes: data.grace_period_minutes
+                        };
+                        // Перезагружаем данные для обновления штрафов
+                        await this.loadAttendanceData();
+                        await this.loadOverviewData();
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Ошибка сохранения настроек');
+                    }
+                } catch (e) {
+                    console.error('Ошибка сохранения настроек:', e);
+                    alert('Ошибка сохранения настроек');
+                }
             },
 
             async loadOverviewData() {

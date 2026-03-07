@@ -62,14 +62,33 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # username будет сгенерирован автоматически в модели User.save()
-        # если не указан явно
         validated = serializer.validated_data
         
-        # Пароль временный
+        # Автоматическая генерация username (id+num)
+        # Username будет сгенерирован автоматически в модели User.save()
+        
+        # Если указан телефон, используем его для WhatsApp
+        if 'phone' in validated and validated['phone'] and not validated.get('whatsapp'):
+            validated['whatsapp'] = validated['phone']
+        
+        # Создаем пользователя
         user = serializer.save()
-        user.set_password(User.objects.make_random_password())
+        
+        # Генерируем username если не указан
+        if not user.username:
+            user.username = user.generate_username()
+        
+        # Устанавливаем пароль по умолчанию: +{username}+
+        default_password = f"+{user.username}+"
+        user.set_password(default_password)
+        
+        # Устанавливаем рейтинг по умолчанию
+        if not user.rating:
+            user.rating = 100
+            user.credit = 0
+        
         user.save()
+        
         out = self.get_serializer(user)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -191,6 +210,28 @@ def all_employees_by_workshop(request):
     users = User.objects.filter(workshop_id=workshop_id)
     data = EmployeeSerializer(users, many=True).data
     return Response(data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_employee_password(request, employee_id):
+    """Изменяет пароль сотрудника (только для администраторов)"""
+    user = request.user
+    if not (user.is_superuser or getattr(user, 'role', None) in [User.Role.ADMIN]):
+        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        employee = User.objects.get(pk=employee_id)
+    except User.DoesNotExist:
+        return Response({'error': 'Сотрудник не найден'}, status=status.HTTP_404_NOT_FOUND)
+    
+    new_password = request.data.get('password')
+    if not new_password:
+        return Response({'error': 'Пароль не указан'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    employee.set_password(new_password)
+    employee.save()
+    
+    return Response({'success': True, 'message': 'Пароль успешно изменен'})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

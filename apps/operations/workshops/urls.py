@@ -18,6 +18,9 @@ urlpatterns = [
     path('api/add-master/', views.add_workshop_master, name='add-workshop-master'),
     path('api/remove-master/', views.remove_workshop_master, name='remove-workshop-master'),
     path('api/workshops/master-stats/', views.master_workshops_stats, name='master-workshops-stats'),
+    # Нейтральная зона и логи
+    path('api/neutral-zone/', views.neutral_zone_info, name='neutral-zone-info'),
+    path('api/workshops/<int:workshop_id>/logs/', views.workshop_logs, name='workshop-logs'),
 ]
 
 urlpatterns += router.urls 

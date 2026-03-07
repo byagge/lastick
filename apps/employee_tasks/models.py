@@ -387,30 +387,61 @@ def create_defect_on_defective_change(sender, instance, **kwargs):
 
 @receiver(post_save, sender=EmployeeTask)
 def update_earnings_and_materials(sender, instance, created, **kwargs):
-    """Обновляет заработок, учитывает расход сырья и пополняет баланс пользователя"""
-    try:
-        with transaction.atomic():
-            # Рассчитываем заработок по текущим значениям
-            instance.calculate_earnings()
-            # Списываем материалы по дельте; если запись только что создана и есть выполненное количество, спишем сразу
-            delta = getattr(instance, '_delta_completed_quantity', None)
-            if delta is None:
-                delta = instance.completed_quantity if created else 0
-            if int(delta) > 0:
-                instance.consume_materials(int(delta))
-            # Обновляем агрегаты в базе без рекурсии
-            EmployeeTask.objects.filter(pk=instance.pk).update(
-                earnings=instance.earnings,
-                penalties=instance.penalties,
-                net_earnings=instance.net_earnings
-            )
-            # Пополняем баланс сотрудника разницей чистого заработка
-            old_net = getattr(instance, '_old_net_earnings', Decimal('0'))
-            new_net = Decimal(str(instance.net_earnings or 0))
-            delta_net = new_net - old_net
-            if delta_net != 0:
-                from django.db.models import F
-                User.objects.filter(pk=instance.employee_id).update(balance=F('balance') + delta_net)
-    except Exception as e:
-        # Логируем ошибку, но не прерываем выполнение
-        logging.getLogger(__name__).warning(f"Ошибка в update_earnings_and_materials: {e}")
+	"""Обновляет заработок, учитывает расход сырья и пополняет баланс пользователя"""
+	try:
+		with transaction.atomic():
+			# Рассчитываем заработок по текущим значениям
+			instance.calculate_earnings()
+			# Списываем материалы по дельте; если запись только что создана и есть выполненное количество, спишем сразу
+			delta = getattr(instance, '_delta_completed_quantity', None)
+			if delta is None:
+				delta = instance.completed_quantity if created else 0
+			if int(delta) > 0:
+				instance.consume_materials(int(delta))
+			# Обновляем агрегаты в базе без рекурсии
+			EmployeeTask.objects.filter(pk=instance.pk).update(
+				earnings=instance.earnings,
+				penalties=instance.penalties,
+				net_earnings=instance.net_earnings
+			)
+			# Пополняем баланс сотрудника разницей чистого заработка
+			old_net = getattr(instance, '_old_net_earnings', Decimal('0'))
+			new_net = Decimal(str(instance.net_earnings or 0))
+			delta_net = new_net - old_net
+			if delta_net != 0:
+				from django.db.models import F
+				User.objects.filter(pk=instance.employee_id).update(balance=F('balance') + delta_net)
+			
+			# Логируем изменения задачи
+			if instance.stage and instance.stage.workshop:
+				from apps.operations.workshops.models import WorkshopLog
+				old_instance = None
+				if not created:
+					try:
+						old_instance = EmployeeTask.objects.get(pk=instance.pk)
+					except:
+						pass
+				
+				if created:
+					WorkshopLog.add(
+						workshop=instance.stage.workshop,
+						user=instance.employee,
+						action="Создана задача",
+						description=f"Задача #{instance.id}: {instance.quantity} ед., этап '{instance.stage.operation}'"
+					)
+				elif old_instance:
+					changes = []
+					if old_instance.completed_quantity != instance.completed_quantity:
+						changes.append(f"Выполнено: {old_instance.completed_quantity} → {instance.completed_quantity}")
+					if old_instance.defective_quantity != instance.defective_quantity:
+						changes.append(f"Брак: {old_instance.defective_quantity} → {instance.defective_quantity}")
+					if changes:
+						WorkshopLog.add(
+							workshop=instance.stage.workshop,
+							user=instance.employee,
+							action="Обновлена задача",
+							description=f"Задача #{instance.id}: {', '.join(changes)}"
+						)
+	except Exception as e:
+		# Логируем ошибку, но не прерываем выполнение
+		logging.getLogger(__name__).warning(f"Ошибка в update_earnings_and_materials: {e}")

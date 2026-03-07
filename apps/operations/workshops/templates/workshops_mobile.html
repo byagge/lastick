@@ -74,19 +74,79 @@
                         <div>
                             <p class="text-gray-500">Неделя</p>
                             <p class="font-semibold text-gray-900" x-text="totalStats.week_stats?.completed_works || 0"></p>
-                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.week_stats?.defects || 0)"></p>
+                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.week_stats?.defects || 0).toFixed(2) + ' кг'"></p>
                         </div>
                         <div>
                             <p class="text-gray-500">Месяц</p>
                             <p class="font-semibold text-gray-900" x-text="totalStats.month_stats?.completed_works || 0"></p>
-                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.month_stats?.defects || 0)"></p>
+                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.month_stats?.defects || 0).toFixed(2) + ' кг'"></p>
                         </div>
                         <div>
                             <p class="text-gray-500">Всего</p>
                             <p class="font-semibold text-gray-900" x-text="totalStats.total_stats?.completed_works || 0"></p>
-                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.total_stats?.defects || 0)"></p>
+                            <p class="text-gray-400" x-text="'Брак: ' + (totalStats.total_stats?.defects || 0).toFixed(2) + ' кг'"></p>
                         </div>
                     </div>
+                </div>
+
+                <!-- Нейтральная зона (между цехами) -->
+                <div class="card bg-white rounded-xl p-4 mb-4" x-data="{ neutralZone: null, loading: false }" x-init="async () => { loading = true; try { const r = await fetch('/workshops/api/neutral-zone/'); neutralZone = await r.json(); } catch(e) { console.error(e); } finally { loading = false; } }">
+                    <div class="text-sm font-semibold text-gray-900 mb-2">Нейтральная зона</div>
+                    <div class="text-xs text-gray-500 mb-3">Между цехами</div>
+                    <template x-if="loading">
+                        <div class="text-center py-2">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
+                        </div>
+                    </template>
+                    <template x-if="!loading && neutralZone">
+                        <div>
+                            <!-- Общая статистика -->
+                            <div class="bg-blue-50 rounded-lg p-3 mb-3">
+                                <div class="grid grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                        <p class="text-gray-500">Произведено</p>
+                                        <p class="font-semibold" x-text="neutralZone.total_produced.toFixed(2) + ' кг'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500">Использовано</p>
+                                        <p class="font-semibold" x-text="neutralZone.total_used.toFixed(2) + ' кг'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500">Доступно</p>
+                                        <p class="font-semibold text-emerald-600" x-text="neutralZone.total_available.toFixed(2) + ' кг'"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- По цехам-источникам -->
+                            <template x-if="neutralZone.by_workshop && neutralZone.by_workshop.length > 0">
+                                <div class="space-y-2">
+                                    <div class="text-xs text-gray-500 mb-1">По цехам:</div>
+                                    <template x-for="zone in neutralZone.by_workshop" :key="zone.workshop_id">
+                                        <div class="bg-gray-50 rounded-lg p-2">
+                                            <div class="text-xs font-semibold text-gray-900 mb-1" x-text="zone.workshop_name"></div>
+                                            <div class="grid grid-cols-3 gap-1 text-xs">
+                                                <div>
+                                                    <p class="text-gray-500">Произв.</p>
+                                                    <p class="font-semibold" x-text="zone.total_produced.toFixed(2)"></p>
+                                                </div>
+                                                <div>
+                                                    <p class="text-gray-500">Использ.</p>
+                                                    <p class="font-semibold" x-text="zone.total_used.toFixed(2)"></p>
+                                                </div>
+                                                <div>
+                                                    <p class="text-gray-500">Доступно</p>
+                                                    <p class="font-semibold text-emerald-600" x-text="zone.total_available.toFixed(2)"></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="!loading && !neutralZone">
+                        <p class="text-xs text-gray-400 text-center py-2">Нет данных</p>
+                    </template>
                 </div>
 
                 <div class="space-y-4">
@@ -110,7 +170,7 @@
                                 </div>
                                 <div class="bg-gray-50 rounded-lg p-2">
                                     <p class="text-gray-500">Браков</p>
-                                    <p class="font-semibold text-red-600" x-text="workshop.defects || 0"></p>
+                                    <p class="font-semibold text-red-600" x-text="(workshop.defects || 0).toFixed(2) + ' кг'"></p>
                                 </div>
                                 <div class="bg-gray-50 rounded-lg p-2">
                                     <p class="text-gray-500">Активных заказов</p>

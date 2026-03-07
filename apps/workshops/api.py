@@ -442,6 +442,15 @@ class ExtrusionReportView(APIView):
                 employee=user,
                 total_quantity=produced_quantity,
             )
+            
+            # Логируем действие
+            from apps.operations.workshops.models import WorkshopLog
+            WorkshopLog.add(
+                workshop=workshop,
+                user=user,
+                action=f"Выгрузка в нейтральную зону",
+                description=f"Создана партия #{neutral_batch.id}: {float(produced_quantity)} кг произведено, {float(scrap_quantity)} кг брака"
+            )
 
             # Создаём запись брака в новой системе дефектов (одна запись, с количеством в комментарии)
             defect = None
@@ -682,6 +691,17 @@ class PackagingReportView(APIView):
                 quantity=int(produced_quantity),
                 workshop=workshop,
                 status="stock",
+            )
+            
+            # Логируем действие
+            from apps.operations.workshops.models import WorkshopLog
+            mode_text = "по заявке" if mode == "order" else "на запас"
+            order_text = f"Заказ #{order.id}" if order else "Без заказа"
+            WorkshopLog.add(
+                workshop=workshop,
+                user=user,
+                action=f"Упаковка ({mode_text})",
+                description=f"{order_text}: {float(produced_quantity)} кг доработано, {float(scrap_quantity)} кг брака. Партия #{batch_id}"
             )
 
             # Запись брака
