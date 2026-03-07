@@ -46,7 +46,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username',
             'full_name', 'name',  # name - это алиас для get_full_name
-            'position', 'role', 'role_display', 'is_active', 'status',
+            'position', 'role', 'role_display', 'is_active', 'status', 'is_blocked',
             'phone', 'whatsapp',
             'workshop', 'workshop_name',
             'notes',
@@ -64,6 +64,8 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ]
 
     def get_status(self, obj):
+        if getattr(obj, 'is_blocked', False):
+            return 'blocked'
         return 'active' if obj.is_active else 'inactive'
     
     def _calc_stats(self, obj):

@@ -123,6 +123,24 @@ class FinishedGoodSaleViewSet(viewsets.ModelViewSet):
             if sale.order:
                 finished_good.order = sale.order
             finished_good.save(update_fields=['status', 'issued_at', 'recipient', 'order'])
+
+            # Автоматически создаем доход "С продаж" в finance при продаже готовой продукции.
+            # Защита от дублей: используем уникальную ссылку в order_reference.
+            from apps.finance.models import Income
+            order_reference = f"FGSALE:{sale.pk}"
+            if not Income.objects.filter(order_reference=order_reference).exists():
+                product_name = getattr(getattr(finished_good, 'product', None), 'name', None) or str(getattr(finished_good, 'product', ''))
+                qty = getattr(finished_good, 'quantity', None) or 0
+                order_name = getattr(getattr(sale, 'order', None), 'name', '') if sale.order_id else ''
+                order_suffix = f", заказ: {order_name}" if order_name else ""
+                Income.objects.create(
+                    income_type='sales',
+                    amount=sale.price,
+                    description=f"Продажа готовой продукции: {product_name} x{qty}, клиент: {sale.client.name}{order_suffix}",
+                    order_reference=order_reference,
+                    date=sale.sold_at.date() if sale.sold_at else timezone.now().date(),
+                    created_by=request.user,
+                )
         output = self.get_serializer(sale)
         return Response(output.data, status=status.HTTP_201_CREATED)
 

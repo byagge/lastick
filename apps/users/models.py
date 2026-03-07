@@ -75,7 +75,13 @@ class User(AbstractUser):
         default=Decimal('0.00'),
         help_text='Текущий баланс пользователя в сомах'
     )
-    
+    # Флаг блокировки пользователя
+    is_blocked = models.BooleanField(
+        'Заблокирован',
+        default=False,
+        help_text='Если включено, пользователь не может пользоваться системой и будет перенаправлен на страницу блокировки'
+    )
+
     # Рейтинг и кредит
     rating = models.IntegerField(
         'Рейтинг',

@@ -7,7 +7,7 @@ urlpatterns = [
     # Страница управления материалами
     path('', views.materials_page, name='materials_page'),
     path('issue/', views.issue_page, name='issue_page'),
-    
+
     # API endpoints
     path('api/materials/', views.api_materials_list, name='api_materials_list'),
     path('api/materials/create/', views.api_material_create, name='api_material_create'),
@@ -17,8 +17,11 @@ urlpatterns = [
     path('api/materials/stats/', views.api_materials_stats, name='api_materials_stats'),
     path('api/materials/issue/', views.api_material_issue, name='api_material_issue'),
     path('api/materials/balances/', views.api_material_balances, name='api_material_balances'),
-    
+
     # API для приходов
     path('api/materials/incoming/', views.api_material_incoming, name='api_material_incoming'),
     path('api/materials/<int:material_id>/incomings/', views.api_material_incomings, name='api_material_incomings'),
+
+    # API для выдач (логи)
+    path('api/materials/<int:material_id>/issues/', views.api_material_issues, name='api_material_issues'),
 ] 

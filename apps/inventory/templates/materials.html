@@ -331,6 +331,11 @@
                                                 title="История приходов">
                                             <i data-lucide="history" style="width: 16px; height: 16px;"></i>
                                         </button>
+                                        <button @click="openIssueHistory(material)" 
+                                                class="p-1 text-amber-600 hover:text-amber-800" 
+                                                title="История выдач">
+                                            <i data-lucide="hand" style="width: 16px; height: 16px;"></i>
+                                        </button>
                                         <button @click="openEditForm(material)" 
                                                 class="p-1 text-blue-600 hover:text-blue-800" 
                                                 title="Редактировать">
@@ -391,6 +396,11 @@
                                     class="p-1 text-blue-600 hover:text-blue-800" 
                                     title="История приходов">
                                 <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <button @click="openIssueHistory(material)" 
+                                    class="p-1 text-amber-600 hover:text-amber-800" 
+                                    title="История выдач">
+                                <i data-lucide="hand" style="width: 16px; height: 16px;"></i>
                             </button>
                             <button @click="openEditForm(material)" 
                                     class="p-1 text-blue-600 hover:text-blue-800" 
@@ -871,9 +881,79 @@
         </div>
 
         <!-- Нижняя панель статистики -->
-
+        
         </div>
     </div>
+
+        <!-- Модальное окно истории выдач -->
+        <div x-show="showIssueHistoryModal" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-40 flex justify-end z-50">
+            <div x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="translate-x-full opacity-0"
+                 x-transition:enter-end="translate-x-0 opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="translate-x-0 opacity-100"
+                 x-transition:leave-end="translate-x-full opacity-0"
+                 class="relative w-full max-w-xl h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">История выдач</p>
+                        <h3 class="text-lg font-semibold text-gray-900" x-text="issueHistoryData.material?.name || 'Материал'"></h3>
+                    </div>
+                    <button @click="closeIssueHistory()" class="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto">
+                    <template x-if="issueHistoryData.issues.length === 0">
+                        <div class="text-center py-12">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="package" class="w-8 h-8 text-gray-400"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Выдач пока нет</h3>
+                            <p class="text-gray-600">История выдач будет отображаться здесь</p>
+                        </div>
+                    </template>
+                    <template x-for="issue in issueHistoryData.issues" :key="issue.id">
+                        <div class="px-6 py-4 border-b border-gray-100 last:border-b-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                                        <i data-lucide="hand" class="w-4 h-4 text-amber-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            <span x-text="issue.employee_name || 'Неизвестный сотрудник'"></span>
+                                        </p>
+                                        <p class="text-xs text-gray-500" x-text="new Date(issue.created_at).toLocaleString('ru-RU')"></p>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-900">
+                                    <span x-text="issue.quantity"></span>
+                                    <span x-text="issueHistoryData.material?.unit || ''"></span>
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                                <div>
+                                    <span class="text-gray-500">До:</span>
+                                    <span class="font-medium ml-1" x-text="issue.quantity_before"></span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">После:</span>
+                                    <span class="font-medium ml-1" x-text="issue.quantity_after"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
 
     <!-- Логика Alpine.js -->
     <script>
@@ -1312,9 +1392,9 @@
                     this.formData = {
                         name: '',
                         unit: '',
-                        quantity: 0,
-                        min_quantity: 0,
-                        price: 0,
+                        quantity: '',
+                        min_quantity: '',
+                        price: '',
                         country: '',
                         description: ''
                     };
@@ -1460,14 +1540,14 @@
                 showIncomingForm: false,
                 incomingData: {
                     material: null,
-                    quantity: 0,
+                    quantity: '',
                     price_per_unit: '',
                     notes: ''
                 },
     
                 openIncomingForm(material) {
                     this.incomingData.material = material;
-                    this.incomingData.quantity = 0;
+                    this.incomingData.quantity = '';
                     this.incomingData.price_per_unit = '';
                     this.incomingData.notes = '';
                     this.showIncomingForm = true;
@@ -1493,7 +1573,7 @@
                     this.showIncomingForm = false;
                     this.incomingData = {
                         material: null,
-                        quantity: 0,
+                        quantity: '',
                         price_per_unit: '',
                         notes: ''
                     };
@@ -1581,6 +1661,42 @@
                         alert('Ошибка загрузки истории приходов');
                     }
     
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                // История выдач
+                showIssueHistoryModal: false,
+                issueHistoryData: {
+                    material: null,
+                    issues: [],
+                },
+
+                async openIssueHistory(material) {
+                    this.issueHistoryData.material = material;
+                    this.issueHistoryData.issues = [];
+                    this.showIssueHistoryModal = true;
+
+                    try {
+                        const resp = await fetch(`/inventory/api/materials/${material.id}/issues/`);
+                        const data = await resp.json();
+
+                        if (data.status === 'success') {
+                            this.issueHistoryData.issues = data.data || [];
+                        } else {
+                            alert(data.message || 'Ошибка загрузки истории выдач');
+                            this.showIssueHistoryModal = false;
+                        }
+                    } catch (error) {
+                        alert('Ошибка загрузки истории выдач');
+                        this.showIssueHistoryModal = false;
+                    }
+
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                closeIssueHistory() {
+                    this.showIssueHistoryModal = false;
+                    this.issueHistoryData = { material: null, issues: [] };
                     this.$nextTick(() => lucide.createIcons());
                 }
             };

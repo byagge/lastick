@@ -616,6 +616,23 @@ class PackagingReportView(APIView):
                 status=400,
             )
 
+        # Сколько полуфабриката берём из нейтральной зоны в рамках этой операции
+        try:
+            input_raw = request.data.get("input_quantity")
+            input_quantity = Decimal(str(input_raw)) if input_raw is not None else None
+        except Exception:
+            return Response(
+                {"detail": "Некорректное значение input_quantity."}, status=400
+            )
+
+        if input_quantity is not None and input_quantity <= 0:
+            return Response(
+                {
+                    "detail": "Нужно указать положительное количество полуфабриката, взятого из нейтральной зоны."
+                },
+                status=400,
+            )
+
         mode = (request.data.get("mode") or "order").lower()
         order_item_id = request.data.get("order_item_id")
         product_id = request.data.get("product_id")
@@ -629,7 +646,15 @@ class PackagingReportView(APIView):
                     status=400,
                 )
 
-            total_input = available
+            # Если input_quantity не передан, для обратной совместимости работаем со всей доступной партией,
+            # как и раньше. Если передан — работаем только с указанным объёмом.
+            if input_quantity is None:
+                total_input = available
+            else:
+                if input_quantity > available:
+                    input_quantity = available
+                total_input = input_quantity
+
             if produced_quantity > total_input:
                 produced_quantity = total_input
 
@@ -640,7 +665,7 @@ class PackagingReportView(APIView):
                 else 0.0
             )
 
-            # Списываем всю доступную партию в работу второго цеха
+            # Списываем из партии только тот объём, с которым реально работаем во втором цехе
             batch.consume(total_input)
 
             order_item = None

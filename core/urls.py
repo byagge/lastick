@@ -32,6 +32,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
 	path('', HomeView.as_view(), name='home'),  # Корневой URL с проверкой ролей
+    path('banned/', TemplateView.as_view(template_name='banned.html'), name='banned'),
 	path('accounts/', include('users.urls')),
 	path('settings/', RedirectView.as_view(url='/accounts/profile/', permanent=False), name='settings'),  # Редирект на профиль
 	path('clients/', include('clients.urls')),  # Изменяем с '' на 'clients/'

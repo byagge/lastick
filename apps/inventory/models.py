@@ -31,7 +31,7 @@ class RawMaterial(models.Model):
 
     @property
     def total_value(self):
-        """??????? ????? ??????? ?? ???????."""
+        """Общая стоимость материала на складе."""
         if self.quantity is None or self.price is None:
             return 0
         return self.quantity * self.price
@@ -57,7 +57,62 @@ class MaterialIncoming(models.Model):
         # Автоматически рассчитываем общую стоимость
         if self.price_per_unit is not None and self.total_value is None:
             self.total_value = self.quantity * self.price_per_unit
-        super().save(*args, **kwargs) 
+        super().save(*args, **kwargs)
+
+
+class MaterialIssueLog(models.Model):
+    """Лог выдачи материалов сотрудникам (для администраторов склада)."""
+
+    SOURCE_CHOICES = (
+        ('issue_page', 'Мобильная выдача со склада'),
+        ('other', 'Другое'),
+    )
+
+    material = models.ForeignKey(
+        RawMaterial,
+        on_delete=models.CASCADE,
+        related_name='issue_logs',
+        verbose_name='Материал',
+    )
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='material_issue_logs',
+        verbose_name='Сотрудник',
+    )
+    quantity = models.DecimalField('Количество', max_digits=12, decimal_places=3)
+    quantity_before = models.DecimalField(
+        'Количество до выдачи',
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    quantity_after = models.DecimalField(
+        'Количество после выдачи',
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    source = models.CharField(
+        'Источник',
+        max_length=32,
+        choices=SOURCE_CHOICES,
+        default='issue_page',
+    )
+    created_at = models.DateTimeField('Дата выдачи', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Выдача материала (лог)'
+        verbose_name_plural = 'Выдачи материалов (лог)'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.material.name} - {self.quantity} ({self.employee_id})"
+
 
 class MaterialConsumption(models.Model):
     """Учет расхода сырья при выполнении задач"""

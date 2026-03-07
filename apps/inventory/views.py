@@ -6,9 +6,14 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 import json
 from decimal import Decimal
-from .models import RawMaterial, MaterialIncoming, EmployeeMaterialBalance
 from django.db import models
 
+from .models import (
+    RawMaterial,
+    MaterialIncoming,
+    EmployeeMaterialBalance,
+    MaterialIssueLog,
+)
 
 
 def _as_float(value):
@@ -407,6 +412,7 @@ def api_material_issue(request):
                     'message': 'Недостаточно материалов на складе'
                 }, status=400)
 
+            quantity_before = material.quantity
             material.quantity -= quantity
             material.save()
 
@@ -417,6 +423,15 @@ def api_material_issue(request):
             )
             balance.quantity += quantity
             balance.save()
+
+            MaterialIssueLog.objects.create(
+                material=material,
+                employee=request.user,
+                quantity=quantity,
+                quantity_before=quantity_before,
+                quantity_after=material.quantity,
+                source='issue_page',
+            )
 
         return JsonResponse({
             'status': 'success',
@@ -467,3 +482,55 @@ def api_material_balances(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_material_issues(request, material_id):
+    """API: история выдач конкретного материала для админских экранов."""
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'status': 'error', 'message': 'Требуется авторизация'},
+            status=403,
+        )
+
+    try:
+        try:
+            material = RawMaterial.objects.get(id=material_id)
+        except RawMaterial.DoesNotExist:
+            return JsonResponse(
+                {'status': 'error', 'message': 'Материал не найден'},
+                status=404,
+            )
+
+        logs = material.issue_logs.select_related('employee').all()
+        data = []
+        for log in logs:
+            if log.employee:
+                full_name = (
+                    log.employee.get_full_name()
+                    if hasattr(log.employee, "get_full_name")
+                    else ""
+                )
+                username = getattr(log.employee, "username", "") or ""
+                employee_name = full_name or username or str(log.employee_id)
+            else:
+                employee_name = ""
+
+            data.append({
+                'id': log.id,
+                'employee_id': log.employee_id,
+                'employee_name': employee_name,
+                'quantity': _as_float(log.quantity),
+                'quantity_before': _as_float(log.quantity_before),
+                'quantity_after': _as_float(log.quantity_after),
+                'source': log.source,
+                'created_at': log.created_at.isoformat(),
+            })
+
+        return JsonResponse({'status': 'success', 'data': data})
+    except Exception as e:
+        return JsonResponse(
+            {'status': 'error', 'message': str(e)},
+            status=500,
+        )

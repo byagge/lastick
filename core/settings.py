@@ -73,6 +73,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.BlockedUserMiddleware',  # Редирект заблокированных пользователей на /banned
     'django.contrib.messages.middleware.MessageMiddleware',
     # 'django.contrib.messages.middleware.SessionMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

@@ -2,9 +2,13 @@ from django.shortcuts import render
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
+from django.db import models
+
 from apps.clients.models import Client
 from .serializers import ClientSerializer
-from django.db import models
+from apps.orders.models import Order
+from apps.finance.models import Request
 
 # Create your views here.
 
@@ -28,6 +32,75 @@ class ClientViewSet(viewsets.ModelViewSet):
         if status:
             queryset = queryset.filter(status=status)
         return queryset
+
+    @action(detail=True, methods=['get'], url_path='details')
+    def details(self, request, pk=None):
+        """
+        Расширенная информация по клиенту:
+        - все заказы клиента
+        - оборот по заказам
+        - средний чек
+        - заявки из финансового модуля
+        """
+        client = self.get_object()
+
+        # Заказы клиента
+        orders_qs = (
+            Order.objects.filter(client=client)
+            .prefetch_related('items__product')
+            .order_by('-created_at')
+        )
+
+        orders_data = []
+        total_turnover = 0
+        total_quantity = 0
+
+        for order in orders_qs:
+            order_total = 0
+            for item in order.items.all():
+                product = getattr(item, 'product', None)
+                price = getattr(product, 'price', 0) or 0
+                qty = item.quantity or 0
+                order_total += qty * price
+                total_quantity += qty
+
+            total_turnover += order_total
+
+            orders_data.append({
+                'id': order.id,
+                'name': str(order),
+                'status': order.status,
+                'status_display': getattr(order, 'status_display', order.status),
+                'created_at': order.created_at,
+                'total_quantity': getattr(order, 'total_quantity', None) or 0,
+                'total_price': order_total,
+            })
+
+        orders_count = len(orders_data)
+        average_check = float(total_turnover / orders_count) if orders_count else 0
+
+        # Заявки из finance.Request
+        from django.db.models import Sum
+
+        requests_qs = Request.objects.filter(client=client)
+        agg = requests_qs.aggregate(total=Sum('total_amount'))
+        requests_total = agg.get('total') or 0
+        requests_count = requests_qs.count()
+
+        client_data = ClientSerializer(client).data
+        client_data.update({
+            'orders': orders_data,
+            'orders_count': orders_count,
+            'orders_total_quantity': total_quantity,
+            'total_turnover': total_turnover,
+            'average_check': average_check,
+            # Для мобильного шаблона
+            'total_spent': total_turnover,
+            # Инфо по заявкам (продажи через finance)
+            'requests_total_amount': requests_total,
+            'requests_count': requests_count,
+        })
+        return Response(client_data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

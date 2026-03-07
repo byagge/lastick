@@ -1,8 +1,8 @@
 from django.contrib import admin
-from .models import Product, MaterialConsumption
+from .models import CostingSettings, Product, ProductMaterialNorm
 
-class MaterialConsumptionInline(admin.TabularInline):
-    model = MaterialConsumption
+class ProductMaterialNormInline(admin.TabularInline):
+    model = ProductMaterialNorm
     extra = 1
 
 @admin.register(Product)
@@ -11,7 +11,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'type')
     list_filter = ('type', 'services', 'is_glass', 'glass_type')
     filter_horizontal = ('services',)
-    inlines = [MaterialConsumptionInline]
+    inlines = [ProductMaterialNormInline]
     
     fieldsets = (
         ('Основная информация', {
@@ -40,8 +40,20 @@ class ProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('services')
 
-@admin.register(MaterialConsumption)
-class MaterialConsumptionAdmin(admin.ModelAdmin):
+@admin.register(ProductMaterialNorm)
+class ProductMaterialNormAdmin(admin.ModelAdmin):
     list_display = ('product', 'workshop', 'material', 'amount')
     list_filter = ('product', 'workshop', 'material')
     search_fields = ('product__name', 'workshop__name', 'material__name')
+
+
+@admin.register(CostingSettings)
+class CostingSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        'overhead_percent',
+        'overhead_per_unit',
+        'allocate_overhead_from_finance',
+        'overhead_period_days',
+        'updated_at',
+    )
+    filter_horizontal = ('overhead_categories',)

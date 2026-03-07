@@ -76,6 +76,7 @@
                 </div>
                 <div class="font-bold text-xl mb-1" x-text="profileClient.name"></div>
                 <div class="text-gray-500 mb-1" x-text="profileClient.phone"></div>
+                <div class="text-gray-500 mb-1" x-text="profileClient.whatsapp ? 'WhatsApp: ' + profileClient.whatsapp : ''"></div>
                 <div class="text-gray-500 mb-1" x-text="profileClient.email"></div>
                 <span :class="getStatusClass(profileClient.status)" class="px-3 py-1 text-sm rounded-full mt-2" x-text="getStatusText(profileClient.status)"></span>
             </div>
@@ -88,6 +89,32 @@
                     <span class="text-gray-500">Всего потратил</span>
                     <span class="text-gray-900" x-text="formatPrice(profileClient.total_spent)"></span>
                 </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500">Всего заказов</span>
+                    <span class="text-gray-900" x-text="profileClient.orders_count || 0"></span>
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="text-xs uppercase text-gray-400 mb-2">Заказы клиента</div>
+                <template x-if="profileClient.orders && profileClient.orders.length">
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="order in profileClient.orders" :key="order.id">
+                            <div class="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                                <div class="mr-2">
+                                    <div class="font-semibold text-gray-900 truncate" x-text="order.name"></div>
+                                    <div class="text-gray-500" x-text="formatDate(order.created_at)"></div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-gray-900" x-text="formatPrice(order.total_price)"></div>
+                                    <div class="text-gray-500" x-text="order.status_display"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!profileClient.orders || !profileClient.orders.length">
+                    <div class="text-xs text-gray-500">У клиента пока нет заказов</div>
+                </template>
             </div>
             <div class="flex space-x-2">
                 <button @click="quickCall(profileClient)" class="flex-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center">
@@ -122,6 +149,10 @@
                     <input type="email" x-model="addForm.email" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50">
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
+                    <input type="tel" x-model="addForm.whatsapp" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50" placeholder="+996 500 000 000 (WhatsApp)">
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Компания</label>
                     <input type="text" x-model="addForm.company" class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none text-base bg-gray-50">
                 </div>
@@ -145,7 +176,7 @@ function mobileClients() {
         showProfile: false,
         profileClient: {},
         showAddModal: false,
-        addForm: { name: '', phone: '', email: '', company: '', address: '' },
+        addForm: { name: '', phone: '', email: '', whatsapp: '', company: '', address: '' },
         // removed showMoreMenu and related handlers
         async init() {
             await this.loadClients();
@@ -197,9 +228,18 @@ function mobileClients() {
             if (!name) return '';
             return name.split(' ').map(w => w[0]).join('').toUpperCase();
         },
-        viewClient(client) {
+        async viewClient(client) {
             this.profileClient = client;
             this.showProfile = true;
+            try {
+                const res = await fetch(`/clients/api/clients/${client.id}/details/`, { credentials: 'same-origin' });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.profileClient = data;
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки подробных данных клиента', e);
+            }
         },
         getStatusClass(status) {
             const classes = {

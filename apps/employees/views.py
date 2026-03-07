@@ -106,6 +106,42 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['post'], url_path='block')
+    def block(self, request, pk=None):
+        """
+        Блокирует пользователя (доступно администратору и бухгалтеру).
+        """
+        employee = self.get_object()
+        if getattr(employee, 'is_blocked', False):
+            return Response(
+                {'detail': 'Пользователь уже заблокирован', 'is_blocked': True},
+                status=status.HTTP_200_OK,
+            )
+        employee.is_blocked = True
+        employee.save(update_fields=['is_blocked'])
+        return Response(
+            {'detail': 'Пользователь заблокирован', 'is_blocked': True},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'], url_path='unblock')
+    def unblock(self, request, pk=None):
+        """
+        Разблокирует пользователя (доступно администратору и бухгалтеру).
+        """
+        employee = self.get_object()
+        if not getattr(employee, 'is_blocked', False):
+            return Response(
+                {'detail': 'Пользователь не заблокирован', 'is_blocked': False},
+                status=status.HTTP_200_OK,
+            )
+        employee.is_blocked = False
+        employee.save(update_fields=['is_blocked'])
+        return Response(
+            {'detail': 'Пользователь разблокирован', 'is_blocked': False},
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Общая статистика по всем сотрудникам"""

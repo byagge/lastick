@@ -408,10 +408,15 @@
                         <!-- Ввод объёма и отправка -->
                         <template x-if="!packagingSummary">
                             <div class="space-y-2">
-                                <label class="block text-xs text-gray-500 mb-1">Сколько единиц/кг доработано</label>
+                                <label class="block text-xs text-gray-500 mb-1">Сколько кг берёте из нейтральной зоны</label>
+                                <input type="number" min="0" step="0.001"
+                                       x-model.number="packagingInput"
+                                       placeholder="Введите количество, которое берёте из партии"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                <label class="block text-xs text-gray-500 mb-1 mt-2">Сколько единиц/кг доработано</label>
                                 <input type="number" min="0" step="0.001"
                                        x-model.number="packagingProduced"
-                                       placeholder="Введите количество"
+                                       placeholder="Введите количество готового товара"
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
                                 <button @click="sendPackagingReport"
                                         :class="{'btn-loading': packagingSubmitState === 'loading'}"
@@ -822,6 +827,7 @@
             selectedOrderItemId: '',
             packagingProducts: [],
             selectedProductId: '',
+            packagingInput: null,
             packagingProduced: null,
             packagingSummary: null,
             extrusionProducedInput: '',
@@ -1201,6 +1207,21 @@
                     this.packagingSubmitMessage = '\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u0430\u0440\u0442\u0438\u044e \u0438\u0437 \u043d\u0435\u0439\u0442\u0440\u0430\u043b\u044c\u043d\u043e\u0439 \u0437\u043e\u043d\u044b.';
                     return;
                 }
+                if (!this.packagingInput || this.packagingInput <= 0) {
+                    this.packagingSubmitState = 'error';
+                    this.packagingSubmitMessage = '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u043f\u043e\u043b\u0443\u0444\u0430\u0431\u0440\u0438\u043a\u0430\u0442\u0430, \u043a\u043e\u0442\u043e\u0440\u043e\u0435 \u0431\u0435\u0440\u0451\u0442\u0435 \u0438\u0437 \u043d\u0435\u0439\u0442\u0440\u0430\u043b\u044c\u043d\u043e\u0439 \u0437\u043e\u043d\u044b.';
+                    return;
+                }
+                // Проверяем, что не берём больше, чем доступно в выбранной партии
+                const batch = (this.neutralBatches || []).find(b => String(b.id) === String(this.selectedNeutralBatchId));
+                if (batch) {
+                    const available = Number(batch.available_quantity || 0);
+                    if (this.packagingInput > available) {
+                        this.packagingSubmitState = 'error';
+                        this.packagingSubmitMessage = `\u041d\u0435\u043b\u044c\u0437\u044f \u0432\u0437\u044f\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435, \u0447\u0435\u043c \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 \u043f\u0430\u0440\u0442\u0438\u0438 (${available.toFixed(3)} \u0435\u0434./\u043a\u0433).`;
+                        return;
+                    }
+                }
                 if (!this.packagingProduced || this.packagingProduced <= 0) {
                     this.packagingSubmitState = 'error';
                     this.packagingSubmitMessage = '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0434\u043e\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043d\u043e\u0433\u043e \u0442\u043e\u0432\u0430\u0440\u0430.';
@@ -1208,6 +1229,7 @@
                 }
                 const payload = {
                     neutral_batch_id: this.selectedNeutralBatchId,
+                    input_quantity: this.packagingInput,
                     produced_quantity: this.packagingProduced,
                     mode: this.packagingMode,
                 };
@@ -1247,6 +1269,9 @@
                     this.packagingSummary = data;
                     this.packagingSubmitState = 'success';
                     this.packagingSubmitMessage = '\u041e\u0442\u0447\u0435\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d.';
+                    // Сбрасываем введённые значения
+                    this.packagingInput = null;
+                    this.packagingProduced = null;
                     // Обновляем список партий — выбранная могла быть исчерпана
                     await this.loadNeutralBatches();
                 } catch (e) {

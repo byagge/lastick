@@ -70,6 +70,14 @@ class LoginView(View):
             messages.error(request, error_message)
             return render(request, self.template_name)
 
+        # Если пользователь заблокирован — сразу редиректим на /banned
+        if getattr(user, 'is_blocked', False):
+            banned_url = '/banned/'
+            error_message = 'Ваш аккаунт заблокирован.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': error_message, 'redirect_url': banned_url}, status=403)
+            return redirect(banned_url)
+
         # Проверяем пароль
         authenticated_user = authenticate(request, username=user.username, password=password)
         if authenticated_user is not None:

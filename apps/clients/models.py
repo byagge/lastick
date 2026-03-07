@@ -12,6 +12,7 @@ class Client(models.Model):
     
     name = models.CharField('Имя клиента', max_length=150)
     phone = models.CharField('Телефон', max_length=20, blank=True)
+    whatsapp = models.CharField('WhatsApp', max_length=20, blank=True)
     email = models.EmailField('Email', blank=True)
     company = models.CharField('Компания/Организация', max_length=150, blank=True)
     address = models.CharField('Адрес', max_length=255, blank=True)

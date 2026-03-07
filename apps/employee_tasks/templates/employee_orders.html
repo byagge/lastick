@@ -72,7 +72,7 @@
                     <div class="flex items-start justify-between mb-2">
                         <div>
                             <p class="text-sm font-semibold text-gray-900" x-text="request.name || 'Без названия'"></p>
-                            <p class="text-xs text-gray-500" x-text="request.client && request.client.name ? request.client.name : 'Клиент не указан'"></p>
+                            <p class="text-xs text-gray-500">Клиент скрыт</p>
                         </div>
                         <span class="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-full" x-text="request.status_display || '—'"></span>
                     </div>
@@ -87,7 +87,7 @@
                         </div>
                         <div class="flex items-center space-x-2 col-span-2">
                             <i data-lucide="wallet" class="w-4 h-4 text-gray-400"></i>
-                            <span class="font-medium text-gray-900" x-text="(request.total_amount || 0).toLocaleString() + ' сом'"></span>
+                            <span class="font-medium text-gray-900">Сумма скрыта</span>
                         </div>
                     </div>
                     <template x-if="request.comment">
@@ -116,7 +116,7 @@
             <div class="grid grid-cols-2 gap-3 text-sm mb-4">
                 <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p class="text-xs text-gray-500 mb-1">Клиент</p>
-                    <p class="font-medium text-gray-900" x-text="selectedRequest?.client?.name || 'Не указан'"></p>
+                    <p class="font-medium text-gray-900">Скрыто</p>
                 </div>
                 <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p class="text-xs text-gray-500 mb-1">Статус</p>
@@ -128,7 +128,7 @@
                 </div>
                 <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p class="text-xs text-gray-500 mb-1">Сумма</p>
-                    <p class="font-medium text-gray-900" x-text="(selectedRequest?.total_amount || 0).toLocaleString() + ' сом'"></p>
+                    <p class="font-medium text-gray-900">Скрыто</p>
                 </div>
             </div>
             <div class="mb-4">

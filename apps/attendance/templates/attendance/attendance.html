@@ -249,7 +249,12 @@
                                         <template x-if="!isAdmin || editingPenaltyId !== record.id">
                                             <div class="flex items-center gap-2">
                                                 <span x-text="record.penalty_amount ? formatMoney(record.penalty_amount) : '-'"></span>
-                                                <button x-show="isAdmin" @click="startPenaltyEdit(record)" class="text-xs text-blue-600 hover:text-blue-800">Изм.</button>
+                                                <button 
+                                                    x-show="isAdmin" 
+                                                    @click="startPenaltyEdit(record)" 
+                                                    class="text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-400 px-3 py-1 rounded-lg shadow hover:bg-yellow-200 transition-all"
+                                                    style="box-shadow: 0 2px 8px rgba(251, 191, 36, 0.2);"
+                                                >Изм.</button>
                                             </div>
                                         </template>
                                     </div>

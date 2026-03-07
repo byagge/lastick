@@ -1,8 +1,42 @@
 from django.shortcuts import redirect
-from django.urls import reverse
-from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.conf import settings
 from apps.users.models import User
+
+
+class BlockedUserMiddleware:
+    """
+    Middleware для мгновенного редиректа заблокированных пользователей
+    на страницу /banned при попытке открыть любую страницу сайта.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        path = request.path
+
+        # Разрешенные пути для заблокированных пользователей
+        allowed_paths = {
+            "/banned/",
+            settings.LOGIN_URL,
+        }
+        # Также пропускаем статику и медиа
+        is_static = path.startswith(settings.STATIC_URL) if getattr(settings, "STATIC_URL", None) else False
+        is_media = path.startswith(settings.MEDIA_URL) if getattr(settings, "MEDIA_URL", None) else False
+
+        if (
+            user
+            and user.is_authenticated
+            and getattr(user, "is_blocked", False)
+            and path not in allowed_paths
+            and not is_static
+            and not is_media
+        ):
+            return redirect("/banned/")
+
+        response = self.get_response(request)
+        return response
 
 
 class RoleBasedRedirectMiddleware:
