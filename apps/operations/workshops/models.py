@@ -332,6 +332,92 @@ class NeutralBatch(models.Model):
         return amount
 
 
+class StorageZone(models.Model):
+    """
+    Складская зона между цехом ID2 (упаковка) и цехом ID3 (склад).
+
+    Используется для второго (пакетоотделочного) цеха как результат
+    доработки полуфабриката. Третий цех (склад) забирает отсюда
+    готовую продукцию для финальной обработки и отправки на склад готовой продукции.
+    """
+    workshop = models.ForeignKey(
+        Workshop,
+        on_delete=models.CASCADE,
+        related_name='storage_zones',
+        verbose_name='Цех-источник (ID2)',
+    )
+    employee = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='storage_zones',
+        verbose_name='Сотрудник ID2',
+    )
+    product = models.ForeignKey(
+        'products.Product',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='storage_zones',
+        verbose_name='Товар',
+    )
+    order_item = models.ForeignKey(
+        'orders.OrderItem',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='storage_zones',
+        verbose_name='Позиция заказа',
+    )
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='storage_zones',
+        verbose_name='Заказ',
+    )
+    total_quantity = models.DecimalField(
+        'Всего произведено (кг/единиц)',
+        max_digits=12,
+        decimal_places=3,
+    )
+    used_quantity = models.DecimalField(
+        'Списано складом (ID3)',
+        max_digits=12,
+        decimal_places=3,
+        default=0,
+    )
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Партия складской зоны'
+        verbose_name_plural = 'Партии складской зоны'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        product_name = self.product.name if self.product else "Без товара"
+        return f"Складская партия {self.workshop.name} — {self.employee.get_full_name()} ({self.available_quantity} ед.)"
+
+    @property
+    def available_quantity(self):
+        """Доступно для забора складом (ID3)."""
+        return (self.total_quantity or 0) - (self.used_quantity or 0)
+
+    def consume(self, amount):
+        """Списывает часть партии складом (ID3), не давая уйти в минус."""
+        from decimal import Decimal
+
+        amount = Decimal(str(amount or 0))
+        if amount <= 0:
+            return
+        remaining = self.available_quantity
+        if amount > remaining:
+            amount = remaining
+        self.used_quantity = (self.used_quantity or 0) + amount
+        self.save(update_fields=['used_quantity'])
+        return amount
+
+
 class WorkshopLog(models.Model):
     """
     Лог действий, связанных с цехом.

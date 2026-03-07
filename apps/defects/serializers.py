@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
-from .models import Defect
+from .models import Defect, DefectRework
 from apps.products.models import Product
 from apps.users.models import User
+from apps.inventory.models import RawMaterial
 
 
 class ProductShortSerializer(serializers.ModelSerializer):
@@ -40,6 +41,7 @@ class DefectSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     penalty_assigned_by = UserShortSerializer(read_only=True)
+    available_for_rework = serializers.SerializerMethodField()
 
     class Meta:
         model = Defect
@@ -50,6 +52,7 @@ class DefectSerializer(serializers.ModelSerializer):
             "user",
             "user_id",
             "quantity",
+            "available_for_rework",
             "employee_comment",
             "admin_comment",
             "penalty_amount",
@@ -65,6 +68,9 @@ class DefectSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+    def get_available_for_rework(self, obj):
+        return float(obj.available_for_rework)
+
 
 class DefectPenaltySerializer(serializers.Serializer):
     penalty_amount = serializers.DecimalField(
@@ -78,3 +84,72 @@ class DefectPenaltySerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+
+
+class RawMaterialShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RawMaterial
+        fields = ["id", "name", "unit"]
+
+
+class DefectReworkSerializer(serializers.ModelSerializer):
+    raw_material = RawMaterialShortSerializer(read_only=True)
+    employee = UserShortSerializer(read_only=True)
+
+    class Meta:
+        model = DefectRework
+        fields = [
+            "id",
+            "raw_material",
+            "input_quantity",
+            "output_quantity",
+            "comment",
+            "employee",
+            "created_at",
+        ]
+
+
+class DefectReworkCreateSerializer(serializers.Serializer):
+    raw_material_id = serializers.PrimaryKeyRelatedField(
+        queryset=RawMaterial.objects.all(), source="raw_material"
+    )
+    input_quantity = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=0.001,
+        help_text="Сколько брака переработать (кг)",
+    )
+    output_quantity = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=0,
+        help_text="Сколько сырья получится (кг)",
+    )
+    comment = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate(self, attrs):
+        defect = self.context.get("defect")
+        if defect is None:
+            raise serializers.ValidationError("Не передан объект брака для переработки.")
+
+        input_quantity = attrs.get("input_quantity")
+        if input_quantity is None:
+            raise serializers.ValidationError(
+                {"input_quantity": "Это поле обязательно."}
+            )
+
+        remaining = defect.available_for_rework
+        if input_quantity > remaining:
+            raise serializers.ValidationError(
+                {
+                    "input_quantity": (
+                        f"Нельзя переработать больше, чем осталось брака "
+                        f"({float(remaining)} кг)."
+                    )
+                }
+            )
+        return attrs

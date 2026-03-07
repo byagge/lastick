@@ -10,6 +10,8 @@ from .api import (
     ExtrusionReportView,
     NeutralBatchesListView,
     PackagingReportView,
+    StorageZonesListView,
+    WarehouseReportView,
 )
 
 urlpatterns = [
@@ -24,4 +26,6 @@ urlpatterns = [
     path('api/extrusion/report/', ExtrusionReportView.as_view()),
     path('api/neutral-batches/', NeutralBatchesListView.as_view()),
     path('api/packaging/report/', PackagingReportView.as_view()),
+    path('api/storage-zones/', StorageZonesListView.as_view()),
+    path('api/warehouse/report/', WarehouseReportView.as_view()),
 ] 

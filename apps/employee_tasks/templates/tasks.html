@@ -260,7 +260,7 @@
             </div>
         </template>
 
-        <!-- Пакетоотделочный / упаковочный цех: работа с нейтральной зоной и заявками -->
+        <!-- Пакетоотделочный / упаковочный цех (ID2): работа с нейтральной зоной и заявками -->
         <template x-if="!loading && isPackaging">
             <div class="space-y-4">
                 <!-- Переключатель режима просмотра для упаковки -->
@@ -482,8 +482,334 @@
             </div>
         </template>
 
+        <!-- Складской цех (ID3): работа со складской зоной и отправка в готовую продукцию -->
+        <template x-if="!loading && isStorage">
+            <div class="space-y-4">
+                <!-- Переключатель режима просмотра для склада -->
+                <template x-if="viewMode === 'history'">
+                    <div class="mb-4">
+                        <h2 class="text-lg font-bold text-gray-900 mb-3">История выполненных работ</h2>
+                        <template x-if="warehouseHistory.length === 0">
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="history" class="w-8 h-8 text-gray-400"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">История пуста</h3>
+                                <p class="text-sm text-gray-600">Пока нет завершённых работ для отображения.</p>
+                            </div>
+                        </template>
+                        <div class="space-y-3">
+                            <template x-for="item in warehouseHistory" :key="item.id">
+                                <div class="card bg-white rounded-lg p-3 flex flex-col">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900" x-text="item.product_name || 'Склад'"></div>
+                                            <div class="text-xs text-gray-500" x-text="item.completed_at ? new Date(item.completed_at).toLocaleDateString('ru-RU') : 'Дата не указана'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-4 gap-2 text-xs">
+                                        <div>
+                                            <div class="text-gray-500">Входной</div>
+                                            <div class="font-semibold text-gray-900" x-text="(item.input_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Обработано</div>
+                                            <div class="font-semibold text-emerald-600" x-text="(item.produced_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Брак</div>
+                                            <div class="font-semibold text-red-600" x-text="(item.scrap_quantity || 0).toFixed(3) + ' ед.'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-gray-500">Эффективность</div>
+                                            <div class="font-semibold text-gray-900" x-text="(item.efficiency || 0).toFixed(1) + ' %'"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            @click="selectedHistoryTask = item; showHistoryModal = true; $nextTick(() => lucide.createIcons())"
+                                            class="w-full inline-flex justify-center items-center px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <i data-lucide="eye" class="w-3.5 h-3.5 mr-1.5"></i>
+                                            Подробнее
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Активная работа для склада -->
+                <template x-if="viewMode === 'active'">
+                    <div>
+                        <!-- Партии складской зоны -->
+                        <template x-if="storageZones.length === 0">
+                            <div class="text-center py-8 space-y-3">
+                                <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i data-lucide="archive" class="w-8 h-8 text-blue-500"></i>
+                                </div>
+                                <h3 class="text-base font-semibold text-gray-900 mb-1">Нет товара в складской зоне</h3>
+                                <p class="text-sm text-gray-600 px-4">
+                                    В складской зоне пока нет доступных партий. Дождитесь выгрузки из второго цеха.
+                                </p>
+                            </div>
+                        </template>
+
+                        <template x-if="storageZones.length > 0">
+                            <div class="card bg-white rounded-lg p-4 space-y-4">
+                                <div>
+                                    <h2 class="text-base font-semibold text-gray-900 mb-2">Выбор партии из складской зоны</h2>
+                                    <select x-model="selectedStorageZoneId"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                        <option value="">Выберите партию…</option>
+                                        <template x-for="zone in storageZones" :key="zone.id">
+                                            <option :value="zone.id" x-text="`#${zone.id} • ${zone.product_name} • ${zone.available_quantity.toFixed(3)} ед.`"></option>
+                                        </template>
+                                    </select>
+                                    <template x-if="currentStorageZone">
+                                        <div class="mt-2 text-xs text-gray-600">
+                                            <div><span class="text-gray-500">Сотрудник ID2:</span> <span x-text="currentStorageZone.employee_name"></span></div>
+                                            <div><span class="text-gray-500">Товар:</span> <span x-text="currentStorageZone.product_name"></span></div>
+                                            <div>
+                                                <span class="text-gray-500">Доступно:</span>
+                                                <span class="font-semibold text-emerald-600" x-text="currentStorageZone.available_quantity.toFixed(3) + ' ед.'"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Ввод объёма и отправка -->
+                                <template x-if="!warehouseSummary">
+                                    <div class="space-y-2">
+                                        <label class="block text-xs text-gray-500 mb-1">Сколько единиц/кг берёте из складской зоны</label>
+                                        <input type="number" min="0" step="0.001"
+                                               x-model.number="warehouseInput"
+                                               placeholder="Введите количество, которое берёте из партии"
+                                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                        <label class="block text-xs text-gray-500 mb-1 mt-2">Сколько единиц/кг обработано и отправлено в готовую продукцию</label>
+                                        <input type="number" min="0" step="0.001"
+                                               x-model.number="warehouseProduced"
+                                               placeholder="Введите количество готового товара"
+                                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                        <button @click="sendWarehouseReport"
+                                                :class="{'btn-loading': warehouseSubmitState === 'loading'}"
+                                                class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                                            <template x-if="warehouseSubmitState === 'loading'">
+                                                <span class="inline-flex items-center">
+                                                    <svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                                    </svg>
+                                                    Отправка...
+                                                </span>
+                                            </template>
+                                            <template x-if="warehouseSubmitState !== 'loading'">
+                                                <span>Отправить в готовую продукцию</span>
+                                            </template>
+                                        </button>
+                                        <div x-show="warehouseSubmitMessage" class="text-sm"
+                                             :class="warehouseSubmitState === 'success' ? 'text-green-600' : 'text-red-600'">
+                                            <span x-text="warehouseSubmitMessage"></span>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- Статистика после отправки -->
+                                <template x-if="warehouseSummary">
+                                    <div class="mt-4 border-t border-gray-200 pt-3">
+                                        <div class="flex items-center space-x-2 text-green-700 mb-2">
+                                            <i class="lucide lucide-check-circle w-4 h-4 text-green-600 inline-block mr-1"></i>
+                                            <span class="text-sm font-semibold">Отчет отправлен</span>
+                                        </div>
+                                        <h3 class="text-sm font-semibold text-gray-900 mb-2">Статистика за сегодня</h3>
+                                        <div class="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <div class="text-gray-500">Входной товар</div>
+                                                <div class="font-semibold text-gray-900" x-text="warehouseSummary.input_quantity.toFixed(3) + ' ед.'"></div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Обработано</div>
+                                                <div class="font-semibold text-gray-900" x-text="warehouseSummary.produced_quantity.toFixed(3) + ' ед.'"></div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Брак</div>
+                                                <div class="font-semibold text-red-600" x-text="warehouseSummary.scrap_quantity.toFixed(3) + ' ед.'"></div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Эффективность</div>
+                                                <div class="font-semibold text-gray-900" x-text="warehouseSummary.efficiency.toFixed(1) + ' %'"></div>
+                                            </div>
+                                            <template x-if="paymentType === 'variable'">
+                                                <div class="col-span-2">
+                                                    <div class="text-gray-500">Заработано сегодня</div>
+                                                    <div class="font-semibold text-emerald-600" x-text="warehouseSummary.earnings.toFixed(2) + ' сом'"></div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Обрабатывающий цех (ID4): переработка брака в сырьё -->
+        <template x-if="!loading && isRework">
+            <div class="space-y-4">
+                <div class="card bg-white rounded-lg p-4 space-y-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                            <i data-lucide="recycle" class="w-5 h-5 text-red-600"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-900">Переработка брака</h2>
+                            <p class="text-xs text-gray-600">
+                                Выберите брак, укажите объём переработки и сырьё, в которое он превращается.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Если нет брака для переработки -->
+                    <template x-if="reworkDefects.length === 0">
+                        <div class="text-center py-6">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="check-circle" class="w-8 h-8 text-gray-400"></i>
+                            </div>
+                            <h3 class="text-base font-semibold text-gray-900 mb-1">Нет брака для переработки</h3>
+                            <p class="text-sm text-gray-600 px-4">
+                                Сейчас нет брака с доступным объёмом для переработки.
+                            </p>
+                        </div>
+                    </template>
+
+                    <!-- Форма переработки брака -->
+                    <template x-if="reworkDefects.length > 0">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Брак для переработки</label>
+                                <select x-model="selectedReworkDefectId"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                    <option value="">Выберите брак…</option>
+                                    <template x-for="d in reworkDefects" :key="d.id">
+                                        <option :value="d.id"
+                                                x-text="`#${d.id} • ${d.product_name} • доступно ${d.available_for_rework.toFixed(3)} кг`">
+                                        </option>
+                                    </template>
+                                </select>
+                                <template x-if="currentReworkDefect">
+                                    <div class="mt-2 text-xs text-gray-600">
+                                        <div><span class="text-gray-500">Сотрудник:</span> <span x-text="currentReworkDefect.employee_name"></span></div>
+                                        <div>
+                                            <span class="text-gray-500">Всего брака:</span>
+                                            <span class="font-semibold" x-text="currentReworkDefect.quantity.toFixed(3) + ' кг'"></span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-500">Доступно для переработки:</span>
+                                            <span class="font-semibold text-red-600" x-text="currentReworkDefect.available_for_rework.toFixed(3) + ' кг'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Сырьё после переработки</label>
+                                <select x-model="selectedReworkMaterialId"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                                    <option value="">Выберите сырьё…</option>
+                                    <template x-for="m in reworkMaterials" :key="m.id">
+                                        <option :value="m.id"
+                                                x-text="`${m.name} (${m.unit})`">
+                                        </option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Сколько брака переработано (кг)</label>
+                                    <input type="number" min="0" step="0.001"
+                                           x-model.number="reworkInputQuantity"
+                                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                           placeholder="Например: 5.000">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Сколько сырья получили (кг)</label>
+                                    <input type="number" min="0" step="0.001"
+                                           x-model.number="reworkOutputQuantity"
+                                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                           placeholder="Например: 4.500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Комментарий (опционально)</label>
+                                <textarea
+                                    x-model="reworkComment"
+                                    rows="2"
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    placeholder="Например: Обрезки переплавлены в гранулы…"
+                                ></textarea>
+                            </div>
+
+                            <div class="space-y-2">
+                                <button @click="sendReworkReport"
+                                        :class="{'btn-loading': reworkSubmitState === 'loading'}"
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 btn-dark rounded-lg text-sm font-medium shadow-sm">
+                                    <template x-if="reworkSubmitState === 'loading'">
+                                        <span class="inline-flex items-center">
+                                            <svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                            </svg>
+                                            Отправка...
+                                        </span>
+                                    </template>
+                                    <template x-if="reworkSubmitState !== 'loading'">
+                                        <span>Отправить переработку</span>
+                                    </template>
+                                </button>
+                                <div x-show="reworkSubmitMessage" class="text-sm"
+                                     :class="reworkSubmitState === 'success' ? 'text-green-600' : 'text-red-600'">
+                                    <span x-text="reworkSubmitMessage"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Последние переработки за сессию -->
+                <template x-if="reworkHistory.length > 0">
+                    <div class="card bg-white rounded-lg p-4 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="history" class="w-4 h-4 text-gray-500"></i>
+                            <span class="text-sm font-semibold text-gray-900">Последние переработки (текущая сессия)</span>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="item in reworkHistory" :key="item.id">
+                                <div class="flex items-start justify-between text-xs border-b border-gray-100 pb-2 last:border-b-0 last:pb-0">
+                                    <div>
+                                        <div class="font-medium text-gray-900" x-text="`Брак #${item.defect_id} → ${item.material_name}`"></div>
+                                        <div class="text-gray-500">
+                                            <span x-text="item.input_quantity.toFixed(3) + ' кг брака'"></span>
+                                            <span> → </span>
+                                            <span x-text="item.output_quantity.toFixed(3) + ' кг сырья'"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-gray-400" x-text="item.time"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
         <!-- Обычный список задач для остальных цехов -->
-        <template x-if="!loading && !isExtrusion && !isPackaging">
+        <template x-if="!loading && !isExtrusion && !isPackaging && !isStorage && !isRework">
             <div>
                 <!-- Поиск и переключатель режима -->
                 <div class="mb-4 space-y-2">
@@ -671,7 +997,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <div class="text-xs text-gray-500 mb-1">Тип работы</div>
-                                    <div class="text-base font-semibold text-gray-900" x-text="selectedHistoryTask.type === 'extrusion' ? 'Экструзия' : 'Упаковка'"></div>
+                                    <div class="text-base font-semibold text-gray-900" x-text="selectedHistoryTask.type === 'extrusion' ? 'Экструзия' : (selectedHistoryTask.type === 'warehouse' ? 'Склад' : 'Упаковка')"></div>
                                 </div>
                                 <template x-if="selectedHistoryTask.type === 'packaging'">
                                     <div>
@@ -694,13 +1020,13 @@
                                             <div class="text-lg font-bold text-red-600" x-text="(selectedHistoryTask.scrap_quantity || 0).toFixed(3) + ' кг'"></div>
                                         </div>
                                     </template>
-                                    <template x-if="selectedHistoryTask.type === 'packaging'">
+                                    <template x-if="selectedHistoryTask.type === 'packaging' || selectedHistoryTask.type === 'warehouse'">
                                         <div>
                                             <div class="text-xs text-gray-500 mb-1">Входной</div>
                                             <div class="text-lg font-bold text-gray-900" x-text="(selectedHistoryTask.input_quantity || 0).toFixed(3) + ' ед.'"></div>
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500 mb-1">Доработано</div>
+                                            <div class="text-xs text-gray-500 mb-1" x-text="selectedHistoryTask.type === 'warehouse' ? 'Обработано' : 'Доработано'"></div>
                                             <div class="text-lg font-bold text-emerald-600" x-text="(selectedHistoryTask.produced_quantity || 0).toFixed(3) + ' ед.'"></div>
                                         </div>
                                         <div>
@@ -813,6 +1139,8 @@
             paymentType: 'fixed',
             isExtrusion: false,
             isPackaging: false,
+            isStorage: false,
+            isRework: false,
             hasMaterialBalance: false,
             extrusionSummary: null,
             showExtrusionForm: false,
@@ -835,6 +1163,26 @@
             extrusionSubmitMessage: '',
             packagingSubmitState: 'idle',
             packagingSubmitMessage: '',
+            // Третий цех (ID3 - Склад)
+            storageZones: [],
+            selectedStorageZoneId: '',
+            warehouseInput: null,
+            warehouseProduced: null,
+            warehouseSummary: null,
+            warehouseSubmitState: 'idle',
+            warehouseSubmitMessage: '',
+            warehouseHistory: [],
+            // Обрабатывающий цех (ID4)
+            reworkDefects: [],
+            selectedReworkDefectId: '',
+            reworkMaterials: [],
+            selectedReworkMaterialId: '',
+            reworkInputQuantity: null,
+            reworkOutputQuantity: null,
+            reworkComment: '',
+            reworkSubmitState: 'idle',
+            reworkSubmitMessage: '',
+            reworkHistory: [],
             toastMessage: '',
             toastType: 'success',
             toastTimer: null,
@@ -866,10 +1214,12 @@
                     this.paymentType = 'fixed';
                 }
 
-                // Определяем цех по ID: 1 = экструзия, 2 = пакетоотделочный
+                // Определяем цех по ID: 1 = экструзия, 2 = пакетоотделочный, 3 = склад, 4 = обрабатывающий
                 // Устанавливаем сразу после получения workshopId
                 this.isExtrusion = this.workshopId === 1;
                 this.isPackaging = this.workshopId === 2;
+                this.isStorage = this.workshopId === 3;
+                this.isRework = this.workshopId === 4;
 
                 if (this.isExtrusion) {
                     await this.checkMaterialBalance();
@@ -879,8 +1229,13 @@
                     await this.loadPackagingOrders();
                     await this.loadPackagingProducts();
                     await this.loadPackagingHistory();
+                } else if (this.isStorage) {
+                    await this.loadStorageZones();
+                    await this.loadWarehouseHistory();
+                } else if (this.isRework) {
+                    await this.loadReworkData();
                 } else {
-                    // Для остальных цехов загружаем задачи только если не цех 1 или 2
+                    // Для остальных цехов загружаем задачи только если это не специальные цеха 1–4
                     await this.loadTasks();
                 }
                 // Гарантируем, что loading установлен в false после инициализации
@@ -893,6 +1248,12 @@
                         this.showHistoryModal = false;
                     }
                 });
+            },
+            get currentReworkDefect() {
+                if (!this.selectedReworkDefectId) return null;
+                return (this.reworkDefects || []).find(
+                    d => String(d.id) === String(this.selectedReworkDefectId),
+                ) || null;
             },
             showToast(message, type = 'success') {
                 this.toastMessage = message;
@@ -1013,6 +1374,135 @@
                 } catch (e) {
                     console.error('Error loading packaging history:', e);
                     this.packagingHistory = [];
+                }
+            },
+            get currentStorageZone() {
+                if (!this.selectedStorageZoneId) return null;
+                return (this.storageZones || []).find(z => String(z.id) === String(this.selectedStorageZoneId)) || null;
+            },
+            async loadStorageZones() {
+                this.loading = true;
+                try {
+                    const resp = await fetch('/api/workshops/api/storage-zones/');
+                    const data = await resp.json();
+                    this.storageZones = Array.isArray(data) ? data : [];
+                } catch (e) {
+                    console.error('Error loading storage zones:', e);
+                    this.storageZones = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async loadWarehouseHistory() {
+                try {
+                    // Загружаем историю готовой продукции для цеха склада (ID3)
+                    let resp = await fetch(`/finished_goods/api/finished-goods/?workshop=${this.workshopId}`);
+                    let data = await resp.json();
+                    let allFinished = Array.isArray(data) ? (data.results || data) : [];
+                    
+                    if (allFinished.length === 0) {
+                        resp = await fetch('/finished_goods/api/finished-goods/');
+                        data = await resp.json();
+                        allFinished = Array.isArray(data) ? (data.results || data) : [];
+                        allFinished = allFinished.filter(item => {
+                            const workshopId = item.workshop?.id || item.workshop || item.workshop_id;
+                            return workshopId && String(workshopId) === String(this.workshopId);
+                        });
+                    }
+                    
+                    this.warehouseHistory = allFinished.map(item => {
+                        const quantity = Number(item.quantity || 0);
+                        const inputQty = Number(item.input_quantity || quantity || 0);
+                        const scrapQty = Number(item.scrap_quantity || 0);
+                        const efficiency = Number(item.efficiency || 100.0);
+                        
+                        return {
+                            id: item.id,
+                            type: 'warehouse',
+                            product_name: item.product?.name || item.product || 'Товар',
+                            produced_quantity: quantity,
+                            input_quantity: inputQty,
+                            scrap_quantity: scrapQty,
+                            efficiency: efficiency,
+                            created_at: item.received_at || item.created_at || item.packaging_date,
+                            completed_at: item.received_at || item.created_at || item.packaging_date,
+                            defect_id: item.defect_id || null
+                        };
+                    })
+                    .sort((a, b) => {
+                        const da = a.created_at || '';
+                        const db = b.created_at || '';
+                        return db.localeCompare(da);
+                    });
+                } catch (e) {
+                    console.error('Error loading warehouse history:', e);
+                    this.warehouseHistory = [];
+                }
+            },
+            async sendWarehouseReport() {
+                this.warehouseSubmitState = 'idle';
+                this.warehouseSubmitMessage = '';
+                if (!this.selectedStorageZoneId) {
+                    this.warehouseSubmitState = 'error';
+                    this.warehouseSubmitMessage = 'Выберите партию из складской зоны.';
+                    return;
+                }
+                if (!this.warehouseInput || this.warehouseInput <= 0) {
+                    this.warehouseSubmitState = 'error';
+                    this.warehouseSubmitMessage = 'Введите количество товара, которое берёте из складской зоны.';
+                    return;
+                }
+                const zone = (this.storageZones || []).find(z => String(z.id) === String(this.selectedStorageZoneId));
+                if (zone) {
+                    const available = Number(zone.available_quantity || 0);
+                    if (this.warehouseInput > available) {
+                        this.warehouseSubmitState = 'error';
+                        this.warehouseSubmitMessage = `Нельзя взять больше, чем доступно в партии (${available.toFixed(3)} ед./кг).`;
+                        return;
+                    }
+                }
+                if (!this.warehouseProduced || this.warehouseProduced <= 0) {
+                    this.warehouseSubmitState = 'error';
+                    this.warehouseSubmitMessage = 'Введите положительное количество обработанного товара.';
+                    return;
+                }
+                const payload = {
+                    storage_zone_id: this.selectedStorageZoneId,
+                    input_quantity: this.warehouseInput,
+                    produced_quantity: this.warehouseProduced,
+                };
+                try {
+                    this.loading = true;
+                    this.warehouseSubmitState = 'loading';
+                    const resp = await fetch('/api/workshops/api/warehouse/report/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        this.warehouseSubmitState = 'error';
+                        this.warehouseSubmitMessage = data.detail || 'Ошибка при отправке отчёта склада.';
+                        this.loading = false;
+                        return;
+                    }
+                    this.warehouseSummary = data;
+                    this.warehouseSubmitState = 'success';
+                    this.warehouseSubmitMessage = 'Отчёт отправлен.';
+                    // Сбрасываем введённые значения
+                    this.warehouseInput = null;
+                    this.warehouseProduced = null;
+                    // Обновляем список партий — выбранная могла быть исчерпана
+                    await this.loadStorageZones();
+                    await this.loadWarehouseHistory();
+                } catch (e) {
+                    this.warehouseSubmitState = 'error';
+                    this.warehouseSubmitMessage = 'Ошибка сети при отправке отчёта.';
+                } finally {
+                    this.loading = false;
                 }
             },
             get filteredTasks() {
@@ -1155,6 +1645,44 @@
                     this.packagingProducts = [];
                 }
             },
+            async loadReworkData() {
+                this.loading = true;
+                try {
+                    // Загружаем браки
+                    const resp = await fetch('/defects/api/defects/');
+                    const raw = await resp.json();
+                    const list = raw.results || raw || [];
+                    this.reworkDefects = (list || [])
+                        .map(d => {
+                            const available = Number(d.available_for_rework || 0);
+                            return {
+                                id: d.id,
+                                product_name: d.product?.name || 'Без продукта',
+                                employee_name: d.user?.full_name || d.user?.username || 'Без сотрудника',
+                                quantity: Number(d.quantity || 0),
+                                available_for_rework: available,
+                                created_at: d.created_at,
+                            };
+                        })
+                        .filter(d => d.available_for_rework > 0)
+                        .sort((a, b) => {
+                            const da = a.created_at || '';
+                            const db = b.created_at || '';
+                            return db.localeCompare(da);
+                        });
+
+                    // Загружаем список сырья
+                    const mResp = await fetch('/inventory/api/materials/');
+                    const mData = await mResp.json();
+                    this.reworkMaterials = Array.isArray(mData.data) ? mData.data : [];
+                } catch (e) {
+                    console.error('Error loading rework data:', e);
+                    this.reworkDefects = [];
+                    this.reworkMaterials = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
             onOrderChange() {
                 const id = this.selectedOrderId;
                 const order = (this.packagingOrders || []).find(o => String(o.id) === String(id));
@@ -1279,6 +1807,103 @@
                     this.packagingSubmitMessage = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438 \u043f\u0440\u0438 \u043e\u0442\u0447\u0435\u0442\u0435.';
                 } finally {
                     this.loading = false;
+                }
+            },
+            async sendReworkReport() {
+                this.reworkSubmitState = 'idle';
+                this.reworkSubmitMessage = '';
+
+                if (!this.selectedReworkDefectId) {
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = 'Выберите брак для переработки.';
+                    return;
+                }
+                if (!this.selectedReworkMaterialId) {
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = 'Выберите сырьё, в которое превратится брак.';
+                    return;
+                }
+                const defect = this.currentReworkDefect;
+                if (!defect) {
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = 'Выбранный брак не найден.';
+                    return;
+                }
+
+                const input = Number(this.reworkInputQuantity || 0);
+                const output = Number(this.reworkOutputQuantity || 0);
+                if (!input || input <= 0) {
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = 'Введите положительное количество переработанного брака.';
+                    return;
+                }
+                if (input > defect.available_for_rework + 1e-9) {
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = `Нельзя переработать больше, чем доступно (${defect.available_for_rework.toFixed(3)} кг).`;
+                    return;
+                }
+
+                const payload = {
+                    raw_material_id: this.selectedReworkMaterialId,
+                    input_quantity: input,
+                    output_quantity: output || 0,
+                    comment: this.reworkComment || '',
+                };
+
+                try {
+                    this.reworkSubmitState = 'loading';
+                    const resp = await fetch(`/defects/api/defects/${this.selectedReworkDefectId}/rework/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken(),
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        this.reworkSubmitState = 'error';
+                        this.reworkSubmitMessage = data.detail || 'Ошибка при отправке переработки.';
+                        return;
+                    }
+
+                    // Обновляем локальный остаток брака
+                    const remaining = Number(data.remaining_defect_quantity || 0);
+                    const idx = this.reworkDefects.findIndex(d => String(d.id) === String(this.selectedReworkDefectId));
+                    if (idx !== -1) {
+                        if (remaining <= 0) {
+                            this.reworkDefects.splice(idx, 1);
+                            this.selectedReworkDefectId = '';
+                        } else {
+                            this.reworkDefects[idx].available_for_rework = remaining;
+                        }
+                    }
+
+                    // Находим название сырья
+                    const mat = (this.reworkMaterials || []).find(
+                        m => String(m.id) === String(this.selectedReworkMaterialId),
+                    );
+
+                    // Добавляем в локальную историю
+                    this.reworkHistory.unshift({
+                        id: data.rework?.id || Date.now(),
+                        defect_id: data.defect_id || this.selectedReworkDefectId,
+                        material_name: mat ? mat.name : 'Сырьё',
+                        input_quantity: input,
+                        output_quantity: output || 0,
+                        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                    });
+
+                    this.reworkSubmitState = 'success';
+                    this.reworkSubmitMessage = 'Переработка успешно сохранена.';
+                    // Сбрасываем форму
+                    this.reworkInputQuantity = null;
+                    this.reworkOutputQuantity = null;
+                    this.reworkComment = '';
+                } catch (e) {
+                    console.error('Error sending rework report:', e);
+                    this.reworkSubmitState = 'error';
+                    this.reworkSubmitMessage = 'Ошибка сети при отправке переработки.';
                 }
             },
             async toggleTask(task) {

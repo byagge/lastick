@@ -131,6 +131,18 @@ class CostingSettings(models.Model):
         help_text='Категории расходов, которые считаются накладными (аренда, свет, транспорт и т.д.)'
     )
 
+    # Фактический труд (по сотрудникам и задачам)
+    use_actual_labor = models.BooleanField(
+        'Использовать фактическую себестоимость труда',
+        default=False,
+        help_text='Если включено, труд считается по фактическим выплатам сотрудникам за период (фикс + сдельная) / выпуск'
+    )
+    labor_period_days = models.PositiveIntegerField(
+        'Период для расчёта труда (дней)',
+        default=30,
+        help_text='За сколько дней брать выплаты и выпуск для расчёта труда на единицу'
+    )
+
     created_at = models.DateTimeField('Создано', auto_now_add=True)
     updated_at = models.DateTimeField('Обновлено', auto_now=True)
 

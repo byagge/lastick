@@ -304,9 +304,20 @@ def api_material_incoming(request):
             price_per_unit=price_per_unit,
             notes=data.get('notes')  # Теперь может быть None
         )
-        
-        # Обновление количества материала
-        material.quantity += incoming.quantity
+
+        # Обновление средней цены и количества материала (метод средневзвешенной)
+        old_qty = material.quantity or Decimal('0')
+        old_price = material.price or Decimal('0')
+        new_qty = incoming.quantity or Decimal('0')
+
+        if incoming.price_per_unit is not None:
+            new_price = incoming.price_per_unit
+            total_qty = old_qty + new_qty
+            if total_qty > 0:
+                total_value = old_qty * old_price + new_qty * new_price
+                material.price = total_value / total_qty
+
+        material.quantity = old_qty + new_qty
         material.save()
         
         return JsonResponse({

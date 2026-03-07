@@ -63,6 +63,56 @@ def _finance_overhead_per_unit(settings: CostingSettings, as_of: Optional[date])
     return to_decimal(overhead_total) / Decimal(str(produced_qty))
 
 
+def _actual_labor_per_unit(settings: CostingSettings, as_of: Optional[date]) -> Optional[Decimal]:
+    """
+    Фактический труд (сом/ед) = (фиксированная зарплата работников + сдельные выплаты) / выпуск за период.
+
+    - Фиксированная часть: берётся из User.fixed_salary, пропорционально количеству дней периода.
+    - Сдельная часть: суммируются EmployeeTask.earnings за период.
+    - Выпуск: количество FinishedGood за тот же период.
+    """
+    if not settings.use_actual_labor:
+        return None
+
+    end_date = as_of or timezone.localdate()
+    period_days = int(settings.labor_period_days or 30)
+    if period_days <= 0:
+        period_days = 30
+    start_date = end_date - timedelta(days=period_days)
+
+    from apps.users.models import User
+    from apps.employee_tasks.models import EmployeeTask
+    from apps.finished_goods.models import FinishedGood
+
+    # Фиксированная зарплата рабочих (worker)
+    fixed_sum = Decimal('0')
+    for u in User.objects.filter(role=User.Role.WORKER):
+        if u.fixed_salary:
+            # Пропорция периода к условному месяцу (30 дней)
+            coef = Decimal(str(period_days)) / Decimal('30')
+            fixed_sum += to_decimal(u.fixed_salary) * coef
+
+    # Сдельные выплаты по задачам за период
+    tasks_qs = EmployeeTask.objects.filter(
+        completed_at__date__gte=start_date,
+        completed_at__date__lte=end_date,
+    )
+    piece_sum = tasks_qs.aggregate(total=Sum('earnings'))['total'] or Decimal('0')
+
+    total_labor = to_decimal(fixed_sum) + to_decimal(piece_sum)
+
+    # Выпуск готовой продукции за период
+    produced_qty = FinishedGood.objects.filter(
+        received_at__date__gte=start_date,
+        received_at__date__lte=end_date,
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    produced_qty = int(produced_qty or 0)
+    if produced_qty <= 0 or total_labor <= 0:
+        return None
+
+    return to_decimal(total_labor) / Decimal(str(produced_qty))
+
+
 def calculate_product_cost(product, quantity: int = 1, as_of: Optional[date] = None) -> Dict[str, Any]:
     """
     Нормативная себестоимость продукта.
@@ -133,7 +183,7 @@ def calculate_product_cost(product, quantity: int = 1, as_of: Optional[date] = N
         materials_total += to_decimal(row["cost"])
         materials_list.append(row)
 
-    # Труд (сдельная оплата) — по услугам, выбранным для продукта
+    # Труд (норматив: сдельная оплата по услугам) — по услугам, выбранным для продукта
     labor_list = []
     labor_total = Decimal('0')
     for service in product.services.all():
@@ -147,7 +197,14 @@ def calculate_product_cost(product, quantity: int = 1, as_of: Optional[date] = N
         })
         labor_total += unit_price
 
-    labor_total = qmoney(labor_total)
+    # При необходимости переопределяем труд фактической себестоимостью труда за единицу
+    labor_actual = _actual_labor_per_unit(settings, as_of=as_of)
+    labor_source = "services"
+    if labor_actual is not None:
+        labor_total = qmoney(labor_actual)
+        labor_source = "actual_labor"
+    else:
+        labor_total = qmoney(labor_total)
     materials_total = qmoney(materials_total)
 
     base = materials_total + labor_total
@@ -188,6 +245,9 @@ def calculate_product_cost(product, quantity: int = 1, as_of: Optional[date] = N
             "per_unit_finance": qmoney(overhead_per_unit_finance),
             "period_days": int(settings.overhead_period_days or 30),
             "allocate_from_finance": bool(settings.allocate_overhead_from_finance),
+            "labor_source": labor_source,
+            "labor_period_days": int(settings.labor_period_days or 30),
+            "use_actual_labor": bool(settings.use_actual_labor),
         }
     }
 

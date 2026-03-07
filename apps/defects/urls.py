@@ -15,5 +15,10 @@ urlpatterns = [
         views.assign_penalty,
         name="assign_penalty",
     ),
+    path(
+        "api/defects/<int:defect_id>/rework/",
+        views.rework_defect,
+        name="rework_defect",
+    ),
     path("api/stats/", views.defects_stats, name="defects_stats"),
 ]

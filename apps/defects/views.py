@@ -1,14 +1,23 @@
+from decimal import Decimal
+
 from django.shortcuts import render
+from django.db import transaction
 from django.db.models import Sum
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Defect
-from .serializers import DefectSerializer, DefectPenaltySerializer
+from .models import Defect, DefectRework
+from .serializers import (
+    DefectSerializer,
+    DefectPenaltySerializer,
+    DefectReworkSerializer,
+    DefectReworkCreateSerializer,
+)
 from apps.users.models import User
 from apps.employees.views import is_mobile
+from apps.inventory.models import RawMaterial
 
 
 def defects_page(request):
@@ -99,4 +108,60 @@ def defects_stats(request):
             "total_penalty": float(total_penalty),
             "with_penalty": with_penalty,
         }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def rework_defect(request, defect_id):
+    """
+    Обработка брака в обрабатывающем цехе (ID4):
+    - сотрудник выбирает брак;
+    - указывает, сколько брака переработал и в какое сырьё;
+    - система увеличивает количество выбранного сырья на складе.
+    """
+    try:
+        defect = Defect.objects.get(id=defect_id)
+    except Defect.DoesNotExist:
+        return Response(
+            {"error": "Брак не найден"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = DefectReworkCreateSerializer(
+        data=request.data,
+        context={"request": request, "defect": defect},
+    )
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    data = serializer.validated_data
+    raw_material: RawMaterial = data["raw_material"]
+    input_quantity: Decimal = data["input_quantity"]
+    output_quantity: Decimal = data["output_quantity"]
+    comment: str = data.get("comment", "")
+
+    with transaction.atomic():
+        rework = DefectRework.objects.create(
+            defect=defect,
+            raw_material=raw_material,
+            input_quantity=input_quantity,
+            output_quantity=output_quantity,
+            comment=comment,
+            employee=request.user,
+            workshop=getattr(request.user, "workshop", None),
+        )
+
+        # Увеличиваем остаток сырья на складе
+        raw_material.quantity = (raw_material.quantity or Decimal("0")) + output_quantity
+        raw_material.save(update_fields=["quantity"])
+
+    return Response(
+        {
+            "success": True,
+            "defect_id": defect.id,
+            "rework": DefectReworkSerializer(rework).data,
+            "remaining_defect_quantity": float(defect.available_for_rework),
+        },
+        status=status.HTTP_201_CREATED,
     )

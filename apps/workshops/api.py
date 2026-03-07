@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
-from apps.operations.workshops.models import Workshop, NeutralBatch
+from apps.operations.workshops.models import Workshop, NeutralBatch, StorageZone
 from apps.employee_tasks.models import EmployeeTask
 from apps.inventory.models import EmployeeMaterialBalance
 from apps.services.models import Service
@@ -31,6 +31,16 @@ def _is_packaging_workshop(workshop: Workshop) -> bool:
         return False
     name = (workshop.name or "").lower()
     return 'пакет' in name or 'пакето' in name or 'упаков' in name
+
+
+def _is_storage_workshop(workshop: Workshop) -> bool:
+    if not workshop:
+        return False
+    # Проверяем по ID или по названию
+    if workshop.id == 3:
+        return True
+    name = (workshop.name or "").lower()
+    return 'склад' in name and 'готов' not in name
 
 
 class MyWorkshopsView(APIView):
@@ -706,16 +716,14 @@ class PackagingReportView(APIView):
                         status=404,
                     )
 
-            # Создаём запись в складе готовой продукции
-            from apps.finished_goods.models import FinishedGood
-
-            finished = FinishedGood.objects.create(
+            # Создаём запись в складской зоне (вместо сразу в готовую продукцию)
+            storage_zone = StorageZone.objects.create(
+                workshop=workshop,
+                employee=user,
                 product=product,
                 order_item=order_item,
                 order=order,
-                quantity=int(produced_quantity),
-                workshop=workshop,
-                status="stock",
+                total_quantity=produced_quantity,
             )
             
             # Логируем действие
@@ -725,8 +733,8 @@ class PackagingReportView(APIView):
             WorkshopLog.add(
                 workshop=workshop,
                 user=user,
-                action=f"Упаковка ({mode_text})",
-                description=f"{order_text}: {float(produced_quantity)} кг доработано, {float(scrap_quantity)} кг брака. Партия #{batch_id}"
+                action=f"Упаковка → Складская зона ({mode_text})",
+                description=f"{order_text}: {float(produced_quantity)} кг доработано, {float(scrap_quantity)} кг брака. Партия нейтральной зоны #{batch_id}, складская зона #{storage_zone.id}"
             )
 
             # Запись брака
@@ -771,9 +779,211 @@ class PackagingReportView(APIView):
                 "scrap_quantity": float(scrap_quantity),
                 "efficiency": efficiency,
                 "earnings": float(earnings),
-                "finished_good_id": finished.id,
+                "storage_zone_id": storage_zone.id,
                 "defect_id": defect.id if defect else None,
                 "order_id": order.id if order else None,
                 "order_item_id": order_item.id if order_item else None,
+            }
+        )
+
+
+class StorageZonesListView(APIView):
+    """
+    Список доступных партий складской зоны для третьего цеха (ID3 - Склад).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.defects.models import Defect
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        zones = (
+            StorageZone.objects.select_related("workshop", "employee", "product", "order_item", "order")
+            .all()
+            .order_by("-created_at")
+        )
+        # Если передан параметр all=true, возвращаем все партии (включая использованные)
+        include_all = request.query_params.get("all", "false").lower() == "true"
+        data = []
+        for zone in zones:
+            available = zone.available_quantity
+            # Пропускаем использованные партии только если не запрошены все
+            if not include_all and available <= 0:
+                continue
+            
+            data.append(
+                {
+                    "id": zone.id,
+                    "workshop_id": zone.workshop_id,
+                    "workshop_name": zone.workshop.name,
+                    "employee_id": zone.employee_id,
+                    "employee_name": zone.employee.get_full_name(),
+                    "product_id": zone.product_id,
+                    "product_name": zone.product.name if zone.product else "Без товара",
+                    "order_id": zone.order_id,
+                    "order_name": zone.order.name if zone.order else None,
+                    "order_item_id": zone.order_item_id,
+                    "total_quantity": float(zone.total_quantity),
+                    "used_quantity": float(zone.used_quantity),
+                    "available_quantity": float(available),
+                    "created_at": zone.created_at.isoformat(),
+                }
+            )
+        return Response(data)
+
+
+class WarehouseReportView(APIView):
+    """
+    Workflow для третьего цеха (ID3 - Склад).
+
+    POST:
+      - принимает ID партии складской зоны;
+      - считает выпуск, брак, эффективность;
+      - создаёт запись в складе готовой продукции.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        workshop = getattr(user, "workshop", None)
+
+        if not workshop or not _is_storage_workshop(workshop):
+            return Response(
+                {"detail": "Этот workflow доступен только для складского цеха (ID3)."},
+                status=400,
+            )
+
+        zone_id = request.data.get("storage_zone_id")
+        if not zone_id:
+            return Response({"detail": "storage_zone_id обязателен."}, status=400)
+
+        try:
+            produced_raw = request.data.get("produced_quantity")
+            produced_quantity = Decimal(str(produced_raw or "0"))
+        except Exception:
+            return Response(
+                {"detail": "Некорректное значение produced_quantity."}, status=400
+            )
+
+        if produced_quantity <= 0:
+            return Response(
+                {"detail": "Нужно указать положительное количество произведённого товара."},
+                status=400,
+            )
+
+        # Сколько берём из складской зоны в рамках этой операции
+        try:
+            input_raw = request.data.get("input_quantity")
+            input_quantity = Decimal(str(input_raw)) if input_raw is not None else None
+        except Exception:
+            return Response(
+                {"detail": "Некорректное значение input_quantity."}, status=400
+            )
+
+        if input_quantity is not None and input_quantity <= 0:
+            return Response(
+                {
+                    "detail": "Нужно указать положительное количество товара, взятого из складской зоны."
+                },
+                status=400,
+            )
+
+        with transaction.atomic():
+            zone = StorageZone.objects.select_for_update().get(pk=zone_id)
+            available = zone.available_quantity
+            if available <= 0:
+                return Response(
+                    {"detail": "У выбранной партии нет доступного объёма."},
+                    status=400,
+                )
+
+            # Если input_quantity не передан, работаем со всей доступной партией
+            if input_quantity is None:
+                total_input = available
+            else:
+                if input_quantity > available:
+                    input_quantity = available
+                total_input = input_quantity
+
+            if produced_quantity > total_input:
+                produced_quantity = total_input
+
+            scrap_quantity = total_input - produced_quantity
+            efficiency = (
+                float((produced_quantity / total_input) * Decimal("100"))
+                if total_input > 0
+                else 0.0
+            )
+
+            # Списываем из партии только тот объём, с которым реально работаем
+            zone.consume(total_input)
+
+            # Создаём запись в складе готовой продукции
+            from apps.finished_goods.models import FinishedGood
+
+            finished = FinishedGood.objects.create(
+                product=zone.product,
+                order_item=zone.order_item,
+                order=zone.order,
+                quantity=int(produced_quantity),
+                workshop=workshop,
+                status="stock",
+            )
+            
+            # Логируем действие
+            from apps.operations.workshops.models import WorkshopLog
+            order_text = f"Заказ #{zone.order.id}" if zone.order else "Без заказа"
+            WorkshopLog.add(
+                workshop=workshop,
+                user=user,
+                action="Склад → Готовая продукция",
+                description=f"{order_text}: {float(produced_quantity)} кг обработано, {float(scrap_quantity)} кг брака. Партия складской зоны #{zone_id}"
+            )
+
+            # Запись брака
+            defect = None
+            if scrap_quantity > 0:
+                defect = Defect.objects.create(
+                    employee_task=None,
+                    product=zone.product,
+                    user=user,
+                    quantity=scrap_quantity,
+                    employee_comment=(
+                        f"Warehouse defect: {scrap_quantity} kg of {total_input} kg."
+                    ),
+                )
+
+            # Заработок для сдельной оплаты
+            earnings = Decimal("0")
+            if getattr(user, "payment_type", None) == User.PaymentType.VARIABLE:
+                user_rate = getattr(user, "piecework_rate", None)
+                if user_rate is not None:
+                    rate = Decimal(str(user_rate))
+                else:
+                    service = (
+                        Service.objects.filter(workshop=workshop, is_active=True)
+                        .order_by("id")
+                        .first()
+                    )
+                    rate = service.service_price if service else Decimal("0")
+                earnings = (produced_quantity * Decimal(str(rate or 0))).quantize(
+                    Decimal("0.01")
+                )
+                if earnings > 0:
+                    user.add_to_balance(earnings)
+
+        return Response(
+            {
+                "status": "success",
+                "produced_quantity": float(produced_quantity),
+                "input_quantity": float(total_input),
+                "scrap_quantity": float(scrap_quantity),
+                "efficiency": efficiency,
+                "earnings": float(earnings),
+                "finished_good_id": finished.id,
+                "defect_id": defect.id if defect else None,
+                "order_id": zone.order.id if zone.order else None,
+                "order_item_id": zone.order_item.id if zone.order_item else None,
             }
         )
