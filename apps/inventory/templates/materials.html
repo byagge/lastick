@@ -879,36 +879,189 @@
     <script>
         function inventoryData() {
             return {
-
-            countryCodeFromText(countryText) {
-                if (!countryText) return '';
-                const normalized = String(countryText)
-                    .toLowerCase()
-                    .replace(/[^a-zа-яё\s]/gi, '')
-                    .trim();
-                const mappings = [
-                    { code: 'ru', tokens: ['россия', 'rf', 'russia'] },
-                    { code: 'kg', tokens: ['кыргызстан', 'киргизия', 'kyrgyzstan', 'kyrgyz'] },
-                    { code: 'kz', tokens: ['казахстан', 'kazakhstan'] },
-                    { code: 'uz', tokens: ['узбекистан', 'uzbekistan'] },
-                    { code: 'tr', tokens: ['турция', 'turkey'] },
-                    { code: 'cn', tokens: ['китай', 'china'] },
-                    { code: 'de', tokens: ['германия', 'germany'] },
-                    { code: 'it', tokens: ['италия', 'italy'] },
-                    { code: 'us', tokens: ['сша', 'usa', 'united states'] },
-                    { code: 'ae', tokens: ['оаэ', 'uae', 'united arab emirates'] },
-                ];
-                for (const entry of mappings) {
-                    for (const token of entry.tokens) {
-                        if (normalized.includes(token)) return entry.code;
+                normalizeCountryText(text) {
+                    return String(text || '')
+                        .toLowerCase()
+                        .replace(/ё/g, 'е')
+                        .replace(/['’`"]/g, '')
+                        .replace(/[^a-zа-я0-9\s-]/gi, ' ')
+                        .replace(/[-_]+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                },
+    
+                compactCountryText(text) {
+                    return this.normalizeCountryText(text).replace(/\s+/g, '');
+                },
+    
+                levenshtein(a, b) {
+                    a = String(a || '');
+                    b = String(b || '');
+    
+                    const m = a.length;
+                    const n = b.length;
+    
+                    if (!m) return n;
+                    if (!n) return m;
+    
+                    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    
+                    for (let i = 0; i <= m; i++) dp[i][0] = i;
+                    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    
+                    for (let i = 1; i <= m; i++) {
+                        for (let j = 1; j <= n; j++) {
+                            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                            dp[i][j] = Math.min(
+                                dp[i - 1][j] + 1,
+                                dp[i][j - 1] + 1,
+                                dp[i - 1][j - 1] + cost
+                            );
+                        }
                     }
-                }
-                return '';
-            },
-            countryFlag(countryText) {
-                const code = this.countryCodeFromText(countryText);
-                return code ? `https://flagcdn.com/20x15/${code}.png` : '';
-            },
+    
+                    return dp[m][n];
+                },
+    
+                countryCodeFromText(countryText) {
+                    if (!countryText) return '';
+    
+                    const normalized = this.normalizeCountryText(countryText);
+                    const compact = this.compactCountryText(countryText);
+    
+                    const mappings = [
+                        {
+                            code: 'ru',
+                            aliases: [
+                                'россия', 'россияя', 'рассия', 'рассияя', 'расия', 'рф', 'ру',
+                                'russia', 'russian federation', 'rf', 'rus',
+                                'москва', 'moscow', 'санкт петербург', 'питер', 'spb', 'saint petersburg'
+                            ]
+                        },
+                        {
+                            code: 'kg',
+                            aliases: [
+                                'кыргызстан', 'киргизия', 'кырг', 'кр', 'kg', 'kgz',
+                                'kyrgyzstan', 'kyrgyz', 'kirgizia', 'kyrgystan',
+                                'бишкек', 'bishkek', 'ош', 'osh',
+                                'джалал абад', 'жалал абад', 'джалалабад', 'jalal abad', 'jalalabad',
+                                'каракол', 'karakol', 'нарын', 'naryn', 'талас', 'talas',
+                                'баткен', 'batken', 'токмок', 'tokmok'
+                            ]
+                        },
+                        {
+                            code: 'kz',
+                            aliases: [
+                                'казахстан', 'казакстан', 'кз', 'kz', 'kazakhstan', 'qazaqstan',
+                                'алматы', 'alma ata', 'almaty', 'астана', 'astana', 'шымкент', 'shymkent'
+                            ]
+                        },
+                        {
+                            code: 'uz',
+                            aliases: [
+                                'узбекистан', 'узбкистан', 'узбкстан', 'узб', 'уз', 'uz', 'uzb',
+                                'uzbekistan', 'uzbek',
+                                'ташкент', 'tashkent', 'андижан', 'andijan',
+                                'самарканд', 'samarkand', 'фергана', 'fergana',
+                                'наманган', 'namangan', 'бухара', 'bukhara', 'buxoro'
+                            ]
+                        },
+                        {
+                            code: 'ir',
+                            aliases: [
+                                'иран', 'еран', 'эрон', 'ирон', 'iran', 'tehran', 'тегеран'
+                            ]
+                        },
+                        {
+                            code: 'tr',
+                            aliases: [
+                                'турция', 'туркие', 'turkey', 'turkiye', 'турецкая', 'turkish', 'туркия',
+                                'стамбул', 'istanbul', 'анталия', 'antalya', 'анкара', 'ankara'
+                            ]
+                        },
+                        {
+                            code: 'cn',
+                            aliases: [
+                                'китай', 'china', 'prc', 'хитой', 'xitoy',
+                                'пекин', 'beijing', 'гуанчжоу', 'guangzhou', 'шанхай', 'shanghai', 'yiwu'
+                            ]
+                        },
+                        {
+                            code: 'de',
+                            aliases: [
+                                'германия', 'германи', 'germany', 'deutschland',
+                                'берлин', 'berlin', 'мюнхен', 'munich', 'гамбург', 'hamburg'
+                            ]
+                        },
+                        {
+                            code: 'it',
+                            aliases: [
+                                'италия', 'италии', 'italy', 'italia',
+                                'рим', 'rome', 'милан', 'milan'
+                            ]
+                        },
+                        {
+                            code: 'us',
+                            aliases: [
+                                'сша', 'usa', 'us', 'united states', 'america', 'америка',
+                                'new york', 'los angeles', 'la', 'ny'
+                            ]
+                        },
+                        {
+                            code: 'ae',
+                            aliases: [
+                                'оаэ', 'uae', 'united arab emirates', 'emirates',
+                                'дубай', 'dubai', 'абу даби', 'abu dhabi', 'шарджа', 'sharjah'
+                            ]
+                        }
+                    ];
+    
+                    for (const entry of mappings) {
+                        for (const alias of entry.aliases) {
+                            const aliasNorm = this.normalizeCountryText(alias);
+                            const aliasCompact = this.compactCountryText(alias);
+    
+                            if (
+                                normalized === aliasNorm ||
+                                compact === aliasCompact ||
+                                normalized.includes(aliasNorm) ||
+                                aliasNorm.includes(normalized) ||
+                                compact.includes(aliasCompact) ||
+                                aliasCompact.includes(compact)
+                            ) {
+                                return entry.code;
+                            }
+                        }
+                    }
+    
+                    let bestCode = '';
+                    let bestDistance = Infinity;
+    
+                    for (const entry of mappings) {
+                        for (const alias of entry.aliases) {
+                            const aliasCompact = this.compactCountryText(alias);
+                            if (!aliasCompact) continue;
+    
+                            const distance = this.levenshtein(compact, aliasCompact);
+                            const maxAllowed =
+                                aliasCompact.length <= 4 ? 1 :
+                                aliasCompact.length <= 8 ? 2 : 3;
+    
+                            if (distance <= maxAllowed && distance < bestDistance) {
+                                bestDistance = distance;
+                                bestCode = entry.code;
+                            }
+                        }
+                    }
+    
+                    return bestCode;
+                },
+    
+                countryFlag(countryText) {
+                    const code = this.countryCodeFromText(countryText);
+                    return code ? `https://flagcdn.com/20x15/${code}.png` : '';
+                },
+    
                 materials: [],
                 searchTerm: '',
                 sortField: 'name',
@@ -930,7 +1083,7 @@
                     price: 'Цена',
                     total_value: 'Общая стоимость'
                 },
-                // Загрузка материалов с API
+    
                 async fetchMaterials() {
                     const resp = await fetch('/inventory/api/materials/');
                     const data = await resp.json();
@@ -938,7 +1091,7 @@
                         this.materials = data.data;
                     }
                 },
-                // Загрузка статистики с API
+    
                 async fetchStats() {
                     const resp = await fetch('/inventory/api/materials/stats/');
                     const data = await resp.json();
@@ -946,21 +1099,24 @@
                         this._stats = data.data;
                     }
                 },
+    
                 _stats: null,
+    
                 stats() {
                     return this._stats || { totalValue: 0, lowStockCount: 0, totalItems: 0, avgPrice: 0 };
                 },
+    
                 totalMaterialsCount() {
                     return Array.isArray(this.materials) ? this.materials.length : 0;
                 },
+    
                 totalQuantity() {
                     if (!Array.isArray(this.materials)) return 0;
                     return this.materials.reduce((acc, m) => acc + (Number(m.quantity) || 0), 0);
                 },
-                // CRUD
+    
                 async saveMaterial() {
                     if (this.editingMaterial) {
-                        // update
                         const resp = await fetch(`/inventory/api/materials/${this.formData.id}/update/`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -975,7 +1131,6 @@
                             alert(data.message || 'Ошибка обновления');
                         }
                     } else {
-                        // create
                         const resp = await fetch('/inventory/api/materials/create/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -991,6 +1146,7 @@
                         }
                     }
                 },
+    
                 async deleteMaterial(id) {
                     if (!confirm('Удалить материал?')) return;
                     const resp = await fetch(`/inventory/api/materials/${id}/delete/`, { method: 'DELETE' });
@@ -1002,6 +1158,7 @@
                         alert(data.message || 'Ошибка удаления');
                     }
                 },
+    
                 async bulkDelete() {
                     if (!confirm('Удалить выбранные материалы?')) return;
                     const resp = await fetch('/inventory/api/materials/bulk-delete/', {
@@ -1018,47 +1175,53 @@
                         alert(data.message || 'Ошибка удаления');
                     }
                 },
-                // Фильтрация и сортировка материалов
+    
                 filteredMaterials() {
                     if (!this.materials || !Array.isArray(this.materials)) {
                         return [];
                     }
-                    
+    
                     let filtered = this.materials.filter(material => {
                         if (!material) return false;
-                        
+    
                         const searchTerm = (this.searchTerm || '').toLowerCase();
                         const materialName = (material.name || '').toLowerCase();
                         const materialCountry = (material.country || '').toLowerCase();
-                        
+    
                         const matchesSearch =
                             !searchTerm ||
                             materialName.includes(searchTerm) ||
                             materialCountry.includes(searchTerm);
+    
                         const matchesLowStock = !this.showLowStock || (material.quantity <= material.min_quantity);
                         return matchesSearch && matchesLowStock;
                     });
-                    
+    
                     if (!this.sortField) return filtered;
-                    
+    
                     return filtered.sort((a, b) => {
                         const aValue = a[this.sortField];
                         const bValue = b[this.sortField];
-                        
+    
                         if (aValue === null || aValue === undefined) return 1;
                         if (bValue === null || bValue === undefined) return -1;
-                        
+    
                         if (typeof aValue === 'string' && typeof bValue === 'string') {
-                            return this.sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                            return this.sortDirection === 'asc'
+                                ? aValue.localeCompare(bValue)
+                                : bValue.localeCompare(aValue);
                         }
+    
                         if (typeof aValue === 'number' && typeof bValue === 'number') {
-                            return this.sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+                            return this.sortDirection === 'asc'
+                                ? aValue - bValue
+                                : bValue - aValue;
                         }
+    
                         return 0;
                     });
                 },
-
-                // Выбор строки
+    
                 toggleSelect(id) {
                     if (this.selectedRows.includes(id)) {
                         this.selectedRows = this.selectedRows.filter(rowId => rowId !== id);
@@ -1066,8 +1229,7 @@
                         this.selectedRows.push(id);
                     }
                 },
-
-                // Выбор всех строк
+    
                 toggleSelectAll() {
                     if (this.selectedRows.length === this.filteredMaterials().length) {
                         this.selectedRows = [];
@@ -1075,8 +1237,7 @@
                         this.selectedRows = this.filteredMaterials().map(m => m.id);
                     }
                 },
-
-                // Сортировка
+    
                 handleSort(field) {
                     if (this.sortField === field) {
                         this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -1085,8 +1246,7 @@
                         this.sortDirection = 'asc';
                     }
                 },
-
-                // Начало редактирования ячейки
+    
                 startEditing(id, field) {
                     const material = this.materials.find(m => m.id === id);
                     if (material) {
@@ -1094,45 +1254,41 @@
                         this.editValue = material[field];
                     }
                 },
-
-                // Сохранение редактирования ячейки
+    
                 async saveEdit(id, field) {
                     const material = this.materials.find(m => m.id === id);
                     if (material) {
                         const oldValue = material[field];
-                        const newValue = field === 'quantity' || field === 'price' || field === 'min_quantity' ? Number(this.editValue) : this.editValue;
-                        
-                        // Обновляем локальные данные
+                        const newValue = field === 'quantity' || field === 'price' || field === 'min_quantity'
+                            ? Number(this.editValue)
+                            : this.editValue;
+    
                         material[field] = newValue;
                         if (field === 'quantity' || field === 'price') {
                             material.total_value = material.quantity * material.price;
                         }
-                        
-                        // Отправляем изменения на сервер
+    
                         try {
                             const updateData = {};
                             updateData[field] = newValue;
-                            
+    
                             const resp = await fetch(`/inventory/api/materials/${id}/update/`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(updateData)
                             });
-                            
+    
                             const result = await resp.json();
                             if (result.status !== 'success') {
-                                // Если ошибка, возвращаем старое значение
                                 material[field] = oldValue;
                                 if (field === 'quantity' || field === 'price') {
                                     material.total_value = material.quantity * material.price;
                                 }
                                 alert('Ошибка сохранения: ' + (result.message || 'Неизвестная ошибка'));
                             } else {
-                                // Обновляем данные с сервера
                                 Object.assign(material, result.data);
                             }
                         } catch (error) {
-                            // Если ошибка сети, возвращаем старое значение
                             material[field] = oldValue;
                             if (field === 'quantity' || field === 'price') {
                                 material.total_value = material.quantity * material.price;
@@ -1140,20 +1296,18 @@
                             alert('Ошибка сети при сохранении');
                         }
                     }
-                    
+    
                     this.editingCell = null;
                     this.editValue = null;
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Отмена редактирования ячейки
+    
                 cancelEdit() {
                     this.editingCell = null;
                     this.editValue = null;
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Открытие формы добавления
+    
                 openAddForm() {
                     this.formData = {
                         name: '',
@@ -1168,37 +1322,31 @@
                     this.showForm = true;
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Открытие формы редактирования
+    
                 openEditForm(material) {
                     this.formData = { ...material };
                     this.editingMaterial = material;
                     this.showForm = true;
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Закрытие формы
+    
                 closeForm() {
                     this.showForm = false;
                     this.formData = {};
                     this.editingMaterial = null;
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Экспорт в Excel
+    
                 exportToExcel() {
                     try {
-                        // Подготавливаем данные
                         const materials = this.filteredMaterials();
                         if (materials.length === 0) {
                             alert('Нет данных для экспорта');
                             return;
                         }
-
-                        // Создаем рабочую книгу
+    
                         const wb = XLSX.utils.book_new();
-                        
-                        // Подготавливаем данные для таблицы
+    
                         const excelData = materials.map(material => ({
                             'Название': material.name || '',
                             'Страна производителя': material.country || '',
@@ -1211,29 +1359,25 @@
                             'Дата создания': material.created_at ? new Date(material.created_at).toLocaleDateString('ru-RU') : '',
                             'Дата обновления': material.updated_at ? new Date(material.updated_at).toLocaleDateString('ru-RU') : ''
                         }));
-
-                        // Создаем лист
+    
                         const ws = XLSX.utils.json_to_sheet(excelData);
-
-                        // Настраиваем ширину столбцов
+    
                         const colWidths = [
-                            { wch: 30 }, // Название
-                            { wch: 20 }, // Страна
-                            { wch: 15 }, // Единица измерения
-                            { wch: 12 }, // Количество
-                            { wch: 12 }, // Мин. остаток
-                            { wch: 15 }, // Цена за единицу
-                            { wch: 15 }, // Общая стоимость
-                            { wch: 40 }, // Описание
-                            { wch: 15 }, // Дата создания
-                            { wch: 15 }  // Дата обновления
+                            { wch: 30 },
+                            { wch: 20 },
+                            { wch: 15 },
+                            { wch: 12 },
+                            { wch: 12 },
+                            { wch: 15 },
+                            { wch: 15 },
+                            { wch: 40 },
+                            { wch: 15 },
+                            { wch: 15 }
                         ];
                         ws['!cols'] = colWidths;
-
-                        // Добавляем лист в книгу
+    
                         XLSX.utils.book_append_sheet(wb, ws, 'Материалы');
-
-                        // Создаем лист со статистикой
+    
                         const statsData = [
                             { 'Показатель': 'Общее количество материалов', 'Значение': materials.length },
                             { 'Показатель': 'Общая стоимость на складе', 'Значение': this.stats().totalValue.toFixed(2) + ' ⃀' },
@@ -1241,31 +1385,30 @@
                             { 'Показатель': 'Общий остаток (ед.)', 'Значение': this.totalQuantity().toLocaleString() },
                             { 'Показатель': 'Дата экспорта', 'Значение': new Date().toLocaleString('ru-RU') }
                         ];
-                        
+    
                         const statsWs = XLSX.utils.json_to_sheet(statsData);
                         statsWs['!cols'] = [{ wch: 30 }, { wch: 20 }];
                         XLSX.utils.book_append_sheet(wb, statsWs, 'Статистика');
-
-                        // Экспортируем файл
+    
                         const fileName = `inventory_${new Date().toISOString().split('T')[0]}.xlsx`;
                         XLSX.writeFile(wb, fileName);
-                        
+    
                         alert('Экспорт в Excel выполнен успешно!');
                     } catch (error) {
                         console.error('Ошибка экспорта:', error);
                         alert('Ошибка при экспорте: ' + error.message);
                     }
                 },
-
-                // Проверка редактирования ячейки
+    
                 isEditing(id, field) {
                     return this.editingCell && this.editingCell.id === id && this.editingCell.field === field;
                 },
-
+    
                 showHistory(material) {
                     alert(`История изменений для: ${material.name}\n\nСоздано: ${material.created_at}\nПоследнее изменение: ${material.updated_at}`);
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 async duplicateMaterial(material) {
                     try {
                         const newMaterial = { ...material };
@@ -1273,12 +1416,13 @@
                         delete newMaterial.created_at;
                         delete newMaterial.updated_at;
                         newMaterial.name = material.name + ' (копия)';
-                        
+    
                         const resp = await fetch('/inventory/api/materials/create/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(newMaterial)
                         });
+    
                         const data = await resp.json();
                         if (data.status === 'success') {
                             await this.fetchMaterials();
@@ -1290,10 +1434,11 @@
                     } catch (error) {
                         alert('Ошибка дублирования материала');
                     }
+    
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 async init() {
-                    // Инициализируем переменные
                     this.materials = [];
                     this.searchTerm = '';
                     this.sortField = 'name';
@@ -1306,13 +1451,12 @@
                     this.formData = {};
                     this.viewMode = 'table';
                     this.showLowStock = false;
-                    
+    
                     await this.fetchMaterials();
                     await this.fetchStats();
                     this.$nextTick(() => lucide.createIcons());
                 },
-
-                // Модальное окно прихода
+    
                 showIncomingForm: false,
                 incomingData: {
                     material: null,
@@ -1320,6 +1464,7 @@
                     price_per_unit: '',
                     notes: ''
                 },
+    
                 openIncomingForm(material) {
                     this.incomingData.material = material;
                     this.incomingData.quantity = 0;
@@ -1328,19 +1473,22 @@
                     this.showIncomingForm = true;
                     this.$nextTick(() => lucide.createIcons());
                 },
-                // Панель деталей
+    
                 showDetailsPanel: false,
                 detailsMaterial: null,
+    
                 openDetails(material) {
                     this.detailsMaterial = material;
                     this.showDetailsPanel = true;
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 closeDetails() {
                     this.showDetailsPanel = false;
                     this.detailsMaterial = null;
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 closeIncomingForm() {
                     this.showIncomingForm = false;
                     this.incomingData = {
@@ -1351,48 +1499,56 @@
                     };
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 async saveIncoming() {
                     if (!this.incomingData.material) {
                         alert('Материал не выбран для прихода.');
                         return;
                     }
+    
                     const quantity = Number(this.incomingData.quantity);
                     if (quantity <= 0) {
                         alert('Количество прихода должно быть больше 0.');
                         return;
                     }
-
+    
                     const data = {
                         material_id: this.incomingData.material.id,
                         quantity: quantity,
-                        price_per_unit: this.incomingData.price_per_unit === '' || this.incomingData.price_per_unit === null ? null : Number(this.incomingData.price_per_unit),
+                        price_per_unit: this.incomingData.price_per_unit === '' || this.incomingData.price_per_unit === null
+                            ? null
+                            : Number(this.incomingData.price_per_unit),
                         notes: this.incomingData.notes || null
                     };
-
+    
                     const resp = await fetch('/inventory/api/materials/incoming/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
+    
                     const result = await resp.json();
-
+    
                     if (result.status === 'success') {
-                        await this.fetchMaterials(); // Обновляем список материалов
-                        await this.fetchStats(); // Обновляем статистику
+                        await this.fetchMaterials();
+                        await this.fetchStats();
                         this.closeIncomingForm();
                         alert('Приход успешно добавлен!');
                     } else {
                         alert(result.message || 'Ошибка добавления прихода');
                     }
+    
                     this.$nextTick(() => lucide.createIcons());
                 },
+    
                 async showIncomingHistory(material) {
                     try {
                         const resp = await fetch(`/inventory/api/materials/${material.id}/incomings/`);
                         const data = await resp.json();
-                        
+    
                         if (data.status === 'success') {
                             let historyText = `История приходов: ${material.name}\n\n`;
+    
                             if (data.data.length === 0) {
                                 historyText += 'Приходов пока нет.';
                             } else {
@@ -1400,18 +1556,23 @@
                                     const date = new Date(incoming.created_at).toLocaleString('ru-RU');
                                     historyText += `${index + 1}. ${date}\n`;
                                     historyText += `   Количество: ${incoming.quantity} ${material.unit}\n`;
+    
                                     if (incoming.price_per_unit) {
                                         historyText += `   Цена: ${incoming.price_per_unit} ⃀\n`;
                                     }
+    
                                     if (incoming.total_value) {
                                         historyText += `   Сумма: ${incoming.total_value} ⃀\n`;
                                     }
+    
                                     if (incoming.notes) {
                                         historyText += `   Примечания: ${incoming.notes}\n`;
                                     }
+    
                                     historyText += '\n';
                                 });
                             }
+    
                             alert(historyText);
                         } else {
                             alert(data.message || 'Ошибка загрузки истории приходов');
@@ -1419,10 +1580,12 @@
                     } catch (error) {
                         alert('Ошибка загрузки истории приходов');
                     }
+    
                     this.$nextTick(() => lucide.createIcons());
                 }
             };
         }
+    
         document.addEventListener('alpine:init', () => {
             Alpine.data('inventoryData', inventoryData);
         });
