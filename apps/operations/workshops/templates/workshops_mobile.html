@@ -89,7 +89,7 @@
                     </div>
                 </div>
 
-                <!-- Нейтральная зона (между цехами) -->
+                <!-- Нейтральная зона (между цехами ID1 и ID2) -->
                 <div class="card bg-white rounded-xl p-4 mb-4" x-data="{ neutralZone: null, loading: false }" x-init="async () => { loading = true; try { const r = await fetch('/workshops/api/neutral-zone/'); neutralZone = await r.json(); } catch(e) { console.error(e); } finally { loading = false; } }">
                     <div class="text-sm font-semibold text-gray-900 mb-2">Нейтральная зона</div>
                     <div class="text-xs text-gray-500 mb-3">Между цехами</div>
@@ -145,6 +145,61 @@
                         </div>
                     </template>
                     <template x-if="!loading && !neutralZone">
+                        <p class="text-xs text-gray-400 text-center py-2">Нет данных</p>
+                    </template>
+                </div>
+                
+                <!-- Складская зона (между цехами ID2 и ID3) -->
+                <div class="card bg-white rounded-xl p-4 mb-4" x-data="{ storageZones: [], loading: false }" x-init="async () => { loading = true; try { const r = await fetch('/api/workshops/api/storage-zones/'); const data = await r.json(); storageZones = Array.isArray(data) ? data : []; } catch(e) { console.error(e); } finally { loading = false; } }">
+                    <div class="text-sm font-semibold text-gray-900 mb-2">Складская зона</div>
+                    <div class="text-xs text-gray-500 mb-3">Между упаковкой и складом (ID2 → ID3)</div>
+                    <template x-if="loading">
+                        <div class="text-center py-2">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
+                        </div>
+                    </template>
+                    <template x-if="!loading && storageZones.length > 0">
+                        <div>
+                            <!-- Общая статистика -->
+                            <div class="bg-amber-50 rounded-lg p-3 mb-3">
+                                <div class="grid grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                        <p class="text-gray-500">Поступило</p>
+                                        <p class="font-semibold"
+                                           x-text="(storageZones.reduce((s,z) => s + (z.total_quantity || 0), 0)).toFixed(2) + ' ед.'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500">Выдано</p>
+                                        <p class="font-semibold"
+                                           x-text="(storageZones.reduce((s,z) => s + (z.used_quantity || 0), 0)).toFixed(2) + ' ед.'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500">Доступно</p>
+                                        <p class="font-semibold text-emerald-600"
+                                           x-text="(storageZones.reduce((s,z) => s + (z.available_quantity || 0), 0)).toFixed(2) + ' ед.'"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Последние партии -->
+                            <template x-if="storageZones.length > 0">
+                                <div class="space-y-2 max-h-32 overflow-y-auto">
+                                    <template x-for="zone in storageZones.slice(0, 6)" :key="zone.id">
+                                        <div class="bg-gray-50 rounded-lg p-2 text-xs">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <span class="font-medium text-gray-900" x-text="zone.product_name || 'Товар'"></span>
+                                                    <span class="text-gray-500 ml-1" x-text="zone.employee_name"></span>
+                                                </div>
+                                                <span class="text-emerald-600 font-medium" x-text="zone.available_quantity.toFixed(2) + ' ед.'"></span>
+                                            </div>
+                                            <div class="text-gray-400 mt-1" x-text="'Создано: ' + formatDate(zone.created_at)"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="!loading && storageZones.length === 0">
                         <p class="text-xs text-gray-400 text-center py-2">Нет данных</p>
                     </template>
                 </div>
