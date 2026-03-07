@@ -21,8 +21,19 @@ class FinishedGoodViewSet(viewsets.ReadOnlyModelViewSet):
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
+
+        # DRF при включённой пагинации возвращает структуру
+        # {"count": ..., "next": ..., "previous": ..., "results": [...]}
+        # поэтому достаём именно список записей
+        data = response.data
+        items = data.get('results', data) if isinstance(data, dict) else data
+
         # Добавляем информацию о браках для каждой записи
-        for item in response.data:
+        for item in items:
+            # На всякий случай пропускаем некорректные элементы
+            if not isinstance(item, dict):
+                continue
+
             finished_good_id = item.get('id')
             if not finished_good_id:
                 continue
