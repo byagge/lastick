@@ -20,9 +20,16 @@ class WorkshopViewSet(viewsets.ModelViewSet):
 	filter_backends = [filters.SearchFilter, filters.OrderingFilter]
 	search_fields = ['name', 'description']
 	ordering_fields = ['name', 'created_at']
-
-def _get_active_workshops(limit=2):
-	return Workshop.objects.filter(is_active=True).order_by('id')[:limit]
+	
+def _get_active_workshops(limit=None):
+	"""
+	Возвращает активные цеха.
+	Если limit указан — ограничивает количество, иначе возвращает все.
+	"""
+	qs = Workshop.objects.filter(is_active=True).order_by('id')
+	if limit is not None:
+		return qs[:limit]
+	return qs
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -73,6 +80,7 @@ def workshops_stats(request):
 	from django.utils import timezone
 	from datetime import timedelta
 
+	# Берём все активные цеха, чтобы в статистике отображались и ID1–ID4
 	workshops = list(_get_active_workshops())
 	now = timezone.now()
 	week_ago = now - timedelta(days=7)
@@ -446,7 +454,7 @@ def workshops_list(request):
 	if is_mobile:
 		return render(request, 'workshops_mobile.html')
 	
-	# Получаем первые 2 активных цеха с предзагрузкой связанных данных
+	# Получаем все активные цеха с предзагрузкой связанных данных
 	workshops = list(_get_active_workshops().prefetch_related(
 		'users',
 		'workshop_masters__master',

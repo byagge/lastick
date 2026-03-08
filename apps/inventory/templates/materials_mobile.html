@@ -367,6 +367,29 @@
                             </div>
                             <div class="text-xs text-gray-400 mt-2" x-text="new Date(incoming.created_at).toLocaleString('ru-RU')"></div>
                         </div>
+
+                    <div class="border-t border-gray-200">
+                        <div class="px-4 py-3 bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wide">Приход после обработки (цех ID4)</div>
+                        <template x-if="incomingHistoryData.reworks.length === 0">
+                            <div class="text-center py-8 text-sm text-gray-500">Приходов из цеха пока нет.</div>
+                        </template>
+                        <template x-for="(rework, index) in incomingHistoryData.reworks" :key="rework.id">
+                            <div class="p-4 border-b border-gray-100 last:border-b-0">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="text-sm font-medium text-gray-900" x-text="new Date(rework.created_at).toLocaleDateString('ru-RU')"></div>
+                                    <div class="text-sm text-gray-600">
+                                        <span x-text="rework.output_quantity"></span>
+                                        <span x-text="incomingHistoryData.material?.unit || ''"></span>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    <span class="mr-2">Сотрудник: <span class="font-medium" x-text="rework.employee_name || '?'"></span></span>
+                                    <span>???: <span class="font-medium" x-text="rework.workshop_name || '?'"></span></span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1" x-show="rework.comment" x-text="rework.comment"></div>
+                            </div>
+                        </template>
+                    </div>
                     </template>
                 </div>
             </div>
@@ -474,6 +497,23 @@
                         <p class="text-gray-500 mb-1">Описание</p>
                         <p class="text-gray-800 whitespace-pre-line" x-text="detailsMaterial?.description || 'Описание не заполнено'"></p>
                     </div>
+
+                    <div>
+                        <p class="text-gray-500 mb-1">Остатки по ценам закупки</p>
+                        <template x-if="priceBreakdownLoading">
+                            <div class="text-sm text-gray-500">Загрузка...</div>
+                        </template>
+                        <template x-if="!priceBreakdownLoading && priceBreakdown.length === 0">
+                            <div class="text-sm text-gray-500">Нет данных по ценам.</div>
+                        </template>
+                        <template x-for="row in priceBreakdown" :key="row.price">
+                            <div class="flex items-center justify-between text-sm text-gray-700 py-1">
+                                <span>Цена: <span class="font-medium" x-text="row.price"></span></span>
+                                <span>?Сотрудник: <span class="font-medium" x-text="row.quantity"></span></span>
+                            </div>
+                        </template>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -520,7 +560,8 @@
             showIncomingHistoryModal: false,
             incomingHistoryData: {
             material: null,
-            incomings: []
+            incomings: [],
+            reworks: []
             },
             // Модальное окно истории выдач
             showIssueHistoryModal: false,
@@ -531,6 +572,8 @@
             // Панель деталей
             showDetailsPanel: false,
             detailsMaterial: null,
+            priceBreakdown: [],
+            priceBreakdownLoading: false,
             // Модальное окно "Другое"
             // showMoreMenu: false, // Removed
 
@@ -562,7 +605,8 @@
                 this.showIncomingHistoryModal = false;
                 this.incomingHistoryData = {
                     material: null,
-                    incomings: []
+                    incomings: [],
+                    reworks: []
                 };
                 // this.showMoreMenu = false; // Removed
                 
@@ -943,7 +987,6 @@
                 }
                     this.$nextTick(() => lucide.createIcons());
             },
-
             async showIncomingHistory(material) {
                 try {
                     const resp = await fetch(`/inventory/api/materials/${material.id}/incomings/`);
@@ -952,6 +995,7 @@
                     if (data.status === 'success') {
                         this.incomingHistoryData.material = material;
                         this.incomingHistoryData.incomings = data.data;
+                        this.incomingHistoryData.reworks = [];
                         this.showIncomingHistoryModal = true;
                     } else {
                         this.successModalText = data.message || 'Ошибка загрузки истории приходов';
@@ -961,6 +1005,19 @@
                     this.successModalText = 'Ошибка загрузки истории приходов';
                     this.showSuccessModal = true;
                 }
+
+                if (this.showIncomingHistoryModal) {
+                    try {
+                        const resp = await fetch(`/inventory/api/materials/${material.id}/reworks/`);
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            this.incomingHistoryData.reworks = data.data || [];
+                        }
+                    } catch (error) {
+                        this.incomingHistoryData.reworks = [];
+                    }
+                }
+
                 this.$nextTick(() => lucide.createIcons());
             },
 
@@ -968,7 +1025,8 @@
                 this.showIncomingHistoryModal = false;
                 this.incomingHistoryData = {
                     material: null,
-                    incomings: []
+                    incomings: [],
+                    reworks: []
                 };
                 this.$nextTick(() => lucide.createIcons());
             },
@@ -1012,12 +1070,31 @@
             openDetails(material) {
                 this.detailsMaterial = material;
                 this.showDetailsPanel = true;
+                this.fetchPriceBreakdown(material);
                 this.$nextTick(() => lucide.createIcons());
             },
             closeDetails() {
                 this.showDetailsPanel = false;
                 this.detailsMaterial = null;
+                this.priceBreakdown = [];
+                this.priceBreakdownLoading = false;
                 this.$nextTick(() => lucide.createIcons());
+            },
+
+            async fetchPriceBreakdown(material) {
+                if (!material) return;
+                this.priceBreakdownLoading = true;
+                this.priceBreakdown = [];
+                try {
+                    const resp = await fetch(`/inventory/api/materials/${material.id}/price-breakdown/`);
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        this.priceBreakdown = data.data.breakdown || [];
+                    }
+                } catch (error) {
+                    this.priceBreakdown = [];
+                }
+                this.priceBreakdownLoading = false;
             }
         }
     }

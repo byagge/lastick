@@ -857,6 +857,25 @@
                         <p class="text-gray-500 text-sm mb-1">Описание</p>
                         <p class="text-sm text-gray-800 whitespace-pre-line" x-text="detailsMaterial?.description || 'Описание не заполнено'"></p>
                     </div>
+
+                    
+                    <div>
+                        <p class="text-gray-500 text-sm mb-2">&#1054;&#1089;&#1090;&#1072;&#1090;&#1082;&#1080; &#1087;&#1086; &#1094;&#1077;&#1085;&#1072;&#1084; &#1079;&#1072;&#1082;&#1091;&#1087;&#1082;&#1080;</p>
+                        <template x-if="priceBreakdownLoading">
+                            <div class="text-sm text-gray-500">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</div>
+                        </template>
+                        <template x-if="!priceBreakdownLoading && priceBreakdown.length === 0">
+                            <div class="text-sm text-gray-500">&#1053;&#1077;&#1090; &#1076;&#1072;&#1085;&#1085;&#1099;&#1093; &#1087;&#1086; &#1094;&#1077;&#1085;&#1072;&#1084;.</div>
+                        </template>
+                        <template x-for="row in priceBreakdown" :key="row.price">
+                            <div class="flex items-center justify-between text-sm text-gray-700 py-1">
+                                <span>&#1062;&#1077;&#1085;&#1072;: <span class="font-medium" x-text="row.price"></span></span>
+                                <span>&#1050;&#1086;&#1083;&#1080;&#1095;&#1077;&#1089;&#1090;&#1074;&#1086;: <span class="font-medium" x-text="row.quantity"></span></span>
+                            </div>
+                        </template>
+                    </div>
+
+
                     <div class="grid grid-cols-2 gap-4 text-xs text-gray-500">
                         <div>
                             <p>Создано</p>
@@ -886,7 +905,75 @@
     </div>
 
         <!-- Модальное окно истории выдач -->
-        <div x-show="showIssueHistoryModal" 
+        
+        
+        
+        <!-- Incoming History Modal -->
+        <div x-show="showIncomingHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div class="bg-white w-full max-w-4xl rounded-xl shadow-lg overflow-hidden">
+                <div class="flex items-center justify-between p-5 border-b border-gray-200">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">&#1048;&#1089;&#1090;&#1086;&#1088;&#1080;&#1103; &#1087;&#1088;&#1080;&#1093;&#1086;&#1076;&#1086;&#1074;</h3>
+                        <p class="text-sm text-gray-500" x-text="incomingHistoryData.material?.name || '&#1052;&#1072;&#1090;&#1077;&#1088;&#1080;&#1072;&#1083;'"></p>
+                    </div>
+                    <button @click="closeIncomingHistory()" class="text-gray-500 hover:text-gray-700">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">&#1055;&#1088;&#1080;&#1093;&#1086;&#1076;&#1099; &#1089;&#1086; &#1089;&#1082;&#1083;&#1072;&#1076;&#1072;</h4>
+                        <template x-if="incomingHistoryData.incomings.length === 0">
+                            <div class="text-sm text-gray-500">&#1055;&#1088;&#1080;&#1093;&#1086;&#1076;&#1086;&#1074; &#1087;&#1086;&#1082;&#1072; &#1085;&#1077;&#1090;.</div>
+                        </template>
+                        <template x-for="incoming in incomingHistoryData.incomings" :key="incoming.id">
+                            <div class="border border-gray-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="font-medium text-gray-900" x-text="new Date(incoming.created_at).toLocaleString('ru-RU')"></div>
+                                    <div class="text-gray-600">
+                                        <span x-text="incoming.quantity"></span>
+                                        <span x-text="incomingHistoryData.material?.unit || ''"></span>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <template x-if="incoming.price_per_unit">
+                                        <span class="mr-3">&#1062;&#1077;&#1085;&#1072;: <span class="font-medium" x-text="incoming.price_per_unit"></span></span>
+                                    </template>
+                                    <template x-if="incoming.total_value">
+                                        <span>&#1057;&#1091;&#1084;&#1084;&#1072;: <span class="font-medium" x-text="incoming.total_value"></span></span>
+                                    </template>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1" x-show="incoming.notes" x-text="incoming.notes"></div>
+                            </div>
+                        </template>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">&#1055;&#1088;&#1080;&#1093;&#1086;&#1076; &#1087;&#1086;&#1089;&#1083;&#1077; &#1086;&#1073;&#1088;&#1072;&#1073;&#1086;&#1090;&#1082;&#1080; (&#1094;&#1077;&#1093; ID4)</h4>
+                        <template x-if="incomingHistoryData.reworks.length === 0">
+                            <div class="text-sm text-gray-500">&#1055;&#1088;&#1080;&#1093;&#1086;&#1076;&#1086;&#1074; &#1080;&#1079; &#1094;&#1077;&#1093;&#1072; &#1087;&#1086;&#1082;&#1072; &#1085;&#1077;&#1090;.</div>
+                        </template>
+                        <template x-for="rework in incomingHistoryData.reworks" :key="rework.id">
+                            <div class="border border-gray-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="font-medium text-gray-900" x-text="new Date(rework.created_at).toLocaleString('ru-RU')"></div>
+                                    <div class="text-gray-600">
+                                        <span x-text="rework.output_quantity"></span>
+                                        <span x-text="incomingHistoryData.material?.unit || ''"></span>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <span class="mr-3">&#1057;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;: <span class="font-medium" x-text="rework.employee_name || '?'"></span></span>
+                                    <span>&#1062;&#1077;&#1093;: <span class="font-medium" x-text="rework.workshop_name || '?'"></span></span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1" x-show="rework.comment" x-text="rework.comment"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<div x-show="showIssueHistoryModal" 
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
@@ -1208,7 +1295,7 @@
                             await this.fetchStats();
                             this.closeForm();
                         } else {
-                            alert(data.message || 'Ошибка обновления');
+                            alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u044f');
                         }
                     } else {
                         const resp = await fetch('/inventory/api/materials/create/', {
@@ -1222,7 +1309,7 @@
                             await this.fetchStats();
                             this.closeForm();
                         } else {
-                            alert(data.message || 'Ошибка создания');
+                            alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0437\u0434\u0430\u043d\u0438\u044f');
                         }
                     }
                 },
@@ -1235,7 +1322,7 @@
                         await this.fetchMaterials();
                         await this.fetchStats();
                     } else {
-                        alert(data.message || 'Ошибка удаления');
+                        alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0443\u0434\u0430\u043b\u0435\u043d\u0438\u044f');
                     }
                 },
     
@@ -1252,7 +1339,7 @@
                         await this.fetchStats();
                         this.selectedRows = [];
                     } else {
-                        alert(data.message || 'Ошибка удаления');
+                        alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0443\u0434\u0430\u043b\u0435\u043d\u0438\u044f');
                     }
                 },
     
@@ -1344,8 +1431,9 @@
                             : this.editValue;
     
                         material[field] = newValue;
-                        if (field === 'quantity' || field === 'price') {
-                            material.total_value = material.quantity * material.price;
+                        if (field === 'quantity') {
+                            const unitCost = Number(material.purchase_price) || Number(material.price) || 0;
+                            material.total_value = material.quantity * unitCost;
                         }
     
                         try {
@@ -1361,8 +1449,9 @@
                             const result = await resp.json();
                             if (result.status !== 'success') {
                                 material[field] = oldValue;
-                                if (field === 'quantity' || field === 'price') {
-                                    material.total_value = material.quantity * material.price;
+                                if (field === 'quantity') {
+                                    const unitCost = Number(material.purchase_price) || Number(material.price) || 0;
+                                    material.total_value = material.quantity * unitCost;
                                 }
                                 alert('Ошибка сохранения: ' + (result.message || 'Неизвестная ошибка'));
                             } else {
@@ -1370,10 +1459,11 @@
                             }
                         } catch (error) {
                             material[field] = oldValue;
-                            if (field === 'quantity' || field === 'price') {
-                                material.total_value = material.quantity * material.price;
+                            if (field === 'quantity') {
+                                const unitCost = Number(material.purchase_price) || Number(material.price) || 0;
+                                material.total_value = material.quantity * unitCost;
                             }
-                            alert('Ошибка сети при сохранении');
+                            alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438 \u043f\u0440\u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0438');
                         }
                     }
     
@@ -1421,7 +1511,7 @@
                     try {
                         const materials = this.filteredMaterials();
                         if (materials.length === 0) {
-                            alert('Нет данных для экспорта');
+                            alert('\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0430');
                             return;
                         }
     
@@ -1473,7 +1563,7 @@
                         const fileName = `inventory_${new Date().toISOString().split('T')[0]}.xlsx`;
                         XLSX.writeFile(wb, fileName);
     
-                        alert('Экспорт в Excel выполнен успешно!');
+                        alert('\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d \u0443\u0441\u043f\u0435\u0448\u043d\u043e!');
                     } catch (error) {
                         console.error('Ошибка экспорта:', error);
                         alert('Ошибка при экспорте: ' + error.message);
@@ -1507,12 +1597,12 @@
                         if (data.status === 'success') {
                             await this.fetchMaterials();
                             await this.fetchStats();
-                            alert('Материал успешно дублирован!');
+                            alert('\u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u0434\u0443\u0431\u043b\u0438\u0440\u043e\u0432\u0430\u043d!');
                         } else {
-                            alert(data.message || 'Ошибка дублирования');
+                            alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0434\u0443\u0431\u043b\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f');
                         }
                     } catch (error) {
-                        alert('Ошибка дублирования материала');
+                        alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u0434\u0443\u0431\u043b\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b\u0430');
                     }
     
                     this.$nextTick(() => lucide.createIcons());
@@ -1556,17 +1646,38 @@
     
                 showDetailsPanel: false,
                 detailsMaterial: null,
+                priceBreakdown: [],
+                priceBreakdownLoading: false,
     
                 openDetails(material) {
                     this.detailsMaterial = material;
                     this.showDetailsPanel = true;
+                    this.fetchPriceBreakdown(material);
                     this.$nextTick(() => lucide.createIcons());
                 },
-    
+
                 closeDetails() {
                     this.showDetailsPanel = false;
                     this.detailsMaterial = null;
+                    this.priceBreakdown = [];
+                    this.priceBreakdownLoading = false;
                     this.$nextTick(() => lucide.createIcons());
+                },
+
+                async fetchPriceBreakdown(material) {
+                    if (!material) return;
+                    this.priceBreakdownLoading = true;
+                    this.priceBreakdown = [];
+                    try {
+                        const resp = await fetch(`/inventory/api/materials/${material.id}/price-breakdown/`);
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            this.priceBreakdown = data.data.breakdown || [];
+                        }
+                    } catch (error) {
+                        this.priceBreakdown = [];
+                    }
+                    this.priceBreakdownLoading = false;
                 },
     
                 closeIncomingForm() {
@@ -1582,13 +1693,13 @@
     
                 async saveIncoming() {
                     if (!this.incomingData.material) {
-                        alert('Материал не выбран для прихода.');
+                        alert('\u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d \u0434\u043b\u044f \u043f\u0440\u0438\u0445\u043e\u0434\u0430.');
                         return;
                     }
     
                     const quantity = Number(this.incomingData.quantity);
                     if (quantity <= 0) {
-                        alert('Количество прихода должно быть больше 0.');
+                        alert('\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u043f\u0440\u0438\u0445\u043e\u0434\u0430 \u0434\u043e\u043b\u0436\u043d\u043e \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 0.');
                         return;
                     }
     
@@ -1613,54 +1724,58 @@
                         await this.fetchMaterials();
                         await this.fetchStats();
                         this.closeIncomingForm();
-                        alert('Приход успешно добавлен!');
+                        alert('\u041f\u0440\u0438\u0445\u043e\u0434 \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d!');
                     } else {
                         alert(result.message || 'Ошибка добавления прихода');
                     }
     
                     this.$nextTick(() => lucide.createIcons());
                 },
-    
+                showIncomingHistoryModal: false,
+                incomingHistoryData: {
+                    material: null,
+                    incomings: [],
+                    reworks: [],
+                },
+
                 async showIncomingHistory(material) {
+                    this.incomingHistoryData.material = material;
+                    this.incomingHistoryData.incomings = [];
+                    this.incomingHistoryData.reworks = [];
+                    this.showIncomingHistoryModal = true;
+
                     try {
                         const resp = await fetch(`/inventory/api/materials/${material.id}/incomings/`);
                         const data = await resp.json();
-    
                         if (data.status === 'success') {
-                            let historyText = `История приходов: ${material.name}\n\n`;
-    
-                            if (data.data.length === 0) {
-                                historyText += 'Приходов пока нет.';
-                            } else {
-                                data.data.forEach((incoming, index) => {
-                                    const date = new Date(incoming.created_at).toLocaleString('ru-RU');
-                                    historyText += `${index + 1}. ${date}\n`;
-                                    historyText += `   Количество: ${incoming.quantity} ${material.unit}\n`;
-    
-                                    if (incoming.price_per_unit) {
-                                        historyText += `   Цена: ${incoming.price_per_unit} ⃀\n`;
-                                    }
-    
-                                    if (incoming.total_value) {
-                                        historyText += `   Сумма: ${incoming.total_value} ⃀\n`;
-                                    }
-    
-                                    if (incoming.notes) {
-                                        historyText += `   Примечания: ${incoming.notes}\n`;
-                                    }
-    
-                                    historyText += '\n';
-                                });
-                            }
-    
-                            alert(historyText);
+                            this.incomingHistoryData.incomings = data.data || [];
                         } else {
-                            alert(data.message || 'Ошибка загрузки истории приходов');
+                            alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u043f\u0440\u0438\u0445\u043e\u0434\u043e\u0432');
+                            this.showIncomingHistoryModal = false;
+                            return;
                         }
                     } catch (error) {
-                        alert('Ошибка загрузки истории приходов');
+                        alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u043f\u0440\u0438\u0445\u043e\u0434\u043e\u0432');
+                        this.showIncomingHistoryModal = false;
+                        return;
                     }
-    
+
+                    try {
+                        const resp = await fetch(`/inventory/api/materials/${material.id}/reworks/`);
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            this.incomingHistoryData.reworks = data.data || [];
+                        }
+                    } catch (error) {
+                        this.incomingHistoryData.reworks = [];
+                    }
+
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                closeIncomingHistory() {
+                    this.showIncomingHistoryModal = false;
+                    this.incomingHistoryData = { material: null, incomings: [], reworks: [] };
                     this.$nextTick(() => lucide.createIcons());
                 },
 
@@ -1683,11 +1798,11 @@
                         if (data.status === 'success') {
                             this.issueHistoryData.issues = data.data || [];
                         } else {
-                            alert(data.message || 'Ошибка загрузки истории выдач');
+                            alert(data.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0432\u044b\u0434\u0430\u0447');
                             this.showIssueHistoryModal = false;
                         }
                     } catch (error) {
-                        alert('Ошибка загрузки истории выдач');
+                        alert('\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0432\u044b\u0434\u0430\u0447');
                         this.showIssueHistoryModal = false;
                     }
 

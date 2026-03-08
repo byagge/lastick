@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 from django.conf import settings
 
 
@@ -16,6 +17,7 @@ class RawMaterial(models.Model):
     quantity = models.DecimalField('Количество', max_digits=12, decimal_places=3, default=0)
     min_quantity = models.DecimalField('Мин. остаток', max_digits=12, decimal_places=3, default=0)
     price = models.DecimalField('Цена за единицу', max_digits=10, decimal_places=2, default=0)
+    purchase_price = models.DecimalField('Цена закупки (ср.)', max_digits=10, decimal_places=2, default=0)
     country = models.CharField('Страна производителя', max_length=100, blank=True)
     description = models.TextField('Описание', blank=True)
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
@@ -32,9 +34,10 @@ class RawMaterial(models.Model):
     @property
     def total_value(self):
         """Общая стоимость материала на складе."""
-        if self.quantity is None or self.price is None:
+        if self.quantity is None:
             return 0
-        return self.quantity * self.price
+        unit_cost = self.purchase_price or self.price or Decimal('0')
+        return (self.quantity * unit_cost).quantize(Decimal('0.01'))
 
 class MaterialIncoming(models.Model):
     """Модель для истории приходов материалов"""

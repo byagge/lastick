@@ -14,12 +14,76 @@ from .models import (
     EmployeeMaterialBalance,
     MaterialIssueLog,
 )
+from apps.defects.models import DefectRework
 
 
 def _as_float(value):
     if value is None:
         return 0.0
     return float(value)
+
+def _fifo_batches(material):
+    batches = []
+
+    incomings = material.incomings.all().order_by('created_at', 'id')
+    for incoming in incomings:
+        unit_cost = incoming.price_per_unit
+        if unit_cost is None:
+            unit_cost = material.purchase_price or material.price or Decimal('0')
+        batches.append({
+            'quantity': Decimal(str(incoming.quantity or 0)),
+            'price': Decimal(str(unit_cost or 0)),
+            'created_at': incoming.created_at,
+        })
+
+    reworks = DefectRework.objects.filter(
+        raw_material=material,
+        workshop_id=4,
+    ).order_by('created_at', 'id')
+    rework_cost = material.purchase_price or material.price or Decimal('0')
+    for rework in reworks:
+        batches.append({
+            'quantity': Decimal(str(rework.output_quantity or 0)),
+            'price': Decimal(str(rework_cost or 0)),
+            'created_at': rework.created_at,
+        })
+
+    batches.sort(key=lambda b: b.get('created_at'))
+
+    issues = material.issue_logs.all().order_by('created_at', 'id')
+    for issue in issues:
+        remaining = Decimal(str(issue.quantity or 0))
+        if remaining <= 0:
+            continue
+        for batch in batches:
+            if remaining <= 0:
+                break
+            if batch['quantity'] <= 0:
+                continue
+            take = min(batch['quantity'], remaining)
+            batch['quantity'] -= take
+            remaining -= take
+
+    if not batches and (material.quantity or 0) > 0:
+        fallback_cost = material.purchase_price or material.price or Decimal('0')
+        batches.append({
+            'quantity': Decimal(str(material.quantity or 0)),
+            'price': Decimal(str(fallback_cost)),
+            'created_at': material.created_at,
+        })
+
+    return batches
+
+
+def _material_value_from_batches(batches):
+    total = Decimal('0')
+    for batch in batches:
+        qty = Decimal(str(batch['quantity'] or 0))
+        price = Decimal(str(batch['price'] or 0))
+        if qty <= 0:
+            continue
+        total += qty * price
+    return total.quantize(Decimal('0.01'))
 
 def is_mobile(request):
     """Определяет, является ли устройство мобильным"""
@@ -45,6 +109,8 @@ def api_materials_list(request):
         materials_data = []
 
         for material in materials:
+            batches = _fifo_batches(material)
+            total_value = _material_value_from_batches(batches)
             materials_data.append({
                 'id': material.id,
                 'name': material.name,
@@ -52,7 +118,8 @@ def api_materials_list(request):
                 'quantity': _as_float(material.quantity),
                 'min_quantity': _as_float(material.min_quantity),
                 'price': _as_float(material.price),
-                'total_value': _as_float(material.total_value),
+                'purchase_price': _as_float(material.purchase_price),
+                'total_value': _as_float(total_value),
                 'country': material.country,
                 'description': material.description,
                 'created_at': material.created_at.isoformat(),
@@ -105,6 +172,7 @@ def api_material_create(request):
                 'quantity': _as_float(material.quantity),
                 'min_quantity': _as_float(material.min_quantity),
                 'price': _as_float(material.price),
+                'purchase_price': _as_float(material.purchase_price),
                 'total_value': _as_float(material.total_value),
                 'country': material.country,
                 'description': material.description,
@@ -166,6 +234,7 @@ def api_material_update(request, material_id):
                 'quantity': _as_float(material.quantity),
                 'min_quantity': _as_float(material.min_quantity),
                 'price': _as_float(material.price),
+                'purchase_price': _as_float(material.purchase_price),
                 'total_value': _as_float(material.total_value),
                 'country': material.country,
                 'description': material.description,
@@ -247,10 +316,17 @@ def api_materials_stats(request):
     try:
         materials = RawMaterial.objects.all()
         
-        total_value = sum(material.total_value for material in materials)
+        total_value = Decimal('0')
+        for material in materials:
+            batches = _fifo_batches(material)
+            total_value += _material_value_from_batches(batches)
         total_items = materials.count()
         low_stock_count = materials.filter(quantity__lte=models.F('min_quantity')).count()
-        avg_price = materials.aggregate(avg_price=models.Avg('price'))['avg_price'] or 0
+        avg_base = sum(
+            (material.purchase_price or material.price or 0)
+            for material in materials
+        )
+        avg_price = avg_base / total_items if total_items else 0
         
         return JsonResponse({
             'status': 'success',
@@ -307,15 +383,15 @@ def api_material_incoming(request):
 
         # Обновление средней цены и количества материала (метод средневзвешенной)
         old_qty = material.quantity or Decimal('0')
-        old_price = material.price or Decimal('0')
+        old_cost = material.purchase_price or material.price or Decimal('0')
         new_qty = incoming.quantity or Decimal('0')
 
         if incoming.price_per_unit is not None:
-            new_price = incoming.price_per_unit
+            new_cost = incoming.price_per_unit
             total_qty = old_qty + new_qty
             if total_qty > 0:
-                total_value = old_qty * old_price + new_qty * new_price
-                material.price = total_value / total_qty
+                total_value = old_qty * old_cost + new_qty * new_cost
+                material.purchase_price = (total_value / total_qty).quantize(Decimal('0.01'))
 
         material.quantity = old_qty + new_qty
         material.save()
@@ -379,6 +455,104 @@ def api_material_incomings(request, material_id):
             'status': 'error',
             'message': str(e)
         }, status=500) 
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_material_reworks(request, material_id):
+    """API: история приходов после обработки в цехе ID4."""
+    try:
+        try:
+            material = RawMaterial.objects.get(id=material_id)
+        except RawMaterial.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Материал не найден'
+            }, status=404)
+
+        reworks = DefectRework.objects.filter(
+            raw_material=material,
+            workshop_id=4,
+        ).select_related('employee', 'workshop', 'defect')
+        reworks_data = []
+
+        for rework in reworks:
+            if rework.employee:
+                full_name = (
+                    rework.employee.get_full_name()
+                    if hasattr(rework.employee, "get_full_name")
+                    else ""
+                )
+                username = getattr(rework.employee, "username", "") or ""
+                employee_name = full_name or username or str(rework.employee_id)
+            else:
+                employee_name = ""
+
+            reworks_data.append({
+                'id': rework.id,
+                'defect_id': rework.defect_id,
+                'input_quantity': _as_float(rework.input_quantity),
+                'output_quantity': _as_float(rework.output_quantity),
+                'comment': rework.comment,
+                'employee_name': employee_name,
+                'workshop_name': rework.workshop.name if rework.workshop else '',
+                'created_at': rework.created_at.isoformat(),
+            })
+
+        return JsonResponse({
+            'status': 'success',
+            'data': reworks_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_material_price_breakdown(request, material_id):
+    """API: текущие остатки по ценам закупки (FIFO)."""
+    try:
+        try:
+            material = RawMaterial.objects.get(id=material_id)
+        except RawMaterial.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Материал не найден'
+            }, status=404)
+
+        batches = _fifo_batches(material)
+        totals = {}
+        total_quantity = Decimal('0')
+        total_value = _material_value_from_batches(batches)
+        for batch in batches:
+            if batch['quantity'] <= 0:
+                continue
+            price = Decimal(str(batch['price'] or 0)).quantize(Decimal('0.01'))
+            qty = Decimal(str(batch['quantity'] or 0))
+            totals[price] = totals.get(price, Decimal('0')) + qty
+            total_quantity += qty
+
+        breakdown = [
+            {'price': _as_float(price), 'quantity': _as_float(qty)}
+            for price, qty in sorted(totals.items(), key=lambda item: item[0])
+        ]
+
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'breakdown': breakdown,
+                'total_quantity': _as_float(total_quantity),
+                'total_value': _as_float(total_value),
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
 
 
 @csrf_exempt

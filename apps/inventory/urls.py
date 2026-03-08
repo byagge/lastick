@@ -21,6 +21,8 @@ urlpatterns = [
     # API для приходов
     path('api/materials/incoming/', views.api_material_incoming, name='api_material_incoming'),
     path('api/materials/<int:material_id>/incomings/', views.api_material_incomings, name='api_material_incomings'),
+    path('api/materials/<int:material_id>/reworks/', views.api_material_reworks, name='api_material_reworks'),
+    path('api/materials/<int:material_id>/price-breakdown/', views.api_material_price_breakdown, name='api_material_price_breakdown'),
 
     # API для выдач (логи)
     path('api/materials/<int:material_id>/issues/', views.api_material_issues, name='api_material_issues'),
