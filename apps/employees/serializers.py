@@ -4,6 +4,7 @@ from django.utils import timezone
 from .utils import calculate_employee_stats
 from django.db.models import Sum
 from apps.employee_tasks.models import EmployeeTask
+from .models import EmployeeFinanceTransaction
 
 class EmployeeSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
@@ -193,3 +194,16 @@ class EmployeeSerializer(serializers.ModelSerializer):
             validated_data['whatsapp'] = validated_data['phone']
         
         return super().update(instance, validated_data)
+
+
+class EmployeeFinanceTransactionSerializer(serializers.ModelSerializer):
+    issued_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmployeeFinanceTransaction
+        fields = ['id', 'transaction_type', 'amount', 'note', 'created_at', 'issued_by_name']
+
+    def get_issued_by_name(self, obj):
+        if not obj.issued_by:
+            return ''
+        return obj.issued_by.get_full_name() or obj.issued_by.username

@@ -260,6 +260,54 @@ class EmployeeTask(models.Model):
         return f"Задача {self.employee.get_full_name()}: {self.text[:50]}"
 
 
+class EmployeeFinanceTransaction(models.Model):
+    class Type(models.TextChoices):
+        SALARY = 'salary', 'Выплата зарплаты'
+        PENALTY = 'penalty', 'Штраф'
+        EARNING = 'earning', 'Заработок'
+
+    employee = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='finance_transactions',
+        verbose_name='Сотрудник'
+    )
+    issued_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='issued_finance_transactions',
+        verbose_name='Кто выдал'
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        verbose_name='Тип операции'
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name='Сумма'
+    )
+    note = models.TextField(
+        blank=True,
+        verbose_name='Примечание'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата операции'
+    )
+
+    class Meta:
+        verbose_name = 'Финансовая операция сотрудника'
+        verbose_name_plural = 'Финансовые операции сотрудников'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.employee.get_full_name()} - {self.get_transaction_type_display()} - {self.amount}"
+
+
 class EmployeeNotification(models.Model):
     """Уведомления сотрудника"""
     employee = models.ForeignKey(

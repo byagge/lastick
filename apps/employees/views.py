@@ -5,6 +5,8 @@ from .serializers import EmployeeSerializer
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import EmployeeStatistics
+from .models import EmployeeFinanceTransaction
+from .serializers import EmployeeFinanceTransactionSerializer
 from django.db.models import Avg, Sum, Count
 import random
 from rest_framework.decorators import api_view, permission_classes
@@ -16,6 +18,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from apps.operations.workshops.models import Workshop
 from apps.operations.workshops.views import WorkshopSerializer
 from .utils import calculate_employee_stats
+from decimal import Decimal, InvalidOperation
+from django.db import transaction
 
 MOBILE_UA_KEYWORDS = [
     'Mobile', 'Android', 'iPhone', 'iPad', 'iPod', 'Opera Mini', 'IEMobile', 'BlackBerry', 'webOS'
@@ -190,6 +194,94 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 {'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def _parse_amount(self, value):
+        try:
+            amount = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        if amount <= 0:
+            return None
+        return amount
+
+    @action(detail=True, methods=['get'], url_path='finance')
+    def finance_history(self, request, pk=None):
+        employee = self.get_object()
+        qs = EmployeeFinanceTransaction.objects.filter(employee=employee)
+        serializer = EmployeeFinanceTransactionSerializer(qs, many=True)
+        salary_payments = []
+        penalties = []
+        earnings = []
+        for item in serializer.data:
+            entry = {
+                'id': item['id'],
+                'amount': float(item['amount']),
+                'note': item.get('note') or '',
+                'issued_by': item.get('issued_by_name') or '',
+                'at': item.get('created_at'),
+            }
+            if item['transaction_type'] == EmployeeFinanceTransaction.Type.SALARY:
+                salary_payments.append(entry)
+            elif item['transaction_type'] == EmployeeFinanceTransaction.Type.PENALTY:
+                penalties.append(entry)
+            else:
+                earnings.append(entry)
+        return Response({
+            'balance': float(employee.balance),
+            'salary_payments': salary_payments,
+            'penalties': penalties,
+            'earnings': earnings,
+        })
+
+    @action(detail=True, methods=['post'], url_path='pay_salary')
+    def pay_salary(self, request, pk=None):
+        employee = self.get_object()
+        amount = self._parse_amount(request.data.get('amount'))
+        if amount is None:
+            return Response({'error': 'Некорректная сумма'}, status=status.HTTP_400_BAD_REQUEST)
+        note = request.data.get('note', '') or ''
+        try:
+            with transaction.atomic():
+                employee.subtract_from_balance(amount)
+                tx = EmployeeFinanceTransaction.objects.create(
+                    employee=employee,
+                    issued_by=request.user,
+                    transaction_type=EmployeeFinanceTransaction.Type.SALARY,
+                    amount=amount,
+                    note=note
+                )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = EmployeeFinanceTransactionSerializer(tx)
+        return Response({
+            'balance': float(employee.balance),
+            'transaction': serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='assign_penalty')
+    def assign_penalty(self, request, pk=None):
+        employee = self.get_object()
+        amount = self._parse_amount(request.data.get('amount'))
+        if amount is None:
+            return Response({'error': 'Некорректная сумма'}, status=status.HTTP_400_BAD_REQUEST)
+        note = request.data.get('note', '') or ''
+        try:
+            with transaction.atomic():
+                employee.subtract_from_balance(amount)
+                tx = EmployeeFinanceTransaction.objects.create(
+                    employee=employee,
+                    issued_by=request.user,
+                    transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+                    amount=amount,
+                    note=note
+                )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = EmployeeFinanceTransactionSerializer(tx)
+        return Response({
+            'balance': float(employee.balance),
+            'transaction': serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

@@ -523,6 +523,87 @@
                             <div class="text-xs text-purple-600">Рейтинг</div>
                         </div>
                     </div>
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <h4 class="font-semibold flex items-center">
+                                <i data-lucide="wallet" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                Финансы
+                            </h4>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Баланс</p>
+                                <p class="text-lg font-semibold text-blue-700" x-text="formatCurrency(detailsEmployee.balance || 0)"></p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button @click="openSalaryModal()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                                Выдать зарплату
+                            </button>
+                            <button @click="openPenaltyModal()" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200">
+                                Назначить штраф
+                            </button>
+                        </div>
+                        <div class="mt-4 space-y-3 text-sm">
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-semibold text-gray-800">История выплат</p>
+                                    <p class="text-xs text-gray-500" x-text="'Всего: ' + (getEmployeeFinance(detailsEmployee.id).salaryPayments.length || 0)"></p>
+                                </div>
+                                <template x-if="getEmployeeFinance(detailsEmployee.id).salaryPayments.length === 0">
+                                    <p class="text-xs text-gray-500">Пока нет выплат.</p>
+                                </template>
+                                <template x-for="payment in getEmployeeFinance(detailsEmployee.id).salaryPayments" :key="payment.id">
+                                    <div class="flex items-start justify-between py-2 border-t border-gray-200 first:border-t-0">
+                                        <div>
+                                            <p class="font-medium text-gray-900" x-text="formatCurrency(payment.amount)"></p>
+                                            <p class="text-xs text-gray-500" x-text="'Выдал: ' + (payment.issued_by || '—')"></p>
+                                            <template x-if="payment.note">
+                                                <p class="text-xs text-gray-500" x-text="payment.note"></p>
+                                            </template>
+                                        </div>
+                                        <p class="text-xs text-gray-400" x-text="formatDateTime(payment.at)"></p>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-semibold text-gray-800">История заработка</p>
+                                </div>
+                                <template x-if="getEmployeeFinance(detailsEmployee.id).earnings.length === 0">
+                                    <p class="text-xs text-gray-500">Пока нет данных.</p>
+                                </template>
+                                <template x-for="earning in getEmployeeFinance(detailsEmployee.id).earnings" :key="earning.id">
+                                    <div class="flex items-start justify-between py-2 border-t border-gray-200 first:border-t-0">
+                                        <div>
+                                            <p class="font-medium text-gray-900" x-text="formatCurrency(earning.amount)"></p>
+                                            <p class="text-xs text-gray-500" x-text="earning.reason || 'Заработок'"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-400" x-text="formatDateTime(earning.at)"></p>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-3 border border-red-200">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-semibold text-red-700">Штрафы</p>
+                                    <p class="text-xs text-red-500" x-text="'Всего: ' + (getEmployeeFinance(detailsEmployee.id).penalties.length || 0)"></p>
+                                </div>
+                                <template x-if="getEmployeeFinance(detailsEmployee.id).penalties.length === 0">
+                                    <p class="text-xs text-red-600">Пока нет штрафов.</p>
+                                </template>
+                                <template x-for="penalty in getEmployeeFinance(detailsEmployee.id).penalties" :key="penalty.id">
+                                    <div class="flex items-start justify-between py-2 border-t border-red-200 first:border-t-0">
+                                        <div>
+                                            <p class="font-medium text-red-700" x-text="formatCurrency(penalty.amount)"></p>
+                                            <p class="text-xs text-red-600" x-text="'Назначил: ' + (penalty.issued_by || '—')"></p>
+                                            <template x-if="penalty.note">
+                                                <p class="text-xs text-red-600" x-text="penalty.note"></p>
+                                            </template>
+                                        </div>
+                                        <p class="text-xs text-red-400" x-text="formatDateTime(penalty.at)"></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
                     {% if request.user.is_superuser or request.user.role == 'admin' %}
                     <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                         <h4 class="font-semibold mb-3 flex items-center">
@@ -565,6 +646,74 @@
         </div>
 
         <!-- Модальное окно изменения пароля -->
+        <!-- Модальное окно выдачи зарплаты -->
+        <div x-show="showSalaryModal" x-cloak class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6 relative">
+                <button @click="closeSalaryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <i data-lucide="wallet" class="w-5 h-5 text-blue-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Выдать зарплату</h2>
+                </div>
+                <p class="mb-4 text-gray-700" x-text="'Сотрудник: ' + (detailsEmployee?.full_name || detailsEmployee?.name || '—')"></p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Сумма (сом)</label>
+                    <input type="number" min="0" step="0.01" x-model="salaryForm.amount" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Введите сумму">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Примечание (не обязательно)</label>
+                    <input type="text" x-model="salaryForm.note" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Комментарий к выплате">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button @click="closeSalaryModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded">Отмена</button>
+                    <button @click="submitSalaryPayment()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Выдать</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно назначения штрафа -->
+        <div x-show="showPenaltyModal" x-cloak class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6 relative">
+                <button @click="closePenaltyModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Назначить штраф</h2>
+                </div>
+                <p class="mb-4 text-gray-700" x-text="'Сотрудник: ' + (detailsEmployee?.full_name || detailsEmployee?.name || '—')"></p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Сумма штрафа (сом)</label>
+                    <input type="number" min="0" step="0.01" x-model="penaltyForm.amount" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Введите сумму">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Примечание (не обязательно)</label>
+                    <input type="text" x-model="penaltyForm.note" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Комментарий к штрафу">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button @click="closePenaltyModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded">Отмена</button>
+                    <button @click="submitPenalty()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Назначить</button>
+                </div>
+            </div>
+        </div>
+
         <div x-show="showChangePasswordModal" x-cloak class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95"
@@ -616,6 +765,12 @@
             employeePassword: '',
             showChangePasswordModal: false,
             newPassword: '',
+            showSalaryModal: false,
+            showPenaltyModal: false,
+            salaryForm: { amount: '', note: '' },
+            penaltyForm: { amount: '', note: '' },
+            financeData: {},
+            currentUserName: '{{ request.user.get_full_name|default:request.user.username|escapejs }}',
             formData: {
                 full_name: '',
                 role: 'worker',
@@ -723,6 +878,179 @@
                 return new Intl.NumberFormat('ru-RU', {
                     maximumFractionDigits: 0
                 }).format(num) + ' сом';
+            },
+            formatDateTime(value) {
+                if (!value) return '—';
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) return value;
+                return date.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+            },
+            parseAmount(value) {
+                if (value === null || value === undefined) return 0;
+                const cleaned = String(value).replace(',', '.').replace(/[^0-9.-]/g, '');
+                const parsed = Number(cleaned);
+                return Number.isFinite(parsed) ? parsed : 0;
+            },
+            financeStorageKey(employeeId) {
+                return `employee_finance_${employeeId}`;
+            },
+            loadFinanceFromStorage(employeeId) {
+                try {
+                    const raw = localStorage.getItem(this.financeStorageKey(employeeId));
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || typeof parsed !== 'object') return null;
+                    return parsed;
+                } catch (e) {
+                    return null;
+                }
+            },
+            saveFinanceToStorage(employeeId) {
+                try {
+                    localStorage.setItem(this.financeStorageKey(employeeId), JSON.stringify(this.financeData[employeeId]));
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            buildDefaultEarnings(employee) {
+                const entries = [];
+                const monthly = Number(employee?.monthly_salary || 0);
+                if (monthly > 0) {
+                    entries.push({
+                        id: `earn_${Date.now()}`,
+                        amount: monthly,
+                        reason: employee?.payment_type_display || 'Заработок за месяц',
+                        at: new Date().toISOString()
+                    });
+                }
+                return entries;
+            },
+            buildDefaultFinance(employee) {
+                return {
+                    salaryPayments: [],
+                    penalties: [],
+                    earnings: this.buildDefaultEarnings(employee)
+                };
+            },
+            ensureFinanceData(employee) {
+                if (!employee || !employee.id) return;
+                if (!this.financeData[employee.id]) {
+                    this.financeData[employee.id] = this.buildDefaultFinance(employee);
+                    this.loadFinance(employee.id);
+                }
+            },
+            async loadFinance(employeeId) {
+                try {
+                    const response = await fetch(`/employees/api/employees/${employeeId}/finance/`, {
+                        credentials: 'include'
+                    });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    this.financeData[employeeId] = {
+                        salaryPayments: data.salary_payments || [],
+                        penalties: data.penalties || [],
+                        earnings: data.earnings || []
+                    };
+                    this.setEmployeeBalance(employeeId, Number(data.balance || 0));
+                } catch (e) {
+                    // ignore load errors
+                }
+            },
+            getEmployeeFinance(employeeId) {
+                if (!employeeId) return { salaryPayments: [], penalties: [], earnings: [] };
+                if (!this.financeData[employeeId]) {
+                    this.financeData[employeeId] = { salaryPayments: [], penalties: [], earnings: [] };
+                    this.loadFinance(employeeId);
+                }
+                return this.financeData[employeeId];
+            },
+            applyBalanceChange(employeeId, delta) {
+                const target = this.employees.find(e => e.id === employeeId);
+                const current = Number(target?.balance || 0);
+                const updated = current + delta;
+                if (target) target.balance = updated;
+                if (this.detailsEmployee && this.detailsEmployee.id === employeeId) {
+                    this.detailsEmployee.balance = updated;
+                }
+            },
+            setEmployeeBalance(employeeId, balance) {
+                const target = this.employees.find(e => e.id === employeeId);
+                if (target) target.balance = balance;
+                if (this.detailsEmployee && this.detailsEmployee.id === employeeId) {
+                    this.detailsEmployee.balance = balance;
+                }
+            },
+            openSalaryModal() {
+                this.salaryForm = { amount: '', note: '' };
+                this.showSalaryModal = true;
+            },
+            closeSalaryModal() {
+                this.showSalaryModal = false;
+                this.salaryForm = { amount: '', note: '' };
+            },
+            openPenaltyModal() {
+                this.penaltyForm = { amount: '', note: '' };
+                this.showPenaltyModal = true;
+            },
+            closePenaltyModal() {
+                this.showPenaltyModal = false;
+                this.penaltyForm = { amount: '', note: '' };
+            },
+            async submitSalaryPayment() {
+                if (!this.detailsEmployee) return;
+                const amount = this.parseAmount(this.salaryForm.amount);
+                if (amount <= 0) {
+                    alert('Укажите сумму выплаты');
+                    return;
+                }
+                try {
+                    const response = await fetch(`/employees/api/employees/${this.detailsEmployee.id}/pay_salary/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({ amount, note: (this.salaryForm.note || '').trim() }),
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        alert(data.error || 'Ошибка при выдаче зарплаты');
+                        return;
+                    }
+                    await this.loadFinance(this.detailsEmployee.id);
+                    this.closeSalaryModal();
+                } catch (e) {
+                    alert('Ошибка при выдаче зарплаты');
+                }
+            },
+            async submitPenalty() {
+                if (!this.detailsEmployee) return;
+                const amount = this.parseAmount(this.penaltyForm.amount);
+                if (amount <= 0) {
+                    alert('Укажите сумму штрафа');
+                    return;
+                }
+                try {
+                    const response = await fetch(`/employees/api/employees/${this.detailsEmployee.id}/assign_penalty/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({ amount, note: (this.penaltyForm.note || '').trim() }),
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        alert(data.error || 'Ошибка при назначении штрафа');
+                        return;
+                    }
+                    await this.loadFinance(this.detailsEmployee.id);
+                    this.closePenaltyModal();
+                } catch (e) {
+                    alert('Ошибка при назначении штрафа');
+                }
             },
             openAddForm() {
                 this.editingEmployee = null;
@@ -847,6 +1175,7 @@
                 this.detailsEmployee = employee;
                 this.showDetailsPanel = true;
                 this.showPassword = false;
+                this.ensureFinanceData(employee);
                 // Пароль по умолчанию: +{username}+
                 this.employeePassword = `+${employee.username}+`;
                 this.$nextTick(() => lucide.createIcons());
