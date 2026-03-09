@@ -41,6 +41,7 @@ class AttendanceSettings(models.Model):
         super().save(*args, **kwargs)
 
 class AttendanceRecord(models.Model):
+    MAX_PENALTY_HOURS = 8
     employee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -164,7 +165,8 @@ class AttendanceRecord(models.Model):
         if not self.penalty_manual:
             if self.is_late:
                 late_hours = self.get_late_hours()
-                self.penalty_amount = settings.penalty_per_hour * Decimal(str(late_hours))
+                penalty_hours = min(late_hours, self.MAX_PENALTY_HOURS)
+                self.penalty_amount = settings.penalty_per_hour * Decimal(str(penalty_hours))
             else:
                 self.penalty_amount = Decimal('0.00')
         

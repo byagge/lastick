@@ -79,6 +79,8 @@
                                 <td class="px-4 py-3" x-text="getProductName(good)"></td>
                                 <td class="px-4 py-3" x-text="good.quantity"></td>
                                 <td class="px-4 py-3" x-text="getOrderName(good)"></td>
+                                <td class="px-4 py-3" x-text="formatMoney(good.cost_per_unit)"></td>
+                                <td class="px-4 py-3" x-text="formatMoney(good.cost_total)"></td>
                                 <td class="px-4 py-3">
                                     <span :class="good.status === 'issued' ? 'text-green-600 font-semibold' : 'text-blue-600 font-semibold'" x-text="good.status_display"></span>
                                 </td>
@@ -130,6 +132,14 @@
                         <div>
                             <span class="text-gray-600">Выдано:</span>
                             <p class="font-medium" x-text="formatDate(good.issued_at)"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Себестоимость/ед:</span>
+                            <p class="font-medium" x-text="formatMoney(good.cost_per_unit)"></p>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Себестоимость всего:</span>
+                            <p class="font-medium" x-text="formatMoney(good.cost_total)"></p>
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-gray-200 text-sm">
@@ -194,6 +204,49 @@
                             <template x-if="!detailGood.product">
                                 <div class="text-sm text-gray-500">Нет данных о продукте.</div>
                             </template>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-xl p-4" x-show="detailGood.cost_breakdown">
+                            <h3 class="font-semibold text-gray-900 mb-3">Себестоимость</h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div><span class="text-gray-600">На единицу:</span> <span x-text="formatMoney(detailGood.cost_per_unit)"></span></div>
+                                <div><span class="text-gray-600">Всего:</span> <span x-text="formatMoney(detailGood.cost_total)"></span></div>
+                                <div><span class="text-gray-600">Материалы:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.materials)"></span></div>
+                                <div><span class="text-gray-600">Работа:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.labor)"></span></div>
+                                <div><span class="text-gray-600">Накладные:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.overhead)"></span></div>
+                            </div>
+                            <div class="mt-4 text-sm">
+                                <div class="font-medium text-gray-900 mb-2">Материалы</div>
+                                <template x-if="detailGood.cost_breakdown?.materials?.length">
+                                    <div class="space-y-2">
+                                        <template x-for="item in detailGood.cost_breakdown.materials" :key="item.material_id">
+                                            <div class="flex justify-between text-gray-600">
+                                                <span x-text="`${item.name} (${item.amount} ${item.unit || ''})`"></span>
+                                                <span x-text="formatMoney(item.cost)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!detailGood.cost_breakdown?.materials?.length">
+                                    <div class="text-gray-500">Нет материалов в нормативах.</div>
+                                </template>
+                            </div>
+                            <div class="mt-4 text-sm">
+                                <div class="font-medium text-gray-900 mb-2">Работы</div>
+                                <template x-if="detailGood.cost_breakdown?.labor?.length">
+                                    <div class="space-y-2">
+                                        <template x-for="item in detailGood.cost_breakdown.labor" :key="item.service_id">
+                                            <div class="flex justify-between text-gray-600">
+                                                <span x-text="item.name"></span>
+                                                <span x-text="formatMoney(item.unit_price)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!detailGood.cost_breakdown?.labor?.length">
+                                    <div class="text-gray-500">Нет работ в составе.</div>
+                                </template>
+                            </div>
                         </div>
 
                         <div class="bg-white border border-gray-200 rounded-xl p-4">
@@ -275,6 +328,9 @@
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Клиент</th>
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Заказ</th>
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Цена</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Цена/ед</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Себестоимость/ед</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Прибыль</th>
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Дата</th>
                                 </tr>
                             </thead>
@@ -286,6 +342,9 @@
                                         <td class="px-4 py-3" x-text="sale.client_name || '-' "></td>
                                         <td class="px-4 py-3" x-text="sale.order_name || '-' "></td>
                                         <td class="px-4 py-3" x-text="formatMoney(sale.price)"></td>
+                                        <td class="px-4 py-3" x-text="formatMoney(sale.unit_price)"></td>
+                                        <td class="px-4 py-3" x-text="formatMoney(sale.cost_per_unit)"></td>
+                                        <td class="px-4 py-3" x-text="formatMoney(sale.profit_total)"></td>
                                         <td class="px-4 py-3" x-text="formatDate(sale.sold_at)"></td>
                                     </tr>
                                 </template>
@@ -300,7 +359,7 @@
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-1">Оформить продажу</h3>
-                    <p class="text-sm text-gray-500 mb-4">Выберите товар со склада, клиента и цену.</p>
+                    <p class="text-sm text-gray-500 mb-4">Выберите товар со склада, клиента, цену и количество.</p>
 
                     <form @submit.prevent="submitSale()" class="space-y-4">
                         <div>
@@ -331,6 +390,11 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Цена продажи</label>
                             <input type="number" step="0.01" x-model="saleForm.price" placeholder="Введите цену" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Количество</label>
+                            <input type="number" min="1" x-model="saleForm.quantity" placeholder="Введите количество" class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            <div class="text-xs text-gray-500 mt-1" x-show="saleForm.available_quantity">Доступно: <span x-text="saleForm.available_quantity"></span></div>
                         </div>
 
                         <div x-show="saleError" class="text-sm text-red-600" x-text="saleError"></div>
@@ -393,7 +457,9 @@
                     client_label: '',
                     order_id: '',
                     order_label: '',
-                    price: ''
+                    price: '',
+                    quantity: '',
+                    available_quantity: ''
                 },
                 saleError: '',
                 saleSuccess: '',
@@ -403,11 +469,13 @@
                 pickerSearch: '',
                 pickerResults: [],
                 pickerLoading: false,
-                columns: ['product', 'quantity', 'order', 'status_display', 'received_at', 'issued_at', 'recipient', 'comment'],
+                columns: ['product', 'quantity', 'order', 'cost_per_unit', 'cost_total', 'status_display', 'received_at', 'issued_at', 'recipient', 'comment'],
                 columnLabels: {
                     product: 'Продукт',
                     quantity: 'Количество',
                     order: 'Заказ',
+                    cost_per_unit: 'Себестоимость/ед',
+                    cost_total: 'Себестоимость всего',
                     status_display: 'Статус',
                     received_at: 'Принято',
                     issued_at: 'Выдано',
@@ -434,6 +502,8 @@
                     if (!good || good.status === 'issued') return;
                     this.saleForm.finished_good_id = String(good.id);
                     this.saleForm.good_label = `${this.getProductName(good)} (ID ${good.id})`;
+                    this.saleForm.quantity = 1;
+                    this.saleForm.available_quantity = good.quantity || '';
                     this.activeSection = 'sales';
                     this.saleError = '';
                     this.saleSuccess = '';
@@ -465,7 +535,8 @@
                         this.pickerResults = goods.map(good => ({
                             id: good.id,
                             title: `${this.getProductName(good)} (ID ${good.id})`,
-                            subtitle: `Количество: ${good.quantity}`
+                            subtitle: `Количество: ${good.quantity}`,
+                            quantity: good.quantity
                         }));
                         this.pickerLoading = false;
                         return;
@@ -500,6 +571,10 @@
                     if (this.pickerType === 'good') {
                         this.saleForm.finished_good_id = String(item.id);
                         this.saleForm.good_label = item.title;
+                        this.saleForm.available_quantity = item.quantity || '';
+                        if (!this.saleForm.quantity) {
+                            this.saleForm.quantity = 1;
+                        }
                     } else if (this.pickerType === 'client') {
                         this.saleForm.client_id = String(item.id);
                         this.saleForm.client_label = item.title;
@@ -512,13 +587,18 @@
                 async submitSale() {
                     this.saleError = '';
                     this.saleSuccess = '';
-                    if (!this.saleForm.finished_good_id || !this.saleForm.client_id || !this.saleForm.price) {
-                        this.saleError = 'Заполните товар, клиента и цену.';
+                    if (!this.saleForm.finished_good_id || !this.saleForm.client_id || !this.saleForm.price || !this.saleForm.quantity) {
+                        this.saleError = 'Заполните товар, клиента, цену и количество.';
+                        return;
+                    }
+                    if (this.saleForm.available_quantity && Number(this.saleForm.quantity) > Number(this.saleForm.available_quantity)) {
+                        this.saleError = 'Количество продажи больше доступного остатка.';
                         return;
                     }
                     const payload = {
                         finished_good_id: this.saleForm.finished_good_id,
                         client_id: this.saleForm.client_id,
+                        quantity: this.saleForm.quantity,
                         price: this.saleForm.price
                     };
                     if (this.saleForm.order_id) {
@@ -536,7 +616,7 @@
                         this.saleError = 'Не удалось оформить продажу.';
                         return;
                     }
-                    this.saleForm = { finished_good_id: '', good_label: '', client_id: '', client_label: '', order_id: '', order_label: '', price: '' };
+                    this.saleForm = { finished_good_id: '', good_label: '', client_id: '', client_label: '', order_id: '', order_label: '', price: '', quantity: '', available_quantity: '' };
                     this.saleSuccess = 'Продажа сохранена.';
                     await this.fetchSales();
                     await this.fetchGoods();
@@ -590,6 +670,7 @@
                 getSortValue(good, field) {
                     if (field === 'product') return this.getProductName(good) || '';
                     if (field === 'order') return this.getOrderName(good) || '';
+                    if (field === 'cost_per_unit' || field === 'cost_total') return Number(good[field] || 0);
                     return good[field] || '';
                 },
                 handleSort(field) {

@@ -71,6 +71,7 @@ class FinishedGoodSale(models.Model):
         on_delete=models.CASCADE,
         related_name='sales'
     )
+    quantity = models.PositiveIntegerField(default=1)
     client = models.ForeignKey(
         'clients.Client',
         on_delete=models.PROTECT,
@@ -90,7 +91,7 @@ class FinishedGoodSale(models.Model):
         ordering = ['-sold_at']
 
     def __str__(self):
-        return f"Sale #{self.id} - {self.finished_good} -> {self.client}"
+        return f"Sale #{self.id} - {self.finished_good} x{self.quantity} -> {self.client}"
 
 def create_example_finished_good():
     from apps.products.models import Product

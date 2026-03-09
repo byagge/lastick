@@ -8,7 +8,7 @@ from django.db import models
 from apps.clients.models import Client
 from .serializers import ClientSerializer
 from apps.orders.models import Order
-from apps.finance.models import Request
+from apps.finance.models import Request, Debt
 
 # Create your views here.
 
@@ -87,6 +87,29 @@ class ClientViewSet(viewsets.ModelViewSet):
         requests_total = agg.get('total') or 0
         requests_count = requests_qs.count()
 
+        debts_qs = Debt.objects.filter(client=client).order_by('-created_at', '-id')
+        debts_data = []
+        total_debt_original = 0
+        total_debt_paid = 0
+        total_debt_outstanding = 0
+
+        for debt in debts_qs:
+            outstanding_amount = debt.outstanding_amount
+            total_debt_original += debt.original_amount or 0
+            total_debt_paid += debt.amount_paid or 0
+            total_debt_outstanding += outstanding_amount or 0
+            debts_data.append({
+                'id': debt.id,
+                'title': debt.title,
+                'direction': debt.direction,
+                'status': debt.status,
+                'original_amount': debt.original_amount,
+                'amount_paid': debt.amount_paid,
+                'outstanding_amount': outstanding_amount,
+                'due_date': debt.due_date,
+                'created_at': debt.created_at,
+            })
+
         client_data = ClientSerializer(client).data
         client_data.update({
             'orders': orders_data,
@@ -99,6 +122,11 @@ class ClientViewSet(viewsets.ModelViewSet):
             # Инфо по заявкам (продажи через finance)
             'requests_total_amount': requests_total,
             'requests_count': requests_count,
+            'debts': debts_data,
+            'debts_count': len(debts_data),
+            'debts_total_original': total_debt_original,
+            'debts_total_paid': total_debt_paid,
+            'debts_total_outstanding': total_debt_outstanding,
         })
         return Response(client_data)
 

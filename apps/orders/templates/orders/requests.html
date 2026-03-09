@@ -155,7 +155,7 @@
                         <template x-if="showCreatePane">
                             <div class="p-6">
                                 <h2 class="text-lg font-semibold text-gray-900 mb-4">Создать заявку</h2>
-                                <form @submit.prevent="submitRequest" class="space-y-6">
+                                <form @submit.prevent="submitRequest" @keydown.enter.stop.prevent="handleFormEnter($event)" class="space-y-6">
                                     <!-- Step navigation -->
                                     <div class="flex space-x-1 mb-2">
                                         <template x-for="step in 3" :key="step">
@@ -185,6 +185,9 @@
                                                         <input type="text" 
                                                                x-model="clientSearchTerm" 
                                                                @input="filterClients()"
+                                                               @keydown.down.prevent="moveClientSelection(1)"
+                                                               @keydown.up.prevent="moveClientSelection(-1)"
+                                                               @keydown.enter.prevent.stop="confirmClientSelection()"
                                                                placeholder="Начните вводить имя или компанию..." 
                                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                         <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2"></i>
@@ -194,9 +197,9 @@
                                                     <div x-show="filteredClients.length > 0 && clientSearchTerm.length > 0" 
                                                          x-transition 
                                                          class="mt-2 border border-gray-200 rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto z-10">
-                                                        <template x-for="client in filteredClients" :key="client.id">
+                                                        <template x-for="(client, index) in filteredClients" :key="client.id">
                                                             <div @click="selectClient(client)" 
-                                                                 class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                                                                 :class="index === clientSelectedIndex ? 'px-4 py-3 bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0' : 'px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0'">
                                                                 <div class="flex items-center justify-between">
                                                                     <div>
                                                                         <div class="font-medium text-gray-900" x-text="client.name"></div>
@@ -212,7 +215,7 @@
                                                     </div>
                                                     
                                                     <!-- Предложение создать нового клиента -->
-                                                    <div x-show="clientSearchTerm.length > 2 && filteredClients.length === 0" 
+                                                    <div x-show="clientSearchTerm.length > 2 && filteredClients.length === 0 && !clientSelected" 
                                                          x-transition 
                                                          class="mt-2 border border-blue-200 rounded-lg bg-blue-50 p-3">
                                                         <div class="flex items-center justify-between">
@@ -289,14 +292,12 @@
                                                             </div>
                                                             
                                                             <!-- Количество с кнопками -->
-                                                            <div class="col-span-3">
+                                                            <div class="col-span-6 md:col-span-3">
                                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Количество <span class="text-red-500">*</span></label>
                                                                 <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                                                                     <button type="button" @click="decreaseQuantity(idx)" 
                                                                             class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border-r border-gray-300">
-                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                                                                        </svg>
+                                                                        <span class="text-lg leading-none">-</span>
                                                                     </button>
                                                                     <input type="text" 
                                                                            x-model="item.quantity" 
@@ -305,44 +306,13 @@
                                                                            style="-webkit-appearance: none; -moz-appearance: textfield;">
                                                                     <button type="button" @click="increaseQuantity(idx)" 
                                                                             class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border-l border-gray-300">
-                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                                                        </svg>
+                                                                        <span class="text-lg leading-none">+</span>
                                                                     </button>
                                                                 </div>
                                                             </div>
                                                             
-                                                            <!-- Размер -->
-                                                            <div class="col-span-3">
-                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Размер</label>
-                                                                <div class="relative">
-                                                                    <input type="text" 
-                                                                           x-model="item.size" 
-                                                                           @input="filterSizes(idx)"
-                                                                           @focus="item.show_size_dropdown = true"
-                                                                           @click.away="item.show_size_dropdown = false"
-                                                                           placeholder="40-200, 60-200..." 
-                                                                           class="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                                    <svg class="w-4 h-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                                    </svg>
-                                                                    
-                                                                    <!-- Dropdown с размерами -->
-                                                                    <div x-show="item.show_size_dropdown && item.filtered_sizes && item.filtered_sizes.length > 0" 
-                                                                         x-transition 
-                                                                         class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                                                        <template x-for="size in item.filtered_sizes" :key="size">
-                                                                            <div @click="selectSize(idx, size)" 
-                                                                                 class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
-                                                                                <div class="font-medium text-gray-900" x-text="size"></div>
-                                                                            </div>
-                                                                        </template>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            
                                                             <!-- Цвет -->
-                                                            <div class="col-span-6">
+                                                            <div class="col-span-12 md:col-span-6">
                                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
                                                                 <div class="relative">
                                                                     <input type="text" 
@@ -531,10 +501,6 @@
                                                                 <p class="text-gray-900" x-text="(item.price || 0).toLocaleString() + ' ⃀'"></p>
                                                             </div>
                                                             <div>
-                                                                <label class="block text-sm font-medium text-gray-700 mb-1">Размер</label>
-                                                                <p class="text-gray-900" x-text="item.size || 'Не указан'"></p>
-                                                            </div>
-                                                            <div>
                                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Цвет</label>
                                                                 <p class="text-gray-900" x-text="item.color || 'Не указан'"></p>
                                                             </div>
@@ -610,31 +576,34 @@
             clients: [],
             products: [],
             clientForm: { name: '', phone: '', email: '', company: '', address: '' },
-            // Упрощённая структура товаров: товар, количество, размер, цвет, примечание
-            newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '', price: 0, cnc_specs: '' }] },
+            // Упрощённая структура товаров: товар, количество, цвет, примечание
+            newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, color: '', price: 0, cnc_specs: '', show_color_dropdown: false, filtered_colors: [] }] },
             showSuccess: false,
             
             // Улучшенный выбор клиента
             clientSearchTerm: '',
             filteredClients: [],
+            clientSelectedIndex: -1,
+            clientSelected: false,
             
-            // Цвета и подсказки
+            // Цвета и подсказки (простые понятные цвета без кодов)
             quickColors: [
-                'Белый', 'Черный', 'Серый (1966)', 'Коричневый', 'Бежевый',
+                'Белый', 'Черный', 'Серый', 'Коричневый', 'Бежевый',
                 'Красный', 'Синий', 'Зеленый', 'Желтый', 'Оранжевый',
-                'Фиолетовый', 'Розовый', 'Голубой', 'Темно-синий', 'Темно-зеленый'
+                'Фиолетовый', 'Розовый', 'Голубой', 'Бирюзовый',
+                'Темно-синий', 'Темно-зеленый'
             ],
             allColors: [
-                'Белый', 'Черный', 'Серый (1966)', 'Коричневый', 'Бежевый',
-                'Красный', 'Синий', 'Зеленый', 'Желтый', 'Оранжевый',
-                'Фиолетовый', 'Розовый', 'Голубой', 'Темно-синий', 'Темно-зеленый',
-                'Серый (RAL 7035)', 'Коричневый (RAL 8004)', 'Красный (RAL 3000)',
-                'Синий (RAL 5002)', 'Зеленый (RAL 6001)', 'Желтый (RAL 1003)',
-                'Оранжевый (RAL 2000)', 'Фиолетовый (RAL 4005)', 'Розовый (RAL 4003)',
-                'Голубой (RAL 5012)', 'Темно-синий (RAL 5004)', 'Темно-зеленый (RAL 6007)',
-                'Светло-серый', 'Темно-серый', 'Светло-коричневый', 'Темно-коричневый',
-                'Светло-красный', 'Темно-красный', 'Светло-синий', 'Темно-синий',
-                'Светло-зеленый', 'Темно-зеленый', 'Светло-желтый', 'Темно-желтый'
+                'Белый', 'Черный', 'Серый', 'Светло-серый', 'Темно-серый',
+                'Коричневый', 'Бежевый',
+                'Красный', 'Бордовый', 'Светло-красный', 'Темно-красный',
+                'Синий', 'Голубой', 'Темно-синий', 'Светло-синий',
+                'Зеленый', 'Светло-зеленый', 'Темно-зеленый',
+                'Желтый', 'Светло-желтый', 'Темно-желтый',
+                'Оранжевый',
+                'Фиолетовый', 'Розовый',
+                'Бирюзовый', 'Сиреневый',
+                'Золотой', 'Серебристый'
             ],
 
             openCreate() {
@@ -643,6 +612,10 @@
                 this.selectedIndex = -1;
                 this.createStep = 1;
                 this.clientMode = 'existing';
+                this.clientSearchTerm = '';
+                this.filteredClients = [];
+                this.clientSelectedIndex = -1;
+                this.clientSelected = false;
                 this.$nextTick(() => lucide.createIcons());
             },
             
@@ -810,13 +783,15 @@
                     }
                 }
                 if (this.createStep === 3) {
-                    const validItems = this.newRequest.items.filter(it => it.product_id && it.quantity > 0);
+                    const validItems = this.newRequest.items.filter(it => it.product_id && parseInt(it.quantity) > 0);
                     if (!validItems.length) {
                         alert('Добавьте хотя бы один товар!');
                         return;
                     }
                 }
-                this.createStep++;
+                if (this.createStep < 3) {
+                    this.createStep++;
+                }
             },
             
             prevStep() {
@@ -849,29 +824,34 @@
                 this.newRequest.items.push({ 
                     product_id: '', 
                     quantity: 1, 
-                    size: '', 
                     color: '',
                     price: 0,
                     cnc_specs: '',
                     show_color_dropdown: false,
-                    filtered_colors: [],
-                    show_size_dropdown: false,
-                    filtered_sizes: []
+                    filtered_colors: []
                 });
             },
 
             increaseQuantity(idx) {
                 const item = this.newRequest.items[idx];
-                item.quantity = Math.max(1, parseInt(item.quantity) || 0) + 1;
+                const current = parseInt(item.quantity);
+                const safe = isNaN(current) || current < 1 ? 1 : current;
+                item.quantity = safe + 1;
             },
 
             decreaseQuantity(idx) {
                 const item = this.newRequest.items[idx];
-                item.quantity = Math.max(1, (parseInt(item.quantity) || 1) - 1);
+                const current = parseInt(item.quantity);
+                const safe = isNaN(current) || current < 1 ? 1 : current;
+                item.quantity = Math.max(1, safe - 1);
             },
 
             validateQuantity(idx) {
                 const item = this.newRequest.items[idx];
+                if (item.quantity === '') {
+                    // Разрешаем временно пустое поле, чтобы можно было редактировать
+                    return;
+                }
                 const value = parseInt(item.quantity);
                 if (isNaN(value) || value < 1) {
                     item.quantity = 1;
@@ -891,8 +871,10 @@
             
             // Функции для работы с клиентами
             filterClients() {
+                this.clientSelected = false;
                 if (!this.clientSearchTerm || this.clientSearchTerm.length < 2) {
                     this.filteredClients = [];
+                    this.clientSelectedIndex = -1;
                     return;
                 }
                 
@@ -902,18 +884,24 @@
                     (client.company && client.company.toLowerCase().includes(term)) ||
                     (client.phone && client.phone.includes(term))
                 ).slice(0, 10);
+
+                this.clientSelectedIndex = this.filteredClients.length ? 0 : -1;
             },
             
             selectClient(client) {
                 this.newRequest.client_id = client.id;
                 this.clientSearchTerm = client.name;
                 this.filteredClients = [];
+                this.clientSelected = true;
+                this.clientSelectedIndex = -1;
             },
             
             clearSelectedClient() {
                 this.newRequest.client_id = '';
                 this.clientSearchTerm = '';
                 this.filteredClients = [];
+                this.clientSelected = false;
+                this.clientSelectedIndex = -1;
             },
             
             getSelectedClientName() {
@@ -938,6 +926,8 @@
                 // Очищаем поиск
                 this.clientSearchTerm = '';
                 this.filteredClients = [];
+                this.clientSelected = false;
+                this.clientSelectedIndex = -1;
                 // Сбрасываем выбранного клиента
                 this.newRequest.client_id = '';
                 this.$nextTick(() => lucide.createIcons());
@@ -949,6 +939,8 @@
                 this.newRequest.client_id = '';
                 this.clientSearchTerm = '';
                 this.filteredClients = [];
+                 this.clientSelected = false;
+                 this.clientSelectedIndex = -1;
             },
             
             async submitRequest() {
@@ -986,8 +978,13 @@
                 const payload = {
                     name: this.newRequest.name,
                     client_id: clientId,
-                    // items_data: товар, количество, размер, цвет, единое примечание
-                    items_data: this.newRequest.items.filter(it => it.product_id && it.quantity > 0),
+                    // items_data: товар, количество, цвет, единое примечание
+                    items_data: this.newRequest.items
+                        .filter(it => it.product_id && parseInt(it.quantity) > 0)
+                        .map(it => ({
+                            ...it,
+                            quantity: parseInt(it.quantity)
+                        })),
                     comment: ''
                 };
                 
@@ -1049,31 +1046,7 @@
                 this.$nextTick(() => lucide.createIcons());
             },
 
-            // Размеры и подсказки (только 5 вариантов)
-            allSizes: [
-                '40-200', '60-200', '70-200', '80-200', '90-200'
-            ],
-
-            // Функции для работы с размерами
-            filterSizes(idx) {
-                const item = this.newRequest.items[idx];
-                const term = (item.size || '').toLowerCase();
-                if (term.length < 1) {
-                    item.filtered_sizes = [];
-                    return;
-                }
-                
-                item.filtered_sizes = this.allSizes.filter(size => 
-                    size.toLowerCase().includes(term)
-                );
-            },
-
-            selectSize(idx, size) {
-                const item = this.newRequest.items[idx];
-                item.size = size;
-                item.show_size_dropdown = false;
-                item.filtered_sizes = [];
-            },
+            // Размер больше не используется в заявках
 
             onProductChange(idx) {
                 // сейчас дополнительных автозаполнений не требуется
@@ -1083,6 +1056,41 @@
                 this.newRequest.items.splice(idx, 1);
                 if (this.newRequest.items.length === 0) {
                     this.addItem();
+                }
+            },
+
+            // Обработка Enter в многошаговой форме
+            handleFormEnter(e) {
+                // Если сейчас фокус в поиске клиента, даём отработать его обработчику
+                // (он уже повешен с .stop на самом input)
+                if (this.createStep < 3) {
+                    this.nextStep();
+                } else {
+                    this.submitRequest();
+                }
+            },
+
+            // Клавиатурная навигация по списку клиентов
+            moveClientSelection(direction) {
+                if (!this.filteredClients.length) return;
+                if (this.clientSelectedIndex === -1) {
+                    this.clientSelectedIndex = 0;
+                    return;
+                }
+                const last = this.filteredClients.length - 1;
+                let next = this.clientSelectedIndex + direction;
+                if (next < 0) next = 0;
+                if (next > last) next = last;
+                this.clientSelectedIndex = next;
+            },
+
+            confirmClientSelection() {
+                if (this.clientSelectedIndex < 0 || this.clientSelectedIndex >= this.filteredClients.length) {
+                    return;
+                }
+                const client = this.filteredClients[this.clientSelectedIndex];
+                if (client) {
+                    this.selectClient(client);
                 }
             },
         }

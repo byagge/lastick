@@ -4,6 +4,7 @@ from .models import FinishedGood, FinishedGoodSale
 from .serializers import FinishedGoodSerializer, FinishedGoodDetailSerializer, FinishedGoodSaleSerializer
 from django.views.generic import TemplateView
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.db import transaction
@@ -117,12 +118,23 @@ class FinishedGoodSaleViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             sale = serializer.save()
             finished_good = sale.finished_good
-            finished_good.status = 'issued'
-            finished_good.issued_at = timezone.now()
-            finished_good.recipient = sale.client.name
-            if sale.order:
-                finished_good.order = sale.order
-            finished_good.save(update_fields=['status', 'issued_at', 'recipient', 'order'])
+            sale_qty = int(getattr(sale, 'quantity', 0) or 0)
+            remaining = int(finished_good.quantity or 0) - sale_qty
+            if remaining < 0:
+                raise ValidationError('Количество продажи больше доступного остатка.')
+            if remaining == 0:
+                finished_good.status = 'issued'
+                finished_good.issued_at = timezone.now()
+                finished_good.recipient = sale.client.name
+                if sale.order:
+                    finished_good.order = sale.order
+                finished_good.save(update_fields=['status', 'issued_at', 'recipient', 'order'])
+            else:
+                finished_good.quantity = remaining
+                finished_good.status = 'stock'
+                finished_good.issued_at = None
+                finished_good.recipient = ''
+                finished_good.save(update_fields=['quantity', 'status', 'issued_at', 'recipient'])
 
             # Автоматически создаем доход "С продаж" в finance при продаже готовой продукции.
             # Защита от дублей: используем уникальную ссылку в order_reference.
@@ -130,7 +142,7 @@ class FinishedGoodSaleViewSet(viewsets.ModelViewSet):
             order_reference = f"FGSALE:{sale.pk}"
             if not Income.objects.filter(order_reference=order_reference).exists():
                 product_name = getattr(getattr(finished_good, 'product', None), 'name', None) or str(getattr(finished_good, 'product', ''))
-                qty = getattr(finished_good, 'quantity', None) or 0
+                qty = sale_qty or 0
                 order_name = getattr(getattr(sale, 'order', None), 'name', '') if sale.order_id else ''
                 order_suffix = f", заказ: {order_name}" if order_name else ""
                 Income.objects.create(

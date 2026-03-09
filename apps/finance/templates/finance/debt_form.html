@@ -10,6 +10,7 @@
 			{% csrf_token %}
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div class="form-group">{{ form.direction.label_tag }}{{ form.direction }}</div>
+				<div class="form-group">{{ form.client.label_tag }}{{ form.client }}</div>
 				<div class="form-group">{{ form.supplier.label_tag }}{{ form.supplier }}</div>
 			</div>
 			<div class="form-group">{{ form.counterparty_name.label_tag }}{{ form.counterparty_name }}</div>

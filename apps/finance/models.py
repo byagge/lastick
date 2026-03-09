@@ -196,6 +196,7 @@ class Debt(models.Model):
     ]
 
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES, verbose_name="Направление")
+    client = models.ForeignKey('clients.Client', on_delete=models.SET_NULL, null=True, blank=True, related_name='debts', verbose_name="Клиент")
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Поставщик")
     counterparty_name = models.CharField(max_length=200, blank=True, verbose_name="Контрагент (если не поставщик)")
     title = models.CharField(max_length=200, verbose_name="Назначение долга")

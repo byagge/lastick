@@ -95,6 +95,47 @@
                 </div>
             </div>
             <div class="mb-4">
+                <div class="text-xs uppercase text-gray-400 mb-2">Долги клиента</div>
+                <div class="space-y-2 mb-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Всего долгов</span>
+                        <span class="text-gray-900" x-text="profileClient.debts_count || 0"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Сумма долга</span>
+                        <span class="text-gray-900" x-text="formatPrice(profileClient.debts_total_original)"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Оплачено</span>
+                        <span class="text-gray-900" x-text="formatPrice(profileClient.debts_total_paid)"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Остаток</span>
+                        <span class="text-gray-900" x-text="formatPrice(profileClient.debts_total_outstanding)"></span>
+                    </div>
+                </div>
+                <template x-if="profileClient.debts && profileClient.debts.length">
+                    <div class="space-y-2 max-h-56 overflow-y-auto">
+                        <template x-for="debt in profileClient.debts" :key="debt.id">
+                            <div class="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                                <div class="mr-2">
+                                    <div class="font-semibold text-gray-900 truncate" x-text="debt.title"></div>
+                                    <div class="text-gray-500" x-text="debt.direction === 'receivable' ? 'Нам должны' : 'Мы должны'"></div>
+                                    <div class="text-gray-500" x-text="debt.due_date ? formatDate(debt.due_date) : 'Без срока'"></div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-gray-900" x-text="formatPrice(debt.outstanding_amount)"></div>
+                                    <div class="text-gray-500" x-text="debt.status === 'open' ? 'Открыт' : (debt.status === 'partial' ? 'Частично' : 'Закрыт')"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!profileClient.debts || !profileClient.debts.length">
+                    <div class="text-xs text-gray-500">У клиента пока нет долгов</div>
+                </template>
+            </div>
+            <div class="mb-4">
                 <div class="text-xs uppercase text-gray-400 mb-2">Заказы клиента</div>
                 <template x-if="profileClient.orders && profileClient.orders.length">
                     <div class="space-y-2 max-h-64 overflow-y-auto">

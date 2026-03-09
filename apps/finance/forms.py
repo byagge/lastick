@@ -111,9 +111,10 @@ class DebtForm(ModelForm):
     class Meta:
         from .models import Debt
         model = Debt
-        fields = ['direction', 'supplier', 'counterparty_name', 'title', 'description', 'original_amount', 'due_date']
+        fields = ['direction', 'client', 'supplier', 'counterparty_name', 'title', 'description', 'original_amount', 'due_date']
         widgets = {
             'direction': forms.Select(),
+            'client': forms.Select(),
             'supplier': forms.Select(),
             'counterparty_name': forms.TextInput(attrs={'placeholder': 'Название контрагента'}),
             'title': forms.TextInput(attrs={'placeholder': 'Назначение долга'}),
