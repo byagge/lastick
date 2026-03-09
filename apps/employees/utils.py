@@ -112,16 +112,35 @@ def calculate_employee_stats(employee, period_days=30):
 
     # История зарплаты (6 месяцев)
     salary_history = []
+    service_cache = {}
     for i in range(6):
-        month_start = (now.replace(day=1) - timedelta(days=30*i)).replace(day=1)
+        month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
         month_end = (month_start + timedelta(days=32)).replace(day=1)
         month_tasks = EmployeeTask.objects.filter(
             employee=employee,
             created_at__gte=month_start,
             created_at__lt=month_end
-        )
-        month_completed = month_tasks.aggregate(total=Sum('completed_quantity'))['total'] or 0
-        salary_history.insert(0, month_completed * 100)
+        ).select_related('stage__workshop')
+        month_salary = 0
+        month_penalty = 0
+        for task in month_tasks:
+            completed = task.completed_quantity or 0
+            defect = task.defective_quantity or 0
+            service = None
+            if task.stage and task.stage.operation and task.stage.workshop:
+                key = (task.stage.operation, task.stage.workshop_id)
+                if key in service_cache:
+                    service = service_cache[key]
+                else:
+                    service = Service.objects.filter(
+                        name=task.stage.operation,
+                        workshop=task.stage.workshop
+                    ).first()
+                    service_cache[key] = service
+            if service:
+                month_salary += completed * float(service.service_price)
+                month_penalty += defect * float(service.defect_penalty)
+        salary_history.insert(0, month_salary - month_penalty)
 
     # Эффективность
     if completed_works > 0:

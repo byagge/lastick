@@ -9,6 +9,8 @@ from .models import EmployeeFinanceTransaction
 from .serializers import EmployeeFinanceTransactionSerializer
 from django.db.models import Avg, Sum, Count
 import random
+import secrets
+import string
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.views.decorators.csrf import csrf_exempt
@@ -20,6 +22,7 @@ from apps.operations.workshops.views import WorkshopSerializer
 from .utils import calculate_employee_stats
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
+from django.utils import timezone
 
 MOBILE_UA_KEYWORDS = [
     'Mobile', 'Android', 'iPhone', 'iPad', 'iPod', 'Opera Mini', 'IEMobile', 'BlackBerry', 'webOS'
@@ -28,6 +31,10 @@ MOBILE_UA_KEYWORDS = [
 def is_mobile(request):
     ua = request.META.get('HTTP_USER_AGENT', '')
     return any(keyword in ua for keyword in MOBILE_UA_KEYWORDS)
+
+def _generate_temp_password(length=10):
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def employees_list(request):
     # Просто отдаём employees.html, всё остальное через JS
@@ -79,8 +86,12 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         user = serializer.save()
         
         # Генерируем username если не указан
-        if not user.username:
-            user.username = user.generate_username()
+        requested_username = (validated.get('username') or '').strip()
+        if not requested_username:
+            desired_username = f"id{user.id}"
+            if User.objects.filter(username=desired_username).exclude(pk=user.pk).exists():
+                desired_username = user.generate_username()
+            user.username = desired_username
         
         # Устанавливаем пароль по умолчанию: +{username}+
         default_password = f"+{user.username}+"
@@ -225,7 +236,45 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             elif item['transaction_type'] == EmployeeFinanceTransaction.Type.PENALTY:
                 penalties.append(entry)
             else:
+                entry['reason'] = entry.get('note') or 'Заработок'
                 earnings.append(entry)
+        if not earnings:
+            stats_obj = getattr(employee, 'statistics', None)
+            if stats_obj and isinstance(stats_obj.salary_history, list) and stats_obj.salary_history:
+                history = stats_obj.salary_history
+            else:
+                stats = calculate_employee_stats(employee)
+                history = stats.get('salary_history') or []
+            if isinstance(history, list) and history:
+                now = timezone.now()
+                for idx, value in enumerate(history):
+                    try:
+                        amount = float(value)
+                    except (TypeError, ValueError):
+                        continue
+                    earnings.append({
+                        'id': f'hist_{idx}',
+                        'amount': amount,
+                        'note': 'История заработка',
+                        'reason': 'История заработка',
+                        'issued_by': '',
+                        'at': (now - timezone.timedelta(days=30 * idx)).isoformat()
+                    })
+            if not earnings or all((e.get('amount') or 0) <= 0 for e in earnings):
+                earnings = []
+                try:
+                    amount = float(calculate_employee_stats(employee).get('monthly_salary') or 0)
+                except (TypeError, ValueError):
+                    amount = 0
+                if amount > 0:
+                    earnings.append({
+                        'id': 'month_salary',
+                        'amount': amount,
+                        'note': 'Заработок за месяц',
+                        'reason': 'Заработок за месяц',
+                        'issued_by': '',
+                        'at': timezone.now().isoformat()
+                    })
         return Response({
             'balance': float(employee.balance),
             'salary_payments': salary_payments,

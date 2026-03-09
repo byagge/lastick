@@ -494,7 +494,11 @@ class ExtrusionReportView(APIView):
                     Decimal("0.01")
                 )
                 if earnings > 0:
-                    user.add_to_balance(earnings)
+                    user.add_to_balance(
+                        earnings,
+                        reason="Начисление за работу",
+                        issued_by=request.user
+                    )
 
         return Response(
             {
@@ -768,7 +772,11 @@ class PackagingReportView(APIView):
                     Decimal("0.01")
                 )
                 if earnings > 0:
-                    user.add_to_balance(earnings)
+                    user.add_to_balance(
+                        earnings,
+                        reason="Начисление за работу",
+                        issued_by=request.user
+                    )
 
         return Response(
             {
@@ -971,7 +979,11 @@ class WarehouseReportView(APIView):
                     Decimal("0.01")
                 )
                 if earnings > 0:
-                    user.add_to_balance(earnings)
+                    user.add_to_balance(
+                        earnings,
+                        reason="Начисление за работу",
+                        issued_by=request.user
+                    )
 
         return Response(
             {

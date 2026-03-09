@@ -763,6 +763,7 @@
             detailsEmployee: null,
             showPassword: false,
             employeePassword: '',
+            passwordKnown: false,
             showChangePasswordModal: false,
             newPassword: '',
             showSalaryModal: false,
@@ -946,11 +947,22 @@
                     });
                     if (!response.ok) return;
                     const data = await response.json();
+                    const stored = this.loadFinanceFromStorage(employeeId) || {};
+                    const salaryPayments = (data.salary_payments && data.salary_payments.length)
+                        ? data.salary_payments
+                        : (stored.salaryPayments || []);
+                    const penalties = (data.penalties && data.penalties.length)
+                        ? data.penalties
+                        : (stored.penalties || []);
+                    const earnings = (data.earnings && data.earnings.length)
+                        ? data.earnings
+                        : (stored.earnings || []);
                     this.financeData[employeeId] = {
-                        salaryPayments: data.salary_payments || [],
-                        penalties: data.penalties || [],
-                        earnings: data.earnings || []
+                        salaryPayments,
+                        penalties,
+                        earnings
                     };
+                    this.saveFinanceToStorage(employeeId);
                     this.setEmployeeBalance(employeeId, Number(data.balance || 0));
                 } catch (e) {
                     // ignore load errors

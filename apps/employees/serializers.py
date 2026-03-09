@@ -7,6 +7,7 @@ from apps.employee_tasks.models import EmployeeTask
 from .models import EmployeeFinanceTransaction
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False, allow_blank=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     work_schedule_display = serializers.CharField(source='get_work_schedule_display', read_only=True)
@@ -15,7 +16,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
     # Для фронта:
     name = serializers.CharField(source='get_full_name', read_only=True)
     full_name = serializers.CharField(required=False, allow_blank=True)
-    position = serializers.CharField(source='role')
+    position = serializers.CharField(source='role', required=False, allow_blank=True)
     status = serializers.SerializerMethodField()
     notes = serializers.CharField(required=False, allow_blank=True)
     payment_type = serializers.CharField(required=False)

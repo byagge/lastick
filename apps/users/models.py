@@ -121,12 +121,23 @@ class User(AbstractUser):
         else:
             return self.username
 
-    def add_to_balance(self, amount):
-        """Пополняет баланс пользователя"""
+    def add_to_balance(self, amount, reason='', issued_by=None):
+        """????????? ?????? ??????????"""
         if isinstance(amount, (int, float)):
             amount = Decimal(str(amount))
         self.balance += amount
         self.save(update_fields=['balance'])
+        try:
+            from apps.employees.models import EmployeeFinanceTransaction
+            EmployeeFinanceTransaction.objects.create(
+                employee=self,
+                issued_by=issued_by,
+                transaction_type=EmployeeFinanceTransaction.Type.EARNING,
+                amount=amount,
+                note=reason or '??????????'
+            )
+        except Exception:
+            pass
         return self.balance
 
     def subtract_from_balance(self, amount):
