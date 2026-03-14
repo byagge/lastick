@@ -26,6 +26,7 @@ class ProductSerializer(serializers.ModelSerializer):
     materials = serializers.SerializerMethodField()
     cost_price = serializers.SerializerMethodField()
     cost_breakdown = serializers.SerializerMethodField()
+    average_actual_cost = serializers.SerializerMethodField()
     type_display = serializers.CharField(source='get_type_display', read_only=True)
     glass_type_display = serializers.CharField(source='get_glass_type_display', read_only=True)
     materials_norms = ProductMaterialNormSerializer(many=True, source='productmaterialnorm_set', required=False)
@@ -35,11 +36,11 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'type', 'type_display', 'description', 'is_glass', 'glass_type', 'glass_type_display', 'img', 'price',
             'services', 'service_ids', 'materials', 'cost_price',
-            'cost_breakdown',
+            'cost_breakdown', 'average_actual_cost',
             'materials_norms',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'services', 'materials', 'cost_price', 'cost_breakdown', 'type_display', 'glass_type_display']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'services', 'materials', 'cost_price', 'cost_breakdown', 'average_actual_cost', 'type_display', 'glass_type_display']
 
     def get_materials(self, obj):
         result = []
@@ -70,6 +71,17 @@ class ProductSerializer(serializers.ModelSerializer):
                 return [convert(v) for v in x]
             return x
         return convert(bd)
+    
+    def get_average_actual_cost(self, obj):
+        """Возвращает среднее значение фактической себестоимости на основе всех готовой продукции"""
+        avg_cost = obj.get_average_actual_cost()
+        if avg_cost is None:
+            return None
+        return {
+            'average_cost_per_unit': float(avg_cost['average_cost_per_unit']),
+            'total_quantity': avg_cost['total_quantity'],
+            'samples_count': avg_cost['samples_count'],
+        }
 
     def update(self, instance, validated_data):
         # Обновляем основные поля

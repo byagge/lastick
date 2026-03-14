@@ -294,18 +294,20 @@
                                                             <!-- Количество с кнопками -->
                                                             <div class="col-span-6 md:col-span-3">
                                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Количество <span class="text-red-500">*</span></label>
-                                                                <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                                                                <div class="flex items-center justify-between">
+                                                                    <!-- Левая кнопка "-" -->
                                                                     <button type="button" @click="decreaseQuantity(idx)" 
-                                                                            class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border-r border-gray-300">
+                                                                            class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-l-lg">
                                                                         <span class="text-lg leading-none">-</span>
                                                                     </button>
                                                                     <input type="text" 
-                                                                           x-model="item.quantity" 
-                                                                           @input="validateQuantity(idx)"
-                                                                           class="flex-1 px-3 py-3 border-0 text-center focus:outline-none focus:ring-0 bg-white"
-                                                                           style="-webkit-appearance: none; -moz-appearance: textfield;">
+                                                                        x-model="item.quantity" 
+                                                                        @input="validateQuantity(idx)"
+                                                                        class="w-20 px-3 py-3 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-0 bg-white"
+                                                                        style="-webkit-appearance: none; -moz-appearance: textfield;">
+                                                                    <!-- Правая кнопка "+" -->
                                                                     <button type="button" @click="increaseQuantity(idx)" 
-                                                                            class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border-l border-gray-300">
+                                                                            class="quantity-btn px-3 py-3 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-r-lg">
                                                                         <span class="text-lg leading-none">+</span>
                                                                     </button>
                                                                 </div>

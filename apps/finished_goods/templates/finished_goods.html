@@ -211,13 +211,27 @@
                             <div class="grid grid-cols-2 gap-3 text-sm">
                                 <div><span class="text-gray-600">На единицу:</span> <span x-text="formatMoney(detailGood.cost_per_unit)"></span></div>
                                 <div><span class="text-gray-600">Всего:</span> <span x-text="formatMoney(detailGood.cost_total)"></span></div>
-                                <div><span class="text-gray-600">Материалы:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.materials)"></span></div>
-                                <div><span class="text-gray-600">Работа:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.labor)"></span></div>
+                                <div><span class="text-gray-600">Материалы:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.material_cost ?? detailGood.cost_breakdown?.totals?.materials)"></span></div>
+                                <div><span class="text-gray-600">Работа:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.labor_cost ?? detailGood.cost_breakdown?.totals?.labor)"></span></div>
                                 <div><span class="text-gray-600">Накладные:</span> <span x-text="formatMoney(detailGood.cost_breakdown?.totals?.overhead)"></span></div>
                             </div>
                             <div class="mt-4 text-sm">
                                 <div class="font-medium text-gray-900 mb-2">Материалы</div>
-                                <template x-if="detailGood.cost_breakdown?.materials?.length">
+
+                                <!-- Фактическая детализация (сырьё) -->
+                                <template x-if="detailGood.cost_breakdown?.material_costs?.length">
+                                    <div class="space-y-2">
+                                        <template x-for="item in detailGood.cost_breakdown.material_costs" :key="item.id">
+                                            <div class="flex justify-between text-gray-600">
+                                                <span x-text="`${item.material_name} (${item.quantity} ${item.material_unit || ''})`"></span>
+                                                <span x-text="formatMoney(item.cost)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Нормативная детализация (материалы) -->
+                                <template x-if="!detailGood.cost_breakdown?.material_costs?.length && detailGood.cost_breakdown?.materials?.length">
                                     <div class="space-y-2">
                                         <template x-for="item in detailGood.cost_breakdown.materials" :key="item.material_id">
                                             <div class="flex justify-between text-gray-600">
@@ -227,13 +241,27 @@
                                         </template>
                                     </div>
                                 </template>
-                                <template x-if="!detailGood.cost_breakdown?.materials?.length">
-                                    <div class="text-gray-500">Нет материалов в нормативах.</div>
+                                <template x-if="!detailGood.cost_breakdown?.material_costs?.length && !detailGood.cost_breakdown?.materials?.length">
+                                    <div class="text-gray-500">Нет данных по материалам.</div>
                                 </template>
                             </div>
                             <div class="mt-4 text-sm">
                                 <div class="font-medium text-gray-900 mb-2">Работы</div>
-                                <template x-if="detailGood.cost_breakdown?.labor?.length">
+
+                                <!-- Фактическая детализация (труд) -->
+                                <template x-if="detailGood.cost_breakdown?.labor_costs?.length">
+                                    <div class="space-y-2">
+                                        <template x-for="item in detailGood.cost_breakdown.labor_costs" :key="item.id">
+                                            <div class="flex justify-between text-gray-600">
+                                                <span x-text="`${item.employee_name || 'Сотрудник'} — ${item.stage_operation || ''} (${item.workshop_name || ''})`"></span>
+                                                <span x-text="formatMoney(item.cost)"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Нормативная детализация (услуги/работы) -->
+                                <template x-if="!detailGood.cost_breakdown?.labor_costs?.length && detailGood.cost_breakdown?.labor?.length">
                                     <div class="space-y-2">
                                         <template x-for="item in detailGood.cost_breakdown.labor" :key="item.service_id">
                                             <div class="flex justify-between text-gray-600">
@@ -243,8 +271,8 @@
                                         </template>
                                     </div>
                                 </template>
-                                <template x-if="!detailGood.cost_breakdown?.labor?.length">
-                                    <div class="text-gray-500">Нет работ в составе.</div>
+                                <template x-if="!detailGood.cost_breakdown?.labor_costs?.length && !detailGood.cost_breakdown?.labor?.length">
+                                    <div class="text-gray-500">Нет данных по труду.</div>
                                 </template>
                             </div>
                         </div>

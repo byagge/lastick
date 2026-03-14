@@ -73,6 +73,41 @@ class Product(models.Model):
         from .costing import calculate_product_cost
 
         return calculate_product_cost(self, quantity=quantity)
+    
+    def get_average_actual_cost(self):
+        """
+        Возвращает среднее значение фактической себестоимости на основе всех готовой продукции этого продукта.
+        Используется для отображения в Product (не связан с конкретным FinishedGood).
+        """
+        from apps.finished_goods.models import FinishedGoodCosting
+        
+        # Получаем все себестоимости для этого продукта
+        costings = FinishedGoodCosting.objects.filter(
+            finished_good__product=self
+        ).exclude(cost_per_unit=Decimal('0'))
+        
+        if not costings.exists():
+            return None
+        
+        # Рассчитываем среднее значение
+        total_cost = Decimal('0')
+        total_quantity = Decimal('0')
+        
+        for costing in costings:
+            quantity = Decimal(str(costing.finished_good.quantity or 1))
+            total_cost += costing.total_cost
+            total_quantity += quantity
+        
+        if total_quantity > 0:
+            average_cost = (total_cost / total_quantity).quantize(Decimal('0.01'))
+        else:
+            average_cost = Decimal('0')
+        
+        return {
+            'average_cost_per_unit': average_cost,
+            'total_quantity': int(total_quantity),
+            'samples_count': costings.count(),
+        }
 
 class ProductMaterialNorm(models.Model):
     product = models.ForeignKey('Product', on_delete=models.CASCADE, verbose_name='Продукт')

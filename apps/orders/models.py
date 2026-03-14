@@ -358,6 +358,14 @@ class OrderStage(models.Model):
         
         # Отмечаем как упакованный
         finished_good.mark_as_packaged(self.workshop)
+
+        # Пытаемся сразу рассчитать фактическую себестоимость для партии,
+        # чтобы на складе была актуальная информация по труду и сырью.
+        try:
+            finished_good.calculate_actual_cost(save=True)
+        except Exception:
+            # Не блокируем основной процесс, если расчёт не удался
+            pass
         
         # Обновляем количество полученное в упаковке
         self.order_item.record_packaging_receipt(quantity)

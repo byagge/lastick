@@ -938,6 +938,13 @@ class WarehouseReportView(APIView):
                 workshop=workshop,
                 status="stock",
             )
+
+            # Пытаемся сразу посчитать фактическую себестоимость по реальным задачам и расходам сырья
+            try:
+                finished.calculate_actual_cost(save=True)
+            except Exception:
+                # Ошибку расчёта не даём свалить основной бизнес-процесс
+                pass
             
             # Логируем действие
             from apps.operations.workshops.models import WorkshopLog

@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from .models import FinishedGood, FinishedGoodSale
 from .serializers import FinishedGoodSerializer, FinishedGoodDetailSerializer, FinishedGoodSaleSerializer
 from django.views.generic import TemplateView
@@ -16,7 +17,14 @@ import re
 # Create your views here.
 
 class FinishedGoodViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = FinishedGood.objects.select_related('product', 'order', 'workshop').all().order_by('-received_at')
+    queryset = FinishedGood.objects.select_related(
+        'product', 'order', 'workshop', 'costing'
+    ).prefetch_related(
+        'costing__labor_costs__employee_task__employee',
+        'costing__labor_costs__employee_task__stage__workshop',
+        'costing__material_costs__material_consumption__material',
+        'costing__material_costs__material_consumption__workshop',
+    ).all().order_by('-received_at')
     serializer_class = FinishedGoodSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -101,6 +109,75 @@ class FinishedGoodViewSet(viewsets.ReadOnlyModelViewSet):
         instance = self.get_object()
         serializer = FinishedGoodDetailSerializer(instance, context={'request': request})
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='recalculate-cost')
+    def recalculate_cost(self, request, pk=None):
+        """
+        Пересчитывает себестоимость для конкретной готовой продукции.
+        """
+        finished_good = self.get_object()
+        
+        if not finished_good.order:
+            return Response(
+                {'error': 'Нельзя рассчитать себестоимость без связанного заказа'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            result = finished_good.calculate_actual_cost(save=True)
+            if result is None:
+                return Response(
+                    {'error': 'Не удалось рассчитать себестоимость. Проверьте наличие связанных задач и расходов сырья.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Обновляем объект из БД для получения актуальных данных
+            finished_good.refresh_from_db()
+            serializer = FinishedGoodDetailSerializer(finished_good, context={'request': request})
+            
+            return Response({
+                'message': 'Себестоимость успешно пересчитана',
+                'costing': result,
+                'finished_good': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Ошибка пересчета себестоимости для FinishedGood #{finished_good.id}: {e}", exc_info=True)
+            return Response(
+                {'error': f'Ошибка при пересчете себестоимости: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'], url_path='recalculate-all-costs')
+    def recalculate_all_costs(self, request):
+        """
+        Пересчитывает себестоимость для всех товаров на складе (status='stock').
+        """
+        finished_goods = FinishedGood.objects.filter(status='stock', order__isnull=False)
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for fg in finished_goods:
+            try:
+                result = fg.calculate_actual_cost(save=True)
+                if result is not None:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"FinishedGood #{fg.id}: нет связанных данных")
+            except Exception as e:
+                error_count += 1
+                errors.append(f"FinishedGood #{fg.id}: {str(e)}")
+        
+        return Response({
+            'message': f'Пересчет завершен. Успешно: {success_count}, Ошибок: {error_count}',
+            'success_count': success_count,
+            'error_count': error_count,
+            'errors': errors[:10]  # Ограничиваем количество ошибок в ответе
+        }, status=status.HTTP_200_OK)
 
 
 class FinishedGoodSaleViewSet(viewsets.ModelViewSet):
