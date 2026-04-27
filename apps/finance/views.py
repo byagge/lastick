@@ -1606,6 +1606,7 @@ def get_requests(request):
 					'name': item.product.name,
 					'is_glass': item.product.is_glass,
 				} if item.product else None,
+				'display_name': item.get_display_name(),
 				'quantity': item.quantity,
 				'size': item.size,
 				'color': item.color,

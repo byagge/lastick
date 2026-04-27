@@ -701,14 +701,23 @@ class RequestItem(models.Model):
     class Meta:
         verbose_name = 'Позиция заявки'
         verbose_name_plural = 'Позиции заявки'
+
+    def get_variant_label(self):
+        details = []
+        if self.size:
+            details.append(self.size)
+        if self.color:
+            details.append(self.color)
+        return ', '.join(details)
+
+    def get_display_name(self):
+        product_name = self.product.name if self.product else 'Товар'
+        variant_label = self.get_variant_label()
+        return f"{product_name} ({variant_label})" if variant_label else product_name
     
     def __str__(self):
         try:
-            details = []
-            if self.size:
-                details.append(self.size)
-            if self.color:
-                details.append(self.color)
+            details = [self.get_variant_label()] if self.get_variant_label() else []
             if self.glass_type:
                 details.append(f"стекло: {self.glass_type}")
             suffix = f" ({', '.join(details)})" if details else ''

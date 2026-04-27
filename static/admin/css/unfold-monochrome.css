@@ -1,0 +1,13 @@
+/* Keep only small cosmetic monochrome tweaks.
+   Main primary color is controlled via UNFOLD["COLORS"]. */
+:root {
+    --monochrome-border: #d4d4d4;
+    --monochrome-shadow: rgba(0, 0, 0, 0.06);
+}
+
+.card,
+.module,
+.submit-row {
+    box-shadow: 0 1px 2px var(--monochrome-shadow);
+    border-color: var(--monochrome-border);
+}

@@ -1,11 +1,13 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 import math
 
 # Create your models here.
+User = get_user_model()
 
 class AttendanceSettings(models.Model):
     """Настройки системы посещаемости (singleton)"""
@@ -74,6 +76,12 @@ class AttendanceRecord(models.Model):
     penalty_manual = models.BooleanField(
         default=False,
         verbose_name='Штраф задан вручную'
+    )
+    penalty_charged_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Сумма уже списанного штрафа'
     )
     is_late = models.BooleanField(
         default=False,
@@ -197,5 +205,52 @@ class AttendanceRecord(models.Model):
     def save(self, *args, **kwargs):
         if not self.date and self.check_in:
             self.date = timezone.localtime(self.check_in).date()
+        old_charged_amount = Decimal('0.00')
+        if self.pk:
+            try:
+                old_record = AttendanceRecord.objects.only('penalty_charged_amount').get(pk=self.pk)
+                old_charged_amount = Decimal(str(old_record.penalty_charged_amount or 0))
+            except AttendanceRecord.DoesNotExist:
+                old_charged_amount = Decimal('0.00')
         self.calculate_penalty()
         super().save(*args, **kwargs)
+        self._sync_penalty_finance(old_charged_amount)
+
+    def _sync_penalty_finance(self, old_charged_amount):
+        """
+        Синхронизирует фактически списанный штраф с балансом сотрудника
+        и финансовыми транзакциями.
+        """
+        try:
+            from apps.employees.models import EmployeeFinanceTransaction
+        except Exception:
+            return
+
+        target_penalty = Decimal(str(self.penalty_amount or 0)) if self.is_late else Decimal('0.00')
+        current_charged = Decimal(str(self.penalty_charged_amount or 0))
+
+        if current_charged != old_charged_amount:
+            # Если значение изменилось до вызова метода (редкий случай), берем текущее из БД.
+            old_charged_amount = current_charged
+
+        delta = target_penalty - old_charged_amount
+        if delta == 0:
+            return
+
+        employee = self.employee
+        if delta > 0:
+            User.objects.filter(pk=employee.pk).update(balance=models.F('balance') - delta)
+            employee.refresh_from_db(fields=['balance'])
+            EmployeeFinanceTransaction.objects.create(
+                employee=employee,
+                issued_by=None,
+                transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+                amount=delta,
+                note='Штраф за опоздание'
+            )
+        else:
+            refund = abs(delta)
+            employee.add_to_balance(refund, reason='Возврат штрафа за опоздание', issued_by=None)
+
+        AttendanceRecord.objects.filter(pk=self.pk).update(penalty_charged_amount=target_penalty)
+        self.penalty_charged_amount = target_penalty

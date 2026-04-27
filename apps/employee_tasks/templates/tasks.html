@@ -383,7 +383,7 @@
                                         <option value="">Выберите позицию…</option>
                                         <template x-for="item in packagingItems" :key="item.id">
                                             <option :value="item.id"
-                                                    x-text="`${item.product?.name || 'Товар'} • ${item.quantity} шт.`">
+                                                    x-text="`${formatOrderListItemName(item)} • ${item.quantity} шт.`">
                                             </option>
                                         </template>
                                     </select>
@@ -861,7 +861,7 @@
                                 <div class="card bg-white rounded-lg p-3 flex flex-col mobile-card">
                                     <div class="flex items-start justify-between gap-2">
                                         <div>
-                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name : (task.title || 'Задача')"></div>
+                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="formatTaskItemName(task)"></div>
                                             <div class="text-xs text-gray-500 mobile-text-xs" x-text="task.stage_name || ''"></div>
                                         </div>
                                         <div class="text-right text-xs text-gray-500 mobile-text-xs">
@@ -916,7 +916,7 @@
                                 <div class="card bg-white rounded-lg p-3 flex flex-col mobile-card">
                                     <div class="flex items-start justify-between gap-2">
                                         <div>
-                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name : (task.title || 'Задача')"></div>
+                                            <div class="text-sm font-semibold text-gray-900 mobile-text-sm" x-text="formatTaskItemName(task)"></div>
                                             <div class="text-xs text-gray-500 mobile-text-xs" x-text="task.stage_name || ''"></div>
                                         </div>
                                         <div class="text-right text-[11px] text-gray-400 mobile-text-xs">
@@ -1046,7 +1046,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <div class="text-xs text-gray-500 mb-1">Товар / Задача</div>
-                                    <div class="text-base font-semibold text-gray-900" x-text="selectedHistoryTask.order_item && selectedHistoryTask.order_item.product && selectedHistoryTask.order_item.product.name ? selectedHistoryTask.order_item.product.name : (selectedHistoryTask.title || 'Задача')"></div>
+                                    <div class="text-base font-semibold text-gray-900" x-text="formatTaskItemName(selectedHistoryTask)"></div>
                                 </div>
                                 <div>
                                     <div class="text-xs text-gray-500 mb-1">Этап работы</div>
@@ -1355,7 +1355,7 @@
                         return {
                             id: item.id,
                             type: 'packaging',
-                            product_name: item.product?.name || item.product || 'Товар',
+                            product_name: item.product_display_name || item.order_item?.display_name || item.product?.display_name || item.product?.name || item.product || 'Товар',
                             produced_quantity: quantity,
                             input_quantity: inputQty,
                             scrap_quantity: scrapQty,
@@ -1419,7 +1419,7 @@
                         return {
                             id: item.id,
                             type: 'warehouse',
-                            product_name: item.product?.name || item.product || 'Товар',
+                            product_name: item.product_display_name || item.order_item?.display_name || item.product?.display_name || item.product?.name || item.product || 'Товар',
                             produced_quantity: quantity,
                             input_quantity: inputQty,
                             scrap_quantity: scrapQty,
@@ -1505,6 +1505,20 @@
                     this.loading = false;
                 }
             },
+            formatTaskItemName(task) {
+                const item = task?.order_item;
+                if (!item) return task?.title || 'Задача';
+                const baseName = item.display_name || (item.product && item.product.name) || task?.title || 'Задача';
+                if (item.display_name) return baseName;
+                const details = [item.size, item.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
+            },
+            formatOrderListItemName(item) {
+                const baseName = item?.display_name || item?.product?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
+            },
             get filteredTasks() {
                 const term = this.searchTerm.toLowerCase();
                 const filtered = this.tasks
@@ -1512,7 +1526,7 @@
                     .filter(task =>
                     (task.title || '').toLowerCase().includes(term) ||
                     (task.stage_name || '').toLowerCase().includes(term) ||
-                    (task.order_item && task.order_item.product && task.order_item.product.name ? task.order_item.product.name.toLowerCase().includes(term) : false)
+                    this.formatTaskItemName(task).toLowerCase().includes(term)
                 );
                 
                 // Группируем задачи по товарам для отображения
@@ -1555,9 +1569,7 @@
                     .filter(task =>
                         (task.title || '').toLowerCase().includes(term) ||
                         (task.stage_name || '').toLowerCase().includes(term) ||
-                        (task.order_item && task.order_item.product && task.order_item.product.name
-                            ? task.order_item.product.name.toLowerCase().includes(term)
-                            : false)
+                        this.formatTaskItemName(task).toLowerCase().includes(term)
                     );
 
                 const groupedTasks = [];

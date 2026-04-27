@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, ProductMaterialNorm
+from .models import Product, ProductMaterialNorm, ProductVariant
 from apps.services.models import Service
 from apps.inventory.models import RawMaterial
 
@@ -18,6 +18,17 @@ class ProductMaterialNormSerializer(serializers.ModelSerializer):
         fields = ['id', 'material_id', 'material_name', 'material_unit', 'amount', 'workshop']
         extra_kwargs = {'workshop': {'required': False}}
 
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = ['id', 'size', 'color', 'display_name']
+
+    def get_display_name(self, obj):
+        return obj.get_display_name()
+
 class ProductSerializer(serializers.ModelSerializer):
     services = ServiceShortSerializer(many=True, read_only=True)
     service_ids = serializers.PrimaryKeyRelatedField(
@@ -30,6 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source='get_type_display', read_only=True)
     glass_type_display = serializers.CharField(source='get_glass_type_display', read_only=True)
     materials_norms = ProductMaterialNormSerializer(many=True, source='productmaterialnorm_set', required=False)
+    variants = ProductVariantSerializer(many=True, required=False)
 
     class Meta:
         model = Product
@@ -38,6 +50,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'services', 'service_ids', 'materials', 'cost_price',
             'cost_breakdown', 'average_actual_cost',
             'materials_norms',
+            'variants',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'services', 'materials', 'cost_price', 'cost_breakdown', 'average_actual_cost', 'type_display', 'glass_type_display']
@@ -87,6 +100,7 @@ class ProductSerializer(serializers.ModelSerializer):
         # Обновляем основные поля
         services = validated_data.pop('services', None)
         norms_data = validated_data.pop('productmaterialnorm_set', None)
+        variants_data = validated_data.pop('variants', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if services is not None:
@@ -97,15 +111,23 @@ class ProductSerializer(serializers.ModelSerializer):
             instance.productmaterialnorm_set.all().delete()
             for row in norms_data:
                 ProductMaterialNorm.objects.create(product=instance, **row)
+        if variants_data is not None:
+            instance.variants.all().delete()
+            for row in variants_data:
+                ProductVariant.objects.create(product=instance, **row)
         return instance
 
     def create(self, validated_data):
         services = validated_data.pop('services', None)
         norms_data = validated_data.pop('productmaterialnorm_set', None)
+        variants_data = validated_data.pop('variants', None)
         product = Product.objects.create(**validated_data)
         if services is not None:
             product.services.set(services)
         if norms_data is not None:
             for row in norms_data:
                 ProductMaterialNorm.objects.create(product=product, **row)
+        if variants_data is not None:
+            for row in variants_data:
+                ProductVariant.objects.create(product=product, **row)
         return product 

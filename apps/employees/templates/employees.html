@@ -143,11 +143,14 @@
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <template x-for="employee in filteredEmployees()" :key="employee.id">
-                            <tr :class="{'bg-blue-50': selectedIds.includes(employee.id)}">
+                            <tr :class="{'bg-blue-50': selectedIds.includes(employee.id)}"
+                                class="cursor-pointer hover:bg-gray-50"
+                                @click="openDetails(employee)">
                                 <td class="px-4 py-3">
                                     <input type="checkbox"
                                            :checked="selectedIds.includes(employee.id)"
                                            @change="toggleSelect(employee.id)"
+                                           @click.stop
                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 </td>
                                 <td class="px-4 py-3">
@@ -177,13 +180,13 @@
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end space-x-2">
-                                        <button @click="openDetails(employee)" class="p-1 text-slate-600 hover:text-slate-900" title="Профиль">
+                                        <button @click.stop="openDetails(employee)" class="p-1 text-slate-600 hover:text-slate-900" title="Профиль">
                                             <i data-lucide="info" class="w-4 h-4"></i>
                                         </button>
-                                        <button @click="openEditForm(employee)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
+                                        <button @click.stop="openEditForm(employee)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
                                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                                         </button>
-                                        <button @click="openDeleteConfirm(employee)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
+                                        <button @click.stop="openDeleteConfirm(employee)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
                                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                                         </button>
                                     </div>
@@ -992,6 +995,17 @@
                     this.detailsEmployee.balance = balance;
                 }
             },
+            async loadEmployeeStats(employeeId) {
+                try {
+                    const response = await fetch(`/employees/api/employees/${employeeId}/stats/`, {
+                        credentials: 'include'
+                    });
+                    if (!response.ok) return null;
+                    return await response.json();
+                } catch (e) {
+                    return null;
+                }
+            },
             openSalaryModal() {
                 this.salaryForm = { amount: '', note: '' };
                 this.showSalaryModal = true;
@@ -1183,13 +1197,34 @@
                 this.deleteTarget = null;
                 this.showDeleteModal = true;
             },
-            openDetails(employee) {
+            async openDetails(employee) {
                 this.detailsEmployee = employee;
                 this.showDetailsPanel = true;
                 this.showPassword = false;
                 this.ensureFinanceData(employee);
                 // Пароль по умолчанию: +{username}+
                 this.employeePassword = `+${employee.username}+`;
+
+                const freshStats = await this.loadEmployeeStats(employee.id);
+                if (freshStats) {
+                    const target = this.employees.find(e => e.id === employee.id);
+                    if (target) {
+                        target.completed_works = Number(freshStats.completed_works || 0);
+                        target.defects = Number(freshStats.defects || 0);
+                        target.monthly_salary = Number(freshStats.monthly_salary || 0);
+                        if (freshStats.efficiency !== undefined && freshStats.efficiency !== null) {
+                            target.efficiency = Number(freshStats.efficiency || 0);
+                        }
+                    }
+                    if (this.detailsEmployee && this.detailsEmployee.id === employee.id) {
+                        this.detailsEmployee.completed_works = Number(freshStats.completed_works || 0);
+                        this.detailsEmployee.defects = Number(freshStats.defects || 0);
+                        this.detailsEmployee.monthly_salary = Number(freshStats.monthly_salary || 0);
+                        if (freshStats.efficiency !== undefined && freshStats.efficiency !== null) {
+                            this.detailsEmployee.efficiency = Number(freshStats.efficiency || 0);
+                        }
+                    }
+                }
                 this.$nextTick(() => lucide.createIcons());
             },
             openChangePasswordModal() {

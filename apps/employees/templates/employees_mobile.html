@@ -886,6 +886,19 @@
                     }
                 }
             },
+            async refreshEmployeeStats(employeeId) {
+                if (!employeeId) return;
+                try {
+                    const statsResponse = await fetch(`/employees/api/employees/${employeeId}/stats/`, {
+                        credentials: 'include'
+                    });
+                    if (!statsResponse.ok) return;
+                    const stats = await statsResponse.json();
+                    this.employeeStats[employeeId] = stats;
+                } catch (e) {
+                    // ignore per-employee refresh errors
+                }
+            },
             async loadTotalStats() {
                 try {
                     const response = await fetch('/employees/api/employees/total_stats/');
@@ -1171,7 +1184,7 @@
                 const total = this.filteredEmployees.reduce((sum, emp) => sum + (this.getEmployeeStats(emp.id).efficiency || 0), 0);
                 return Math.round(total / this.filteredEmployees.length);
             },
-            openEmployeeProfile(employee) {
+            async openEmployeeProfile(employee) {
                 this.selectedEmployee = employee;
                 this.profileTab = 'info';
                 this.showProfileModal = true;
@@ -1179,6 +1192,7 @@
                 this.passwordKnown = false;
                 this.employeePassword = '';
                 this.ensureFinanceData(employee);
+                await this.refreshEmployeeStats(employee.id);
                 setTimeout(() => {
                     lucide.createIcons();
                 }, 100);

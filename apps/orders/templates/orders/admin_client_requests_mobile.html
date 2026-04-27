@@ -294,7 +294,7 @@
                                     <template x-for="item in selectedRequest.items" :key="item.id">
                                         <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
                                             <div class="text-sm">
-                                                <div class="font-medium text-gray-900 mb-1" x-text="item.product ? item.product.name : 'Товар'"></div>
+                                                <div class="font-medium text-gray-900 mb-1" x-text="formatItemName(item)"></div>
                                                 <div class="text-gray-600">
                                                     Количество: <span x-text="item.quantity"></span> | 
                                                     Размер: <span x-text="item.size || 'Не указан'"></span>
@@ -414,6 +414,12 @@
                 if (!dateStr) return '';
                 const d = new Date(dateStr);
                 return d.toLocaleString('ru-RU');
+            },
+            formatItemName(item) {
+                const baseName = item?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
             },
             
             getCsrfToken() {

@@ -235,6 +235,13 @@
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Размер</label>
                                                 <input type="text" x-model="item.size" placeholder="S/M/40x60" 
                                                        class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <div class="mt-2 flex flex-wrap gap-2">
+                                                    <template x-for="quickSize in quickSizes" :key="quickSize">
+                                                        <button type="button" @click="item.size = quickSize" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                                                            <span x-text="quickSize"></span>
+                                                        </button>
+                                                    </template>
+                                                </div>
                                             </div>
                                         </div>
                                         
@@ -243,6 +250,13 @@
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
                                                 <input type="text" x-model="item.color" placeholder="Белый" 
                                                        class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <div class="mt-2 flex flex-wrap gap-2">
+                                                    <template x-for="quickColor in quickColors" :key="quickColor">
+                                                        <button type="button" @click="item.color = quickColor" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                                                            <span x-text="quickColor"></span>
+                                                        </button>
+                                                    </template>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Цена</label>
@@ -370,7 +384,7 @@
                                     <template x-for="item in selectedRequest.items" :key="item.id">
                                         <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
                                             <div class="text-sm">
-                                                <div class="font-medium text-gray-900 mb-1" x-text="item.product ? item.product.name : 'Товар'"></div>
+                                                <div class="font-medium text-gray-900 mb-1" x-text="formatItemName(item)"></div>
                                                 <div class="text-gray-600">
                                                     Количество: <span x-text="item.quantity"></span> | 
                                                     Размер: <span x-text="item.size || 'Не указан'"></span> |
@@ -415,6 +429,8 @@
             products: [],
             clientForm: { name: '', phone: '', email: '', company: '' },
             newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '', price: 0, cnc_specs: '' }] },
+            quickSizes: ['40-200', '60-200', '70-200', '80-200', '90-200'],
+            quickColors: ['Белый', 'Черный', 'Серый', 'Бежевый', 'Коричневый'],
             showRequestModal: false,
             selectedRequest: null,
             
@@ -525,6 +541,12 @@
                     price: 0,
                     cnc_specs: ''
                 });
+            },
+            formatItemName(item) {
+                const baseName = item?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
             },
             
             removeItem(idx) {

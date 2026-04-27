@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -22,6 +22,7 @@
         .text-blue-600 { color: #0e121a !important; }
         .bg-blue-100 { background-color: #e2e8f0 !important; }
         .bg-blue-50 { background-color: #f1f5f9 !important; }
+        .table-wrap { box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08); }
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -52,30 +53,50 @@
             </div>
         </div>
         <!-- Табличный вид -->
-                <div x-show="viewMode === 'table'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div x-show="viewMode === 'table'" class="table-wrap bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
-                    <thead class="bg-gray-50 border-b border-gray-200">
+                    <thead class="bg-gray-900 border-b border-gray-800">
                         <tr>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Продукт</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Цена</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Себестоимость</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Примечание</th>
-                            <th class="px-4 py-3 text-right font-medium text-gray-900">Действия</th>
+                            <th class="px-2 py-3 w-6"></th>
+                            <th class="px-4 py-3 text-left font-medium text-white">Продукт</th>
+                            <th class="px-4 py-3 text-left font-medium text-white">Цена</th>
+                            <th class="px-4 py-3 text-left font-medium text-white">Себестоимость</th>
+                            <th class="px-4 py-3 text-left font-medium text-white">Позиции</th>
+                            <th class="px-4 py-3 text-left font-medium text-white">Примечание</th>
+                            <th class="px-4 py-3 text-right font-medium text-white">Действия</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        <template x-for="product in products" :key="product.id">
-                            <tr>
-                                <td class="px-4 py-3 font-medium"><span x-text="product.name"></span></td>
-                                <td class="px-4 py-3 text-green-700 font-semibold"><span x-text="product.price + ' сом'"></span></td>
-                                <td class="px-4 py-3 text-blue-700 font-semibold"><span x-text="product.cost_price + ' сом'"></span></td>
-                                <td class="px-4 py-3 text-gray-700"><span x-text="product.description || '-'"></span></td>
+                        <template x-for="row in productTableRows()" :key="row.row_key">
+                            <tr :class="row.type === 'parent' ? 'cursor-pointer hover:bg-gray-50' : 'bg-gray-200'" @click="row.type === 'parent' ? toggleVariants(row.product.id) : null">
+                                <td class="px-2 py-3 align-middle">
+                                    <svg x-show="row.type === 'parent'" class="w-4 h-4 text-gray-500 transition-transform duration-300 ease-in-out transform" :class="isVariantsOpen(row.product.id) ? 'rotate-90' : 'rotate-0'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    <span x-show="row.type === 'child'" class="text-gray-300 text-xs"></span>
+                                </td>
+                                <td :class="row.type === 'parent' ? 'px-4 py-3 font-medium' : 'px-10 py-3 font-medium'">
+                                    <span x-show="row.type === 'parent'" x-text="row.product.name"></span>
+                                    <span x-show="row.type === 'child'" class="text-gray-700" x-text="row.variant.display_name || (row.product.name + ' (' + [row.variant.size, row.variant.color].filter(Boolean).join(', ') + ')')"></span>
+                                </td>
+                                <td class="px-4 py-3 text-green-700 font-semibold"><span x-text="row.product.price + ' сом'"></span></td>
+                                <td class="px-4 py-3 text-blue-700 font-semibold"><span x-text="row.product.cost_price + ' сом'"></span></td>
+                                <td class="px-4 py-3 text-gray-700 text-xs">
+                                    <span x-show="row.type === 'parent'" x-text="(row.product.variants || []).length"></span>
+                                    <span x-show="row.type === 'child'">
+                                        <span class="inline-flex px-2 py-0.5 rounded-full bg-white border border-gray-300" x-text="(row.variant.size || '—') + ' / ' + (row.variant.color || '—')"></span>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700">
+                                    <span x-show="row.type === 'parent'" x-text="row.product.description || '-'"></span>
+                                    <span x-show="row.type === 'child'" class="text-xs text-gray-500">Позиция продукта</span>
+                                </td>
                                 <td class="px-4 py-3 text-right">
-                                    <button @click="openEditForm(product)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
+                                    <button x-show="row.type === 'parent'" @click.stop="openEditForm(row.product)" class="p-1 text-blue-600 hover:text-blue-800" title="Редактировать">
                                         <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
                                     </button>
-                                    <button @click="deleteProduct(product.id)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
+                                    <button x-show="row.type === 'parent'" @click.stop="deleteProduct(row.product.id)" class="p-1 text-red-600 hover:text-red-800" title="Удалить">
                                         <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                                     </button>
                                 </td>
@@ -110,6 +131,15 @@
                     </div>
                     <div class="text-sm mb-2"><span class="text-gray-600">Цена:</span> <span class="text-green-700 font-semibold" x-text="product.price + ' сом'"></span></div>
                     <div class="text-sm"><span class="text-gray-600">Себестоимость:</span> <span class="text-blue-700 font-semibold" x-text="product.cost_price + ' сом'"></span></div>
+                    <div class="mt-2">
+                        <template x-if="product.variants && product.variants.length">
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="variant in product.variants" :key="variant.id || (variant.size + '-' + variant.color)">
+                                    <span class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="variant.display_name || (product.name + ' (' + [variant.size, variant.color].filter(Boolean).join(', ') + ')')"></span>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </template>
             <div x-show="products.length === 0" class="col-span-full text-center py-12">
@@ -152,6 +182,31 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
                         <textarea x-model="formData.description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
                     </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">Позиции (размер/цвет)</label>
+                            <button type="button" @click="addVariantRow()" class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">+ Добавить позицию</button>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="(variant, idx) in formData.variants" :key="idx">
+                                <div class="grid grid-cols-12 gap-2 items-center">
+                                    <input type="text" x-model="variant.size" placeholder="Размер" class="col-span-5 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <input type="text" x-model="variant.color" placeholder="Цвет" class="col-span-5 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <button type="button" @click="removeVariantRow(idx)" class="col-span-2 text-red-600 hover:text-red-800 text-sm">✕</button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="quickSize in quickSizes" :key="quickSize">
+                                <button type="button" @click="setLastVariantSize(quickSize)" class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="quickSize"></button>
+                            </template>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="quickColor in quickColors" :key="quickColor">
+                                <button type="button" @click="setLastVariantColor(quickColor)" class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="quickColor"></button>
+                            </template>
+                        </div>
+                    </div>
                     <div class="flex justify-end space-x-3 pt-2">
                         <button type="button" @click="closeForm()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Отмена</button>
                         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" x-text="editingProduct ? 'Сохранить' : 'Добавить'"></button>
@@ -167,11 +222,15 @@
                 viewMode: 'table',
                 showForm: false,
                 editingProduct: null,
+                expandedProductIds: [],
+                quickSizes: ['600', '700', '800', '900', '1000', '1100', '1200', '1300', '1400', '1500'],
+                quickColors: ['Белый', 'Черный', 'Серый', 'Бежевый', 'Коричневый'],
                 formData: {
                     name: '',
                     description: '',
                     price: '',
-                    type: 'door'
+                    type: 'door',
+                    variants: [{ size: '', color: '' }]
                 },
                 loading: false,
                 error: '',
@@ -209,7 +268,7 @@
                     return '';
                 },
                 openAddForm() {
-                    this.formData = { name: '', description: '', price: '', type: 'door' };
+                    this.formData = { name: '', description: '', price: '', type: 'door', variants: [{ size: '', color: '' }] };
                     this.editingProduct = null;
                     this.showForm = true;
                     this.error = '';
@@ -221,7 +280,10 @@
                         name: product.name,
                         description: product.description,
                         price: product.price,
-                        type: product.type
+                        type: product.type,
+                        variants: (product.variants && product.variants.length)
+                            ? product.variants.map(v => ({ size: v.size || '', color: v.color || '' }))
+                            : [{ size: '', color: '' }]
                     };
                     this.editingProduct = product;
                     this.showForm = true;
@@ -230,7 +292,7 @@
                 },
                 closeForm() {
                     this.showForm = false;
-                    this.formData = { name: '', type: 'door', description: '', price: '' };
+                    this.formData = { name: '', type: 'door', description: '', price: '', variants: [{ size: '', color: '' }] };
                     this.editingProduct = null;
                     this.error = '';
                     this.$nextTick(() => lucide.createIcons());
@@ -249,7 +311,8 @@
                         name: this.formData.name,
                         type: this.formData.type,
                         description: this.formData.description,
-                        price: Number(this.formData.price)
+                        price: Number(this.formData.price),
+                        variants: (this.formData.variants || []).filter(v => (v.size || '').trim() || (v.color || '').trim())
                     });
                     try {
                         const resp = await fetch(url, {
@@ -298,6 +361,56 @@
                         this.error = 'Ошибка удаления продукта.';
                     }
                     this.loading = false;
+                },
+                isVariantsOpen(productId) {
+                    return this.expandedProductIds.includes(productId);
+                },
+                toggleVariants(productId) {
+                    if (this.isVariantsOpen(productId)) {
+                        this.expandedProductIds = this.expandedProductIds.filter(id => id !== productId);
+                    } else {
+                        this.expandedProductIds.push(productId);
+                    }
+                },
+                productTableRows() {
+                    const rows = [];
+                    const baseProducts = this.products;
+                    for (const product of baseProducts) {
+                        rows.push({
+                            type: 'parent',
+                            row_key: `parent-${product.id}`,
+                            product,
+                            variant: {}
+                        });
+                        if (this.isVariantsOpen(product.id) && product.variants && product.variants.length) {
+                            for (const variant of product.variants) {
+                                rows.push({
+                                    type: 'child',
+                                    row_key: `child-${product.id}-${variant.id || `${variant.size}-${variant.color}`}`,
+                                    product,
+                                    variant
+                                });
+                            }
+                        }
+                    }
+                    return rows;
+                },
+                addVariantRow() {
+                    this.formData.variants.push({ size: '', color: '' });
+                },
+                removeVariantRow(index) {
+                    this.formData.variants.splice(index, 1);
+                    if (!this.formData.variants.length) {
+                        this.formData.variants.push({ size: '', color: '' });
+                    }
+                },
+                setLastVariantSize(size) {
+                    if (!this.formData.variants.length) this.addVariantRow();
+                    this.formData.variants[this.formData.variants.length - 1].size = size;
+                },
+                setLastVariantColor(color) {
+                    if (!this.formData.variants.length) this.addVariantRow();
+                    this.formData.variants[this.formData.variants.length - 1].color = color;
                 }
             };
         }

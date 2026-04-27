@@ -75,6 +75,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), write_only=True, source='product', required=False, allow_null=True)
     glass_type_display = serializers.SerializerMethodField()
     order = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -83,7 +84,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'glass_type', 'glass_type_display', 'paint_type', 'paint_color',
             'cnc_specs', 'cutting_specs', 'preparation_specs', 'packaging_notes',
             'glass_cutting_completed', 'glass_cutting_quantity', 'packaging_received_quantity',
-            'order'
+            'order', 'display_name'
         ]
     
     def get_glass_type_display(self, obj):
@@ -115,6 +116,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
                         'quantity': item.quantity,
                         'size': item.size,
                         'color': item.color,
+                        'display_name': item.get_display_name(),
                         'product': {
                             'id': item.product.id if item.product else None,
                             'name': item.product.name if item.product else 'Не указан',
@@ -141,6 +143,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
                 'client': None,
                 'items': []
             }
+
+    def get_display_name(self, obj):
+        try:
+            return obj.get_display_name()
+        except Exception:
+            return obj.product.name if obj.product else 'Товар'
 
     def to_representation(self, instance):
         """Переопределяем для безопасной обработки null значений"""
@@ -225,6 +233,7 @@ class OrderStageSerializer(serializers.ModelSerializer):
                     'quantity': it.quantity,
                     'size': info.get('size') if isinstance(info, dict) else it.size,
                     'color': info.get('color') if isinstance(info, dict) else it.color,
+                    'display_name': it.get_display_name(),
                 }
                 # Дополнительные поля если присутствуют
                 for k in ['glass_type','paint_type','paint_color','cnc_specs','cutting_specs','preparation_specs','packaging_notes']:
@@ -247,7 +256,7 @@ class OrderStageSerializer(serializers.ModelSerializer):
             names = []
             for it in obj.order.items.all():
                 try:
-                    names.append(_safe_str(it.product.name if it.product else 'Не указан'))
+                    names.append(_safe_str(it.get_display_name()))
                 except Exception:
                     names.append('Не указан')
             return ', '.join(names)

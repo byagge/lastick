@@ -280,15 +280,15 @@
                                                 <template x-for="(item, idx) in newRequest.items" :key="idx">
                                                     <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
                                                         <div class="grid grid-cols-12 gap-4">
-                                                            <!-- Выбор товара через select -->
+                                                            <!-- Выбор товара через правую панель позиций -->
                                                             <div class="col-span-6">
                                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Товар <span class="text-red-500">*</span></label>
-                                                                <select x-model="item.product_id" @change="onProductChange(idx)" required class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                                    <option value="">— Выберите товар —</option>
-                                                                    <template x-for="product in products" :key="product.id">
-                                                                        <option :value="product.id" x-text="product.name"></option>
-                                                                    </template>
-                                                                </select>
+                                                                <button type="button"
+                                                                        @click="openProductPicker(idx)"
+                                                                        class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-left hover:bg-gray-50 transition-colors">
+                                                                    <span x-show="item.product_id" x-text="getSelectedProductLabel(item)"></span>
+                                                                    <span x-show="!item.product_id" class="text-gray-400">Выбрать позицию товара</span>
+                                                                </button>
                                                             </div>
                                                             
                                                             <!-- Количество с кнопками -->
@@ -313,6 +313,39 @@
                                                                 </div>
                                                             </div>
                                                             
+                                                            <!-- Размер -->
+                                                            <div class="col-span-12 md:col-span-6">
+                                                                <label class="block text-sm font-medium text-gray-700 mb-2">Размер</label>
+                                                                <div class="relative">
+                                                                    <input type="text" 
+                                                                           x-model="item.size" 
+                                                                           @input="filterSizes(idx)"
+                                                                           @focus="item.show_size_dropdown = true"
+                                                                           @click.away="item.show_size_dropdown = false"
+                                                                           placeholder="Введите размер или выберите из списка..." 
+                                                                           class="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                                    <svg class="w-4 h-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                                    </svg>
+                                                                    <div x-show="item.show_size_dropdown && item.filtered_sizes && item.filtered_sizes.length > 0" 
+                                                                         x-transition 
+                                                                         class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                                                        <template x-for="size in item.filtered_sizes" :key="size">
+                                                                            <div @click="selectSize(idx, size)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                                                                                <div class="font-medium text-gray-900" x-text="size"></div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="mt-2 flex flex-wrap gap-2">
+                                                                    <template x-for="quickSize in quickSizes" :key="quickSize">
+                                                                        <button type="button" @click="selectSize(idx, quickSize)" class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-blue-100 hover:text-blue-700 transition-colors">
+                                                                            <span x-text="quickSize"></span>
+                                                                        </button>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+
                                                             <!-- Цвет -->
                                                             <div class="col-span-12 md:col-span-6">
                                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Цвет</label>
@@ -395,6 +428,74 @@
                                 </form>
                             </div>
                         </template>
+
+                        <div x-show="showProductPicker" x-cloak class="fixed inset-0 z-50">
+                            <div class="absolute inset-0 bg-black bg-opacity-30" @click="closeProductPicker()"></div>
+                            <aside class="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl border-l border-gray-200 flex flex-col">
+                                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Выбор позиции товара</h3>
+                                        <p class="text-sm text-gray-500">Клик по товару раскрывает позиции. Выбирается только позиция.</p>
+                                    </div>
+                                    <button @click="closeProductPicker()" class="text-gray-400 hover:text-gray-700">
+                                        <i data-lucide="x" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                                <div class="px-6 py-4 border-b border-gray-100">
+                                    <input type="text"
+                                           x-model="productPickerSearch"
+                                           placeholder="Поиск товара..."
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div class="flex-1 overflow-auto p-6">
+                                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                        <table class="w-full">
+                                            <thead class="bg-gray-900 border-b border-gray-800">
+                                                <tr>
+                                                    <th class="px-2 py-3 w-8"></th>
+                                                    <th class="px-4 py-3 text-left text-white font-medium">Продукт</th>
+                                                    <th class="px-4 py-3 text-left text-white font-medium">Цена</th>
+                                                    <th class="px-4 py-3 text-left text-white font-medium">Позиции</th>
+                                                </tr>
+                                            </thead>
+                                            <template x-for="product in pickerProducts()" :key="product.id">
+                                                <tbody class="divide-y divide-gray-200">
+                                                    <tr class="cursor-pointer hover:bg-gray-50" @click="togglePickerProduct(product.id)">
+                                                        <td class="px-2 py-3">
+                                                            <svg class="w-4 h-4 text-gray-500 transition-transform duration-200" :class="isPickerProductOpen(product.id) ? 'rotate-90' : 'rotate-0'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                            </svg>
+                                                        </td>
+                                                        <td class="px-4 py-3 font-medium text-gray-900" x-text="product.name"></td>
+                                                        <td class="px-4 py-3 text-green-700 font-semibold" x-text="(product.price || 0) + ' сом'"></td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600" x-text="(product.variants || []).length"></td>
+                                                    </tr>
+                                                    <tr x-show="isPickerProductOpen(product.id)" class="bg-gray-100">
+                                                        <td colspan="4" class="px-4 py-3">
+                                                            <template x-if="product.variants && product.variants.length">
+                                                                <div class="space-y-2">
+                                                                    <template x-for="variant in product.variants" :key="variant.id || (variant.size + '-' + variant.color)">
+                                                                        <button type="button"
+                                                                                @click="selectProductVariant(product, variant)"
+                                                                                class="w-full text-left px-3 py-2 rounded-lg bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                                                                            <div class="font-medium text-gray-900" x-text="variant.display_name || (product.name + ' (' + [variant.size, variant.color].filter(Boolean).join(', ') + ')')"></div>
+                                                                            <div class="text-xs text-gray-500 mt-0.5" x-text="'Размер: ' + (variant.size || '—') + ' • Цвет: ' + (variant.color || '—')"></div>
+                                                                        </button>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="!product.variants || !product.variants.length">
+                                                                <div class="text-sm text-gray-500">У товара нет позиций (размер/цвет).</div>
+                                                            </template>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </template>
+                                        </table>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
 
                         <!-- Detail pane -->
                         <template x-if="!showCreatePane && selectedRequest && Object.keys(selectedRequest).length">
@@ -492,7 +593,7 @@
                                                         <div class="grid grid-cols-2 gap-4 text-sm">
                                                             <div>
                                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Название</label>
-                                                                <p class="text-gray-900" x-text="item.product && item.product.name ? item.product.name : 'Товар'"></p>
+                                                                <p class="text-gray-900" x-text="formatItemName(item)"></p>
                                                             </div>
                                                             <div>
                                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Количество</label>
@@ -579,7 +680,7 @@
             products: [],
             clientForm: { name: '', phone: '', email: '', company: '', address: '' },
             // Упрощённая структура товаров: товар, количество, цвет, примечание
-            newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, color: '', price: 0, cnc_specs: '', show_color_dropdown: false, filtered_colors: [] }] },
+            newRequest: { name: '', client_id: '', items: [{ product_id: '', quantity: 1, size: '', color: '', price: 0, cnc_specs: '', show_color_dropdown: false, filtered_colors: [], show_size_dropdown: false, filtered_sizes: [] }] },
             showSuccess: false,
             
             // Улучшенный выбор клиента
@@ -595,6 +696,8 @@
                 'Фиолетовый', 'Розовый', 'Голубой', 'Бирюзовый',
                 'Темно-синий', 'Темно-зеленый'
             ],
+            quickSizes: ['600', '700', '800', '900', '1000', '1100', '1200', '1300', '1400', '1500'],
+            allSizes: ['600', '650', '700', '750', '800', '850', '900', '950', '1000', '1050', '1100', '1150', '1200', '1300', '1400', '1500', '1600', '1700', '1800', '1900', '2000'],
             allColors: [
                 'Белый', 'Черный', 'Серый', 'Светло-серый', 'Темно-серый',
                 'Коричневый', 'Бежевый',
@@ -607,6 +710,10 @@
                 'Бирюзовый', 'Сиреневый',
                 'Золотой', 'Серебристый'
             ],
+            showProductPicker: false,
+            productPickerItemIndex: -1,
+            productPickerSearch: '',
+            productPickerExpandedIds: [],
 
             openCreate() {
                 this.showCreatePane = true;
@@ -820,18 +927,94 @@
                 item.show_color_dropdown = false;
                 item.filtered_colors = [];
             },
+            filterSizes(idx) {
+                const item = this.newRequest.items[idx];
+                const term = (item.size || '').toLowerCase();
+                if (term.length < 1) {
+                    item.filtered_sizes = [];
+                    return;
+                }
+                item.filtered_sizes = this.allSizes.filter(size => size.toLowerCase().includes(term)).slice(0, 10);
+            },
+            selectSize(idx, size) {
+                const item = this.newRequest.items[idx];
+                item.size = size;
+                item.show_size_dropdown = false;
+                item.filtered_sizes = [];
+            },
+            formatItemName(item) {
+                const baseName = item?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
+            },
 
             // Добавление товара с упрощённым набором полей
             addItem() {
                 this.newRequest.items.push({ 
                     product_id: '', 
                     quantity: 1, 
+                    size: '',
                     color: '',
                     price: 0,
                     cnc_specs: '',
                     show_color_dropdown: false,
-                    filtered_colors: []
+                    filtered_colors: [],
+                    show_size_dropdown: false,
+                    filtered_sizes: []
                 });
+            },
+            openProductPicker(idx) {
+                this.productPickerItemIndex = idx;
+                this.showProductPicker = true;
+                this.productPickerSearch = '';
+                this.productPickerExpandedIds = [];
+                this.$nextTick(() => lucide.createIcons());
+            },
+            closeProductPicker() {
+                this.showProductPicker = false;
+                this.productPickerItemIndex = -1;
+                this.productPickerSearch = '';
+                this.productPickerExpandedIds = [];
+            },
+            pickerProducts() {
+                const term = (this.productPickerSearch || '').toLowerCase().trim();
+                if (!term) return this.products;
+                return (this.products || []).filter(product => {
+                    const name = (product.name || '').toLowerCase();
+                    const variantMatch = (product.variants || []).some(v =>
+                        `${v.size || ''} ${v.color || ''} ${v.display_name || ''}`.toLowerCase().includes(term)
+                    );
+                    return name.includes(term) || variantMatch;
+                });
+            },
+            isPickerProductOpen(productId) {
+                return this.productPickerExpandedIds.includes(productId);
+            },
+            togglePickerProduct(productId) {
+                if (this.isPickerProductOpen(productId)) {
+                    this.productPickerExpandedIds = this.productPickerExpandedIds.filter(id => id !== productId);
+                } else {
+                    this.productPickerExpandedIds.push(productId);
+                }
+            },
+            selectProductVariant(product, variant) {
+                if (this.productPickerItemIndex < 0 || this.productPickerItemIndex >= this.newRequest.items.length) return;
+                const item = this.newRequest.items[this.productPickerItemIndex];
+                item.product_id = product.id;
+                item.size = variant?.size || '';
+                item.color = variant?.color || '';
+                item.show_size_dropdown = false;
+                item.show_color_dropdown = false;
+                item.filtered_sizes = [];
+                item.filtered_colors = [];
+                this.closeProductPicker();
+            },
+            getSelectedProductLabel(item) {
+                const product = this.getProductById(item.product_id);
+                const productName = product?.name || 'Товар';
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${productName} (${details.join(', ')})` : productName;
             },
 
             increaseQuantity(idx) {

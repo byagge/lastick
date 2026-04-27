@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" x-data="mobileProducts" x-init="init()">
 <head>
     <meta charset="UTF-8">
@@ -78,6 +78,23 @@
                         </div>
                         <div class="text-sm mb-2"><span class="text-gray-600">Цена:</span> <span class="text-green-700 font-semibold" x-text="product.price + ' сом'"></span></div>
                         <div class="text-sm"><span class="text-gray-600">Себестоимость:</span> <span class="text-blue-700 font-semibold" x-text="product.cost_price + ' сом'"></span></div>
+                        <div class="mt-2">
+                            <button type="button" @click="toggleVariants(product.id)" class="text-xs text-blue-600">
+                                <span x-text="isVariantsOpen(product.id) ? 'Скрыть позиции' : ('Показать позиции (' + ((product.variants || []).length) + ')')"></span>
+                            </button>
+                            <div x-show="isVariantsOpen(product.id)" class="mt-2">
+                                <template x-if="product.variants && product.variants.length">
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="variant in product.variants" :key="variant.id || (variant.size + '-' + variant.color)">
+                                            <span class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="variant.display_name || (product.name + ' (' + [variant.size, variant.color].filter(Boolean).join(', ') + ')')"></span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!product.variants || !product.variants.length">
+                                    <span class="text-xs text-gray-500">Позиции не добавлены</span>
+                                </template>
+                            </div>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -122,6 +139,31 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
                         <textarea x-model="formData.description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"></textarea>
                     </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">Позиции (размер/цвет)</label>
+                            <button type="button" @click="addVariantRow()" class="text-xs px-2 py-1 rounded border border-gray-300">+ Добавить</button>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="(variant, idx) in formData.variants" :key="idx">
+                                <div class="grid grid-cols-12 gap-2 items-center">
+                                    <input type="text" x-model="variant.size" placeholder="Размер" class="col-span-5 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <input type="text" x-model="variant.color" placeholder="Цвет" class="col-span-5 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <button type="button" @click="removeVariantRow(idx)" class="col-span-2 text-red-600 text-sm">✕</button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="quickSize in quickSizes" :key="quickSize">
+                                <button type="button" @click="setLastVariantSize(quickSize)" class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="quickSize"></button>
+                            </template>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="quickColor in quickColors" :key="quickColor">
+                                <button type="button" @click="setLastVariantColor(quickColor)" class="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200" x-text="quickColor"></button>
+                            </template>
+                        </div>
+                    </div>
                     <div class="flex justify-end space-x-2 pt-2">
                         <button type="button" @click="closeForm()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700">Отмена</button>
                         <button type="submit" class="px-4 py-2 bg-gray-900 text-white rounded-lg" x-text="editingProduct ? 'Сохранить' : 'Добавить'"></button>
@@ -139,7 +181,10 @@ function mobileProducts() {
         searchTerm: '',
         showForm: false,
         editingProduct: null,
-        formData: { name: '', type: 'door', description: '', price: '' },
+        expandedProductIds: [],
+        quickSizes: ['600', '700', '800', '900', '1000', '1100', '1200', '1300', '1400', '1500'],
+        quickColors: ['Белый', 'Черный', 'Серый', 'Бежевый', 'Коричневый'],
+        formData: { name: '', type: 'door', description: '', price: '', variants: [{ size: '', color: '' }] },
         async init() {
             this.loading = true;
             try {
@@ -179,7 +224,7 @@ function mobileProducts() {
             );
         },
         openAddForm() {
-            this.formData = { name: '', type: 'door', description: '', price: '' };
+            this.formData = { name: '', type: 'door', description: '', price: '', variants: [{ size: '', color: '' }] };
             this.editingProduct = null;
             this.showForm = true;
             this.$nextTick(() => lucide.createIcons());
@@ -190,7 +235,10 @@ function mobileProducts() {
                 name: product.name,
                 type: product.type,
                 description: product.description,
-                price: product.price
+                price: product.price,
+                variants: (product.variants && product.variants.length)
+                    ? product.variants.map(v => ({ size: v.size || '', color: v.color || '' }))
+                    : [{ size: '', color: '' }]
             };
             this.editingProduct = product;
             this.showForm = true;
@@ -198,7 +246,7 @@ function mobileProducts() {
         },
         closeForm() {
             this.showForm = false;
-            this.formData = { name: '', type: 'door', description: '', price: '' };
+            this.formData = { name: '', type: 'door', description: '', price: '', variants: [{ size: '', color: '' }] };
             this.editingProduct = null;
             this.$nextTick(() => lucide.createIcons());
         },
@@ -214,7 +262,8 @@ function mobileProducts() {
                 name: this.formData.name,
                 type: this.formData.type,
                 description: this.formData.description,
-                price: Number(this.formData.price)
+                price: Number(this.formData.price),
+                variants: (this.formData.variants || []).filter(v => (v.size || '').trim() || (v.color || '').trim())
             });
             try {
                 const resp = await fetch(url, {
@@ -251,6 +300,31 @@ function mobileProducts() {
                 }
             } catch (e) {}
             this.loading = false;
+        },
+        isVariantsOpen(productId) {
+            return this.expandedProductIds.includes(productId);
+        },
+        toggleVariants(productId) {
+            if (this.isVariantsOpen(productId)) {
+                this.expandedProductIds = this.expandedProductIds.filter(id => id !== productId);
+            } else {
+                this.expandedProductIds.push(productId);
+            }
+        },
+        addVariantRow() {
+            this.formData.variants.push({ size: '', color: '' });
+        },
+        removeVariantRow(index) {
+            this.formData.variants.splice(index, 1);
+            if (!this.formData.variants.length) this.formData.variants.push({ size: '', color: '' });
+        },
+        setLastVariantSize(size) {
+            if (!this.formData.variants.length) this.addVariantRow();
+            this.formData.variants[this.formData.variants.length - 1].size = size;
+        },
+        setLastVariantColor(color) {
+            if (!this.formData.variants.length) this.addVariantRow();
+            this.formData.variants[this.formData.variants.length - 1].color = color;
         }
     };
 }

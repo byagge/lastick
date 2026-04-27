@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -195,7 +195,7 @@
                             <h3 class="font-semibold text-gray-900 mb-3">Продукт</h3>
                             <template x-if="detailGood.product">
                                 <div class="space-y-2 text-sm">
-                                    <div><span class="text-gray-600">Название:</span> <span x-text="detailGood.product.name"></span></div>
+                                    <div><span class="text-gray-600">Название:</span> <span x-text="getProductName(detailGood)"></span></div>
                                     <div><span class="text-gray-600">Тип:</span> <span x-text="detailGood.product.type"></span></div>
                                     <div><span class="text-gray-600">Описание:</span> <span x-text="detailGood.product.description || '-' "></span></div>
                                     <div><span class="text-gray-600">Цена:</span> <span x-text="detailGood.product.price"></span></div>
@@ -652,7 +652,10 @@
                 },
                 getProductName(good) {
                     if (!good) return '';
+                    if (good.product_display_name) return good.product_display_name;
+                    if (good.order_item && good.order_item.display_name) return good.order_item.display_name;
                     if (typeof good.product === 'string') return good.product;
+                    if (good.product && good.product.display_name) return good.product.display_name;
                     return good.product && good.product.name ? good.product.name : '';
                 },
                 getOrderName(good) {

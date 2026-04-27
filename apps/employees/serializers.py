@@ -5,6 +5,7 @@ from .utils import calculate_employee_stats
 from django.db.models import Sum
 from apps.employee_tasks.models import EmployeeTask
 from .models import EmployeeFinanceTransaction
+from datetime import timedelta
 
 class EmployeeSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, allow_blank=True)
@@ -69,6 +70,38 @@ class EmployeeSerializer(serializers.ModelSerializer):
         if getattr(obj, 'is_blocked', False):
             return 'blocked'
         return 'active' if obj.is_active else 'inactive'
+
+    def _get_dynamic_rating(self, obj):
+        """Рассчитывает рейтинг с учетом штрафов и опозданий текущего месяца."""
+        base_rating = int(getattr(obj, 'rating', 100) or 100)
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        penalty_sum = EmployeeFinanceTransaction.objects.filter(
+            employee=obj,
+            transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+            created_at__gte=month_start
+        ).aggregate(total=Sum('amount')).get('total') or 0
+        penalty_points = int(float(penalty_sum) // 100)
+
+        late_count = 0
+        try:
+            from apps.attendance.models import AttendanceRecord
+            late_count = AttendanceRecord.objects.filter(
+                employee=obj,
+                date__gte=month_start.date(),
+                is_late=True
+            ).count()
+        except Exception:
+            late_count = 0
+
+        late_points = late_count * 2
+        return max(0, min(100, base_rating - penalty_points - late_points))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['rating'] = self._get_dynamic_rating(instance)
+        return data
     
     def _calc_stats(self, obj):
         try:

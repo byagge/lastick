@@ -109,6 +109,28 @@ class Product(models.Model):
             'samples_count': costings.count(),
         }
 
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='variants', verbose_name='Продукт')
+    size = models.CharField('Размер', max_length=100, blank=True)
+    color = models.CharField('Цвет', max_length=100, blank=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Позиция продукта'
+        verbose_name_plural = 'Позиции продукта'
+        ordering = ['id']
+
+    def get_display_name(self):
+        base = self.product.name if self.product else 'Позиция'
+        details = [self.size, self.color]
+        details = [d for d in details if d]
+        return f"{base} ({', '.join(details)})" if details else base
+
+    def __str__(self):
+        return self.get_display_name()
+
 class ProductMaterialNorm(models.Model):
     product = models.ForeignKey('Product', on_delete=models.CASCADE, verbose_name='Продукт')
     workshop = models.ForeignKey(Workshop, on_delete=models.CASCADE, verbose_name='Цех')

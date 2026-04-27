@@ -753,7 +753,7 @@
                     }
                 },
                 async addClient() {
-                    if (!this.clientForm.name || !this.clientForm.phone) {
+                    if (!this.clientForm.name) {
                         this.showToast('Заполните обязательные поля', 'error');
                         return;
                     }

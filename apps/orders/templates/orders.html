@@ -108,6 +108,23 @@
                                     </div>
                                     <div class="text-sm text-gray-900 font-semibold whitespace-nowrap" x-text="(order.expenses || 0).toLocaleString() + ' ⃀'"></div>
                                     </div>
+                                <div class="mt-2">
+                                    <button type="button" @click.stop="toggleOrderItems(order.id)" class="text-xs text-blue-600 hover:text-blue-800">
+                                        <span x-text="isOrderItemsExpanded(order.id) ? 'Скрыть позиции' : 'Показать позиции'"></span>
+                                    </button>
+                                    <div x-show="isOrderItemsExpanded(order.id)" class="mt-2 border-t border-gray-100 pt-2">
+                                        <template x-if="order.items && order.items.length">
+                                            <ul class="text-xs text-gray-700 space-y-1">
+                                                <template x-for="it in order.items" :key="it.id">
+                                                    <li class="flex items-center justify-between">
+                                                        <span class="truncate" x-text="formatItemName(it)"></span>
+                                                        <span class="ml-2 font-semibold">x<span x-text="it.quantity || 0"></span></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </template>
+                                    </div>
+                                </div>
                                 </div>
                         </template>
                             </div>
@@ -366,7 +383,7 @@
                                                     <div class="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
                                                             <label class="block text-sm font-medium text-gray-700 mb-1">Название</label>
-                                                            <p class="text-gray-900" x-text="it.product && it.product.name ? it.product.name : 'Товар'"></p>
+                                                            <p class="text-gray-900" x-text="formatItemName(it)"></p>
                                                         </div>
                                                         <div>
                                                             <label class="block text-sm font-medium text-gray-700 mb-1">Количество</label>
@@ -560,6 +577,7 @@
             showCreatePane: false,
             listPaneWidth: 420,
             isResizing: false,
+            expandedOrderItems: [],
             density: 'comfortable', // or 'compact'
             sortKey: 'created_at',
             sortAsc: false,
@@ -689,9 +707,25 @@
                     (o.name || '').toLowerCase().includes(term) ||
                     (o.client && o.client.name ? o.client.name : '').toLowerCase().includes(term) ||
                     (o.product && o.product.name ? o.product.name : '').toLowerCase().includes(term) ||
-                    ((o.items || []).some(it => (it.product && it.product.name ? it.product.name : '').toLowerCase().includes(term))) ||
+                    ((o.items || []).some(it => this.formatItemName(it).toLowerCase().includes(term))) ||
                     (o.status || '').toLowerCase().includes(term)
                 );
+            },
+            formatItemName(item) {
+                const baseName = item?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
+            },
+            isOrderItemsExpanded(orderId) {
+                return this.expandedOrderItems.includes(orderId);
+            },
+            toggleOrderItems(orderId) {
+                if (this.isOrderItemsExpanded(orderId)) {
+                    this.expandedOrderItems = this.expandedOrderItems.filter(id => id !== orderId);
+                } else {
+                    this.expandedOrderItems.push(orderId);
+                }
             },
 
             sortedFilteredOrders() {

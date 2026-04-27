@@ -12,8 +12,14 @@ from decimal import Decimal
 import json
 from django.views.decorators.csrf import ensure_csrf_cookie
 from core.utils import is_mobile_device
+from django.db import transaction
+from django.db.models import F
 
 User = get_user_model()
+
+
+def _get_staff_queryset():
+    return User.objects.filter(is_active=True, role=User.Role.WORKER)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -44,12 +50,43 @@ def checkin_by_qr(request):
         )
         
         if not created:
-            # Если запись уже существует, обновляем время прихода
+            local_time = timezone.localtime(current_time).time()
+            checkout_threshold = time(13, 0)
+
+            # Повторный скан после 13:00 считаем уходом.
+            if local_time >= checkout_threshold and not record.check_out:
+                record.check_out = current_time
+                record.save()
+                return Response({
+                    'success': True,
+                    'action': 'checkout',
+                    'detail': 'Уход отмечен',
+                    'record_id': record.id,
+                    'check_in': record.check_in,
+                    'check_out': record.check_out,
+                    'is_late': record.is_late,
+                    'penalty_amount': float(record.penalty_amount)
+                }, status=200)
+
+            if record.check_out:
+                return Response({
+                    'success': True,
+                    'action': 'already_checked_out',
+                    'detail': 'Уход уже был отмечен',
+                    'record_id': record.id,
+                    'check_in': record.check_in,
+                    'check_out': record.check_out,
+                    'is_late': record.is_late,
+                    'penalty_amount': float(record.penalty_amount)
+                }, status=200)
+
+            # До 13:00 повторный скан обновляет время прихода.
             record.check_in = current_time
             record.save()  # Это вызовет calculate_penalty() и обновит штрафы
-            
+
             return Response({
-                'detail': 'Время прихода обновлено', 
+                'detail': 'Время прихода обновлено',
+                'action': 'checkin_update',
                 'record_id': record.id,
                 'check_in': record.check_in,
                 'is_late': record.is_late,
@@ -58,8 +95,9 @@ def checkin_by_qr(request):
         
         # Для новой записи штраф уже рассчитан в save()
         return Response({
-            'success': True, 
-            'record_id': record.id, 
+            'success': True,
+            'action': 'checkin',
+            'record_id': record.id,
             'check_in': record.check_in,
             'is_late': record.is_late,
             'penalty_amount': float(record.penalty_amount)
@@ -111,8 +149,9 @@ def attendance_overview(request):
         week_ago = today - timedelta(days=7)
         month_ago = today - timedelta(days=30)
         
+        staff_qs = _get_staff_queryset()
         # Статистика за сегодня
-        today_records = AttendanceRecord.objects.filter(date=today)
+        today_records = AttendanceRecord.objects.filter(date=today, employee__in=staff_qs)
         present_today = today_records.count()
         checked_out_today = today_records.filter(check_out__isnull=False).count()
         late_today = today_records.filter(is_late=True).count()
@@ -131,7 +170,7 @@ def attendance_overview(request):
         month_penalties = sum(record.penalty_amount for record in month_records)
         
         # Топ сотрудников по посещаемости
-        top_employees = User.objects.annotate(
+        top_employees = staff_qs.annotate(
             attendance_count=Count('attendance_records')
         ).order_by('-attendance_count')[:5]
         
@@ -150,7 +189,7 @@ def attendance_overview(request):
                 'checked_out': checked_out_today,
                 'late': late_today,
                 'total_penalties': float(total_penalties_today),
-                'total_employees': User.objects.count()
+                'total_employees': staff_qs.count()
             },
             'week': {
                 'attendance': week_attendance,
@@ -327,6 +366,108 @@ def attendance_page(request):
     if is_mobile_device(request):
         return render(request, 'attendance/attendance_mobile.html')
     return render(request, 'attendance/attendance.html')
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def absent_today_list(request):
+    """Список сотрудников, которые не отметились сегодня."""
+    try:
+        today = timezone.localdate()
+        staff_qs = _get_staff_queryset().select_related('workshop')
+        from apps.employees.models import EmployeeFinanceTransaction
+        present_ids = AttendanceRecord.objects.filter(
+            date=today,
+            employee__in=staff_qs
+        ).values_list('employee_id', flat=True)
+        absent_employees = staff_qs.exclude(id__in=present_ids).order_by('last_name', 'first_name')
+        deducted_ids = set(
+            EmployeeFinanceTransaction.objects.filter(
+                employee__in=absent_employees,
+                transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+                created_at__date=today,
+                note__icontains='[ABSENT_AUTO]'
+            ).values_list('employee_id', flat=True)
+        )
+
+        data = []
+        for emp in absent_employees:
+            data.append({
+                'id': emp.id,
+                'name': emp.get_full_name() or emp.username,
+                'phone': emp.phone or '',
+                'workshop': getattr(emp.workshop, 'name', '') if getattr(emp, 'workshop', None) else '',
+                'balance': float(emp.balance or 0),
+                'already_deducted': emp.id in deducted_ids,
+            })
+        return Response({'date': today.isoformat(), 'employees': data})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def deduct_absent_penalty(request):
+    """Списывает штраф за неявку у указанного сотрудника или у всех отсутствующих сегодня."""
+    try:
+        if not (request.user.is_superuser or request.user.is_staff or getattr(request.user, 'role', None) in [User.Role.ADMIN, User.Role.ACCOUNTANT]):
+            return Response({'error': 'Доступ запрещен'}, status=403)
+
+        amount_raw = request.data.get('amount')
+        employee_id = request.data.get('employee_id')
+        note = (request.data.get('note') or '').strip() or 'Списание с зарплаты за неявку'
+        tagged_note = f'[ABSENT_AUTO] {note}'
+
+        try:
+            amount = Decimal(str(amount_raw))
+        except Exception:
+            return Response({'error': 'Некорректная сумма'}, status=400)
+        if amount <= 0:
+            return Response({'error': 'Сумма должна быть больше нуля'}, status=400)
+
+        from apps.employees.models import EmployeeFinanceTransaction
+
+        today = timezone.localdate()
+        staff_qs = _get_staff_queryset()
+        present_ids = AttendanceRecord.objects.filter(date=today, employee__in=staff_qs).values_list('employee_id', flat=True)
+        absent_qs = staff_qs.exclude(id__in=present_ids)
+        if employee_id:
+            absent_qs = absent_qs.filter(id=employee_id)
+
+        charged_count = 0
+        charged_total = Decimal('0.00')
+        skipped_ids = []
+        with transaction.atomic():
+            for employee in absent_qs:
+                already_charged = EmployeeFinanceTransaction.objects.filter(
+                    employee=employee,
+                    transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+                    created_at__date=today,
+                    note__icontains='[ABSENT_AUTO]'
+                ).exists()
+                if already_charged:
+                    skipped_ids.append(employee.id)
+                    continue
+
+                User.objects.filter(pk=employee.pk).update(balance=F('balance') - amount)
+                EmployeeFinanceTransaction.objects.create(
+                    employee=employee,
+                    issued_by=request.user,
+                    transaction_type=EmployeeFinanceTransaction.Type.PENALTY,
+                    amount=amount,
+                    note=tagged_note
+                )
+                charged_count += 1
+                charged_total += amount
+
+        return Response({
+            'success': True,
+            'charged_count': charged_count,
+            'charged_total': float(charged_total),
+            'skipped_ids': skipped_ids
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

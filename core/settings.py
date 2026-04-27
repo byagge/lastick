@@ -37,6 +37,7 @@ ALLOWED_HOSTS = ['185.104.248.103', '127.0.0.1', 'localhost', 'sf.monocode.app']
 # Application definition
 
 INSTALLED_APPS = [
+    'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -65,6 +66,37 @@ INSTALLED_APPS = [
     'apps.support',
     'apps.online',
 ]
+
+UNFOLD = {
+    "SITE_TITLE": "Smart Factory",
+    "SITE_HEADER": "Smart Factory",
+    "SITE_SUBHEADER": "Панель администрирования",
+    "SITE_SYMBOL": "factory",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "COLORS": {
+        "primary": {
+            "50": "250 250 250",
+            "100": "245 245 245",
+            "200": "229 229 229",
+            "300": "212 212 212",
+            "400": "163 163 163",
+            "500": "115 115 115",
+            "600": "82 82 82",
+            "700": "64 64 64",
+            "800": "38 38 38",
+            "900": "23 23 23",
+            "950": "10 10 10",
+        }
+    },
+    "STYLES": [
+        lambda request: "admin/css/unfold-monochrome.css",
+    ],
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

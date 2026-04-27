@@ -211,11 +211,3 @@ class NotificationLogAdmin(admin.ModelAdmin):
         """Оптимизация запросов"""
         return super().get_queryset(request).select_related('notification')
 
-
-# Настройка административного сайта
-admin.site.site_header = 'Администрирование Smart Factory'
-admin.site.site_title = 'Smart Factory Admin'
-admin.site.index_title = 'Панель управления'
-
-# Группировка моделей в административном интерфейсе
-# admin.site.index_template = 'admin/custom_index.html' 

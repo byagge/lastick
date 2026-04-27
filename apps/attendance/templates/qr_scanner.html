@@ -150,12 +150,28 @@
         });
         const data = await resp.json();
         if(resp.ok && (data.success || data.detail)){
+          const action = data.action || '';
           const checkInTime = data.check_in ? new Date(data.check_in).toLocaleTimeString() : '';
+          const checkOutTime = data.check_out ? new Date(data.check_out).toLocaleTimeString() : '';
           const isLate = data.is_late || false;
           const penaltyAmount = data.penalty_amount || 0;
 
           let statusHtml = '';
-          if (isLate) {
+          if (action === 'checkout') {
+            statusHtml = `<div class="flex flex-col items-center text-blue-600">
+              <i data-lucide="log-out" class="w-8 h-8"></i>
+              <span class="font-semibold">Уход отмечен</span>
+              <span class="text-xs text-gray-500">${checkOutTime}</span>
+            </div>`;
+            showToast('Уход успешно отмечен', 'success');
+          } else if (action === 'already_checked_out') {
+            statusHtml = `<div class="flex flex-col items-center text-gray-600">
+              <i data-lucide="info" class="w-8 h-8"></i>
+              <span class="font-semibold">Уход уже отмечен</span>
+              <span class="text-xs text-gray-500">${checkOutTime}</span>
+            </div>`;
+            showToast('Уход уже был отмечен ранее', 'success');
+          } else if (isLate) {
             statusHtml = `<div class="flex flex-col items-center text-red-600">
               <i data-lucide="alert-triangle" class="w-8 h-8"></i>
               <span class="font-semibold">Опоздание</span>

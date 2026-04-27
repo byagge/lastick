@@ -26,7 +26,7 @@ class IsAdminOrAccountant(permissions.BasePermission):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = (
         Product.objects.all()
-        .prefetch_related('services', 'services__service_materials__material')
+        .prefetch_related('services', 'services__service_materials__material', 'variants')
         .order_by('name', 'id')
     )
     serializer_class = ProductSerializer

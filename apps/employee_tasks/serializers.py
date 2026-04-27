@@ -96,6 +96,7 @@ class EmployeeTaskSerializer(serializers.ModelSerializer):
                             'quantity': it.quantity,
                             'size': it.size,
                             'color': it.color,
+                            'display_name': it.get_display_name() if hasattr(it, 'get_display_name') else (it.product.name if it.product else 'Не указан'),
                             'product': {
                                 'id': it.product.id if it.product else None,
                                 'name': it.product.name if it.product else 'Не указан',

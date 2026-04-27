@@ -137,7 +137,7 @@
                     <div class="space-y-2">
                         <template x-for="item in selectedRequest.items" :key="item.id">
                             <div class="border border-gray-200 rounded-lg p-3 bg-white">
-                                <p class="text-sm font-medium text-gray-900" x-text="item.product ? item.product.name : 'Товар'"></p>
+                                <p class="text-sm font-medium text-gray-900" x-text="formatItemName(item)"></p>
                                 <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
                                     <span x-text="'Кол-во: ' + (item.quantity || 0)"></span>
                                     <span x-text="item.price ? item.price.toLocaleString() + ' сом' : ''"></span>
@@ -206,6 +206,12 @@
                 },
                 itemsCount(request) {
                     return request && Array.isArray(request.items) ? request.items.length : 0;
+                },
+                formatItemName(item) {
+                    const baseName = item?.display_name || item?.product?.name || 'Товар';
+                    if (item?.display_name) return item.display_name;
+                    const details = [item?.size, item?.color].filter(Boolean);
+                    return details.length ? `${baseName} (${details.join(', ')})` : baseName;
                 },
                 totalAmount() {
                     return (this.requests || []).reduce((sum, req) => sum + (Number(req.total_amount) || 0), 0);

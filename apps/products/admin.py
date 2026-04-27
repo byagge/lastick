@@ -1,8 +1,13 @@
 from django.contrib import admin
-from .models import CostingSettings, Product, ProductMaterialNorm
+from .models import CostingSettings, Product, ProductMaterialNorm, ProductVariant
 
 class ProductMaterialNormInline(admin.TabularInline):
     model = ProductMaterialNorm
+    extra = 1
+
+
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
     extra = 1
 
 @admin.register(Product)
@@ -11,7 +16,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'type')
     list_filter = ('type', 'services', 'is_glass', 'glass_type')
     filter_horizontal = ('services',)
-    inlines = [ProductMaterialNormInline]
+    inlines = [ProductMaterialNormInline, ProductVariantInline]
     
     fieldsets = (
         ('Основная информация', {

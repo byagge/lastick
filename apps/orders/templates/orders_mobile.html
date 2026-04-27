@@ -88,7 +88,7 @@
                                     <ul class="text-xs text-gray-700 list-disc pl-4">
                                         <template x-for="it in order.items" :key="it.id">
                                             <li class="flex justify-between">
-                                                <span class="truncate" x-text="(it.product && it.product.name ? it.product.name : 'Товар') + (it.size ? ' ('+it.size+')' : '') + (it.color ? ' ['+it.color+']' : '')"></span>
+                                                <span class="truncate" x-text="formatItemName(it)"></span>
                                                 <span class="ml-2 text-gray-900 font-semibold">x<span x-text="it.quantity"></span></span>
                                             </li>
                                         </template>
@@ -232,7 +232,7 @@
                                                 <ul class="text-xs text-gray-700 space-y-0.5 list-disc pl-4">
                                                     <template x-for="it in selectedOrder.items" :key="it.id">
                                                         <li>
-                                                            <span x-text="(it.product && it.product.name ? it.product.name : 'Товар') + ' x' + it.quantity + (it.size ? ' ('+it.size+')' : '') + (it.color ? ' ['+it.color+']' : '')"></span>
+                                                            <span x-text="formatItemName(it) + ' x' + (it.quantity || 0)"></span>
                                                         </li>
                                                     </template>
                                                 </ul>
@@ -848,9 +848,15 @@
                     (o.name || '').toLowerCase().includes(term) ||
                     (o.client && o.client.name ? o.client.name : '').toLowerCase().includes(term) ||
                     (o.product && o.product.name ? o.product.name : '').toLowerCase().includes(term) ||
-                    ((o.items || []).some(it => (it.product && it.product.name ? it.product.name : '').toLowerCase().includes(term))) ||
+                    ((o.items || []).some(it => this.formatItemName(it).toLowerCase().includes(term))) ||
                     (o.status || '').toLowerCase().includes(term)
                 );
+            },
+            formatItemName(item) {
+                const baseName = item?.display_name || item?.product?.name || 'Товар';
+                if (item?.display_name) return item.display_name;
+                const details = [item?.size, item?.color].filter(Boolean);
+                return details.length ? `${baseName} (${details.join(', ')})` : baseName;
             },
             formatDate(dateStr) {
                 if (!dateStr) return '';

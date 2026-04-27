@@ -205,6 +205,40 @@
             </div>
         </div>
 
+        <div class="card bg-white rounded-xl border border-gray-200 p-4 mb-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3">Не пришли сегодня</h3>
+            <div class="space-y-3 mb-3">
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Сумма списания (сом)</label>
+                    <input type="number" min="0" step="0.01" x-model.number="absencePenaltyAmount" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Комментарий в финансах</label>
+                    <input type="text" x-model="absencePenaltyNote" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                </div>
+            </div>
+            <div class="space-y-2">
+                <template x-for="emp in absentEmployees" :key="emp.id">
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <p class="text-sm font-semibold text-gray-900" x-text="emp.name"></p>
+                        <p class="text-xs text-gray-500" x-text="emp.workshop || 'Без цеха'"></p>
+                        <p class="text-xs text-gray-500 mb-2" x-text="emp.phone || 'Телефон не указан'"></p>
+                        <button @click="deductFromAbsent(emp.id)"
+                                :class="deductedAbsentIds.includes(emp.id) ? 'bg-black text-white' : 'bg-red-600 text-white hover:bg-red-700'"
+                                :disabled="deductedAbsentIds.includes(emp.id)"
+                                class="w-full px-3 py-2 text-xs rounded transition-all duration-300 disabled:opacity-80 disabled:cursor-not-allowed">
+                            <span x-show="!deductedAbsentIds.includes(emp.id)">Списать с зарплаты</span>
+                            <span x-show="deductedAbsentIds.includes(emp.id)" class="inline-flex items-center gap-1">
+                                <i data-lucide="check" class="w-3 h-3"></i>
+                                Списано
+                            </span>
+                        </button>
+                    </div>
+                </template>
+                <div x-show="absentEmployees.length === 0" class="text-xs text-gray-500">Все сотрудники отметились сегодня.</div>
+            </div>
+        </div>
+
         <!-- Attendance Records -->
         <div class="card bg-white rounded-xl border border-gray-200 p-4 mb-4">
             <h3 class="text-sm font-semibold text-gray-900 mb-3">Записи посещаемости</h3>
@@ -333,6 +367,7 @@
             return {
                 overview: {},
                 attendanceRecords: [],
+                absentEmployees: [],
                 pagination: {
                     page: 1,
                     per_page: 20,
@@ -348,6 +383,9 @@
                     penalty_per_hour: 100,
                     grace_period_minutes: 10
                 },
+                absencePenaltyAmount: 500,
+                absencePenaltyNote: 'Списание с зарплаты за неявку',
+                deductedAbsentIds: [],
                 isAdmin: "{{ request.user.role }}" === "admin",
                 loading: false,
 
@@ -355,6 +393,7 @@
                     await this.loadSettings();
                     await this.loadOverviewData();
                     await this.loadAttendanceData();
+                    await this.loadAbsentEmployees();
                     this.$nextTick(() => {
                         try {
                             lucide.createIcons();
@@ -449,6 +488,53 @@
                     }
                 },
 
+                async loadAbsentEmployees() {
+                    try {
+                        const response = await fetch('/attendance/api/absent-today/');
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        this.absentEmployees = data.employees || [];
+                        this.deductedAbsentIds = this.absentEmployees
+                            .filter(emp => emp.already_deducted)
+                            .map(emp => emp.id);
+                    } catch (e) {
+                        console.error('Ошибка загрузки отсутствующих:', e);
+                    }
+                },
+
+                async deductFromAbsent(employeeId) {
+                    const amount = Number(this.absencePenaltyAmount || 0);
+                    if (amount <= 0) {
+                        alert('Укажите сумму списания больше 0');
+                        return;
+                    }
+                    try {
+                        const response = await fetch('/attendance/api/absent-deduct/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.getCsrfToken()
+                            },
+                            body: JSON.stringify({
+                                employee_id: employeeId,
+                                amount: amount,
+                                note: this.absencePenaltyNote
+                            })
+                        });
+                        const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Ошибка списания');
+                        }
+                        if (!this.deductedAbsentIds.includes(employeeId)) {
+                            this.deductedAbsentIds.push(employeeId);
+                        }
+                        await this.refreshData();
+                        await this.loadAbsentEmployees();
+                    } catch (e) {
+                        alert(e.message || 'Ошибка списания');
+                    }
+                },
+
                 async checkoutEmployee(employeeId, recordId) {
                     try {
                         const response = await fetch('/attendance/api/checkout/', {
@@ -472,7 +558,8 @@
                 async refreshData() {
                     await Promise.all([
                         this.loadOverviewData(),
-                        this.loadAttendanceData()
+                        this.loadAttendanceData(),
+                        this.loadAbsentEmployees()
                     ]);
                 },
 

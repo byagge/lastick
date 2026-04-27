@@ -24,6 +24,7 @@ def _get_cost_breakdown(product, quantity=1):
 
 class FinishedGoodSerializer(serializers.ModelSerializer):
     product = serializers.StringRelatedField()
+    product_display_name = serializers.SerializerMethodField()
     order = serializers.StringRelatedField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     cost_per_unit = serializers.SerializerMethodField()
@@ -35,10 +36,18 @@ class FinishedGoodSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinishedGood
         fields = [
-            'id', 'product', 'quantity', 'order', 'status', 'status_display',
+            'id', 'product', 'product_display_name', 'quantity', 'order', 'status', 'status_display',
             'received_at', 'issued_at', 'recipient', 'comment',
             'cost_per_unit', 'cost_total', 'labor_cost', 'material_cost', 'has_costing',
         ]
+
+    def get_product_display_name(self, obj):
+        try:
+            if obj.order_item:
+                return obj.order_item.get_display_name()
+        except Exception:
+            pass
+        return obj.product.name if obj.product else ''
 
     def get_cost_per_unit(self, obj):
         # Используем фактическую себестоимость, если она есть
@@ -109,6 +118,7 @@ class FinishedGoodCostingSerializer(serializers.ModelSerializer):
 
 class FinishedGoodDetailSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+    product_display_name = serializers.SerializerMethodField()
     order = OrderSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     cost_per_unit = serializers.SerializerMethodField()
@@ -120,11 +130,19 @@ class FinishedGoodDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinishedGood
         fields = [
-            'id', 'product', 'quantity', 'order', 'status', 'status_display',
+            'id', 'product', 'product_display_name', 'quantity', 'order', 'status', 'status_display',
             'received_at', 'issued_at', 'recipient', 'comment',
             'cost_per_unit', 'cost_total', 'cost_breakdown',
             'actual_cost', 'normative_cost_breakdown',
         ]
+
+    def get_product_display_name(self, obj):
+        try:
+            if obj.order_item:
+                return obj.order_item.get_display_name()
+        except Exception:
+            pass
+        return obj.product.name if obj.product else ''
 
     def get_cost_per_unit(self, obj):
         # Используем фактическую себестоимость, если она есть
@@ -184,7 +202,7 @@ class FinishedGoodSaleSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
-    product_name = serializers.CharField(source='finished_good.product.name', read_only=True)
+    product_name = serializers.SerializerMethodField()
     client_name = serializers.CharField(source='client.name', read_only=True)
     order_name = serializers.CharField(source='order.name', read_only=True)
     unit_price = serializers.SerializerMethodField()
@@ -212,6 +230,18 @@ class FinishedGoodSaleSerializer(serializers.ModelSerializer):
             'profit_total',
             'sold_at',
         ]
+
+    def get_product_name(self, obj):
+        finished_good = getattr(obj, 'finished_good', None)
+        if not finished_good:
+            return ''
+        try:
+            if finished_good.order_item:
+                return finished_good.order_item.get_display_name()
+        except Exception:
+            pass
+        product = getattr(finished_good, 'product', None)
+        return product.name if product else ''
 
     def validate(self, attrs):
         finished_good = attrs.get('finished_good')
